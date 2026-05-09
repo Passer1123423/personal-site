@@ -1,5 +1,22 @@
+<<<<<<< HEAD
 node_modules
 dist
 .env
 .env.local
+=======
+# frontend
+frontend/node_modules
+frontend/dist
+
+# backend
+backend/.venv
+backend/__pycache__
+backend/.env
+
+# uploaded files
+uploads
+
+# common
+.env
+>>>>>>> bb8e3cf (init personal site project)
 .DS_Store
