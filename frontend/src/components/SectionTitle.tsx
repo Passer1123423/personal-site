@@ -1,3 +1,5 @@
+import { Link } from 'react-router'
+
 type SectionTitleProps = {
   eyebrow: string
   title: string
@@ -16,12 +18,12 @@ function SectionTitle({ eyebrow, title, actionText, actionHref }: SectionTitlePr
       </div>
 
       {actionText && actionHref && (
-        <a
+        <Link
           className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-          href={actionHref}
+          to={actionHref}
         >
           {actionText}
-        </a>
+        </Link>
       )}
     </div>
   )
