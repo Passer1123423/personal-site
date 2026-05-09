@@ -1,3 +1,5 @@
+import { Link } from 'react-router'
+
 function WorksPage() {
   return (
     <section className="mx-auto max-w-6xl px-6 py-16">
@@ -20,13 +22,16 @@ function WorksPage() {
           </p>
         </article>
 
-        <article className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <Link
+          to="/works/comics"
+          className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+        >
           <div className="mb-6 h-48 rounded-xl bg-gradient-to-br from-slate-900 to-cyan-700" />
           <h2 className="text-2xl font-bold text-slate-900">漫画存档</h2>
           <p className="mt-4 leading-7 text-slate-600">
             后续用于图片上传、分卷管理、在线预览和朋友协作更新。
           </p>
-        </article>
+        </Link>
       </div>
     </section>
   )

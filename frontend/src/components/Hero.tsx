@@ -1,3 +1,5 @@
+import { Link } from 'react-router'
+
 function Hero() {
   return (
     <section
@@ -21,19 +23,19 @@ function Hero() {
         </p>
 
         <div className="mt-10 flex flex-wrap gap-4">
-          <a
-            href="#projects"
+          <Link
+            to="projects"
             className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
           >
             查看项目
-          </a>
+          </Link>
 
-          <a
-            href="#works"
+          <Link
+            to="works"
             className="rounded-xl bg-white px-6 py-3 font-semibold text-slate-900 hover:bg-slate-100"
           >
             小说 / 漫画
-          </a>
+          </Link>
         </div>
       </div>
     </section>
