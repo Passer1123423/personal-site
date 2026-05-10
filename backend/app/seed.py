@@ -72,6 +72,15 @@ def seed_demo_comic():
             usage="comic_cover",
         )
 
+        part_cover_asset = Asset(
+            filename="demo-part-1-cover.jpg",
+            original_name="demo-part-1-cover.jpg",
+            mime_type="image/jpeg",
+            size=0,
+            url="/uploads/demo/demo-part-1-cover.jpg",
+            usage="comic_cover",
+        )
+
         # 2. 创建两张漫画页图片资源。
         page_asset_1 = Asset(
             filename="demo-page-001.jpg",
@@ -95,6 +104,7 @@ def seed_demo_comic():
         #
         # add 只是暂时登记，真正写入数据库要等 commit。
         session.add(cover_asset)
+        session.add(part_cover_asset)
         session.add(page_asset_1)
         session.add(page_asset_2)
 
@@ -124,6 +134,7 @@ def seed_demo_comic():
             slug="part-1",
             title="第一部",
             summary="测试漫画的第一部分。",
+            cover_asset_id=part_cover_asset.id,
             status="ongoing",
             visibility="public",
             display_order=1,

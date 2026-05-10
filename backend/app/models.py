@@ -285,6 +285,14 @@ class ComicPart(SQLModel, table=True):
     # Optional[str] 表示可以为空。
     summary: Optional[str] = None
 
+    # 分部封面图片资源 ID。
+    #
+    # 它关联 Asset 表中的 id。
+    #
+    # Optional[str] 表示可以为空。
+    # 因为有些分部可以暂时没有单独封面。
+    cover_asset_id: Optional[str] = Field(default=None, foreign_key="asset.id")
+
     # 分部状态。
     #
     # 可以和系列状态不同。
