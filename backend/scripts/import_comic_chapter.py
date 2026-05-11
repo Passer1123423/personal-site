@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from app.database import engine
 from app.models import Asset, ComicSeries, ComicPart, ComicChapter, ComicPage
-from app.services.comic_admin import get_or_create_series,get_or_create_part,create_next_chapter,copy_image_to_uploads,create_asset,create_comic_page
+from app.services.comic_admin import get_or_create_series,get_or_create_part,create_next_chapter,copy_image_to_uploads,create_asset,create_comic_page,import_comic_chapter_from_dir
 
 
 # ===== 这里先手动指定，后续可以改成命令行参数或后台表单 =====
@@ -14,10 +14,12 @@ from app.services.comic_admin import get_or_create_series,get_or_create_part,cre
 SERIES_SLUG = "test-series"
 SERIES_TITLE = "测试漫画"
 SERIES_SUMMARY = "用于测试漫画上传和阅读流程。"
+SERIES_DISPLAY_ORDER = 0
 
 PART_SLUG = "part-2"
-PART_TITLE = "第一3部"
+PART_TITLE = "小测试"
 PART_SUMMARY = "测试分部。"
+PART_DISPLAY_ORDER = 0
 
 CHAPTER_TITLE = "测试章节"
 
@@ -45,6 +47,8 @@ def guess_mime_type(path: Path) -> str:
         return "image/gif"
 
     return "application/octet-stream"
+"""
+
 """
 def list_image_files(source_dir: Path) -> list[Path]:
     if not source_dir.exists():
@@ -74,7 +78,9 @@ def list_image_files(source_dir: Path) -> list[Path]:
         print(f"{index}. {path.name}")
 
     return files
+"""
 
+"""
 def import_chapter() -> None:
     image_files = list_image_files(SOURCE_DIR)
 
@@ -127,7 +133,30 @@ def import_chapter() -> None:
             print(f"第 {index} 页：{source_path.name} -> {asset_url}")
 
         print("导入完成。")
+"""
 
+def import_chapter() -> None:
+    with Session(engine) as session:
+        result = import_comic_chapter_from_dir(
+            session=session,
+            source_dir=SOURCE_DIR,
+            uploads_root=UPLOADS_ROOT,
+            series_slug=SERIES_SLUG,
+            series_title=SERIES_TITLE,
+            series_summary=SERIES_SUMMARY,
+            series_display_order=SERIES_DISPLAY_ORDER,
+            part_slug=PART_SLUG,
+            part_title=PART_TITLE,
+            part_summary=PART_SUMMARY,
+            part_display_order=PART_DISPLAY_ORDER,
+            chapter_title=CHAPTER_TITLE,
+        )
+
+    print("导入完成。")
+    print(f"系列：{result['series'].title} ({result['series'].slug})")
+    print(f"分部：{result['part'].title} ({result['part'].slug})")
+    print(f"章节：{result['chapter'].title} ({result['chapter'].slug})")
+    print(f"图片数量：{result['page_count']}")
 
 if __name__ == "__main__":
     import_chapter()
