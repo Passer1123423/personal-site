@@ -24,14 +24,14 @@ function Hero() {
 
         <div className="mt-10 flex flex-wrap gap-4">
           <Link
-            to="projects"
+            to="/projects"
             className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
           >
             查看项目
           </Link>
 
           <Link
-            to="works"
+            to="/works"
             className="rounded-xl bg-white px-6 py-3 font-semibold text-slate-900 hover:bg-slate-100"
           >
             小说 / 漫画

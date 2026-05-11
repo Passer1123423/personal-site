@@ -1,6 +1,35 @@
-import { comicSeries } from '../data/comics'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
+import {
+  getComicSeriesList,
+  resolveAssetUrl,
+  type ComicSeriesListItem,
+} from '../api/comics'
 
 function ComicsPage() {
+  const [seriesList, setSeriesList] = useState<ComicSeriesListItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadSeriesList() {
+      try {
+        setIsLoading(true)
+        setErrorMessage(null)
+
+        const data = await getComicSeriesList()
+        setSeriesList(data)
+      } catch (error) {
+        console.error(error)
+        setErrorMessage('漫画列表加载失败，请确认后端服务是否正在运行。')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadSeriesList()
+  }, [])
+
   return (
     <section className="mx-auto max-w-6xl px-6 py-16">
       <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">
@@ -10,73 +39,64 @@ function ComicsPage() {
       <h1 className="mt-2 text-4xl font-bold text-slate-900">漫画存档</h1>
 
       <p className="mt-5 max-w-3xl leading-7 text-slate-600">
-        这里用于整理漫画系列、各部内容、章节更新和设定资料。当前先按“系列 - 部”的结构展示，后续再接入上传、预览和下载功能。
+        这里用于整理漫画系列、各部内容、章节更新和设定资料。当前数据来自后端数据库。
       </p>
 
-      <div className="mt-10 space-y-8">
-        {comicSeries.map((series) => (
-          <article
-            key={series.id}
-            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-          >
-            <div className="grid gap-6 md:grid-cols-[280px_1fr]">
-              <div
-                className={`h-56 rounded-xl bg-gradient-to-br md:h-full ${series.coverClass}`}
-              />
+      {isLoading && (
+        <p className="mt-10 text-slate-500">正在加载漫画列表...</p>
+      )}
 
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {series.title}
-                </h2>
+      {errorMessage && (
+        <p className="mt-10 rounded-xl border border-red-200 bg-red-50 p-4 text-red-600">
+          {errorMessage}
+        </p>
+      )}
 
-                <p className="mt-4 leading-7 text-slate-600">
-                  {series.description}
-                </p>
+      {!isLoading && !errorMessage && seriesList.length === 0 && (
+        <p className="mt-10 text-slate-500">暂无漫画系列。</p>
+      )}
 
-                <div className="mt-6 space-y-4">
-                  {series.parts.map((part) => (
-                    <div
-                      key={part.id}
-                      className="rounded-xl border border-slate-200 bg-slate-50 p-5"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-lg font-bold text-slate-900">
-                          {part.title}
-                        </h3>
+      {!isLoading && !errorMessage && seriesList.length > 0 && (
+        <div className="mt-10 grid gap-8 md:grid-cols-2">
+          {seriesList.map((series) => {
+            const coverUrl = resolveAssetUrl(series.coverUrl)
 
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
-                          {part.status}
-                        </span>
-                      </div>
+            return (
+              <Link
+                key={series.id}
+                to={`/works/comics/${series.slug}`}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+              >
+                {coverUrl ? (
+                  <img
+                    src={coverUrl}
+                    alt={series.title}
+                    className="h-64 w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-64 bg-gradient-to-br from-slate-900 to-cyan-700" />
+                )}
 
-                      <p className="mt-3 text-sm leading-6 text-slate-600">
-                        {part.description}
-                      </p>
+                <div className="p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-2xl font-bold text-slate-900">
+                      {series.title}
+                    </h2>
 
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {part.chapters.length > 0 ? (
-                          part.chapters.map((chapter) => (
-                            <button
-                              key={chapter.id}
-                              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-blue-400 hover:text-blue-600"
-                            >
-                              {chapter.title}
-                            </button>
-                          ))
-                        ) : (
-                          <span className="text-sm text-slate-400">
-                            暂无章节
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
+                      {series.status}
+                    </span>
+                  </div>
+
+                  <p className="mt-4 leading-7 text-slate-600">
+                    {series.summary}
+                  </p>
                 </div>
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }

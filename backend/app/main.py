@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 """
 main.py
 
@@ -17,10 +18,11 @@ main.py
 """
 
 from contextlib import asynccontextmanager
-
+from pathlib import Path
 from fastapi import FastAPI
-
+from fastapi.staticfiles import StaticFiles
 from .database import create_db_and_tables
+from .routers.comics import router as comics_router
 
 
 @asynccontextmanager
@@ -61,6 +63,45 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# backend 目录
+BASE_DIR = Path(__file__).resolve().parents[1]
+
+# backend/uploads 目录
+UPLOADS_DIR = BASE_DIR / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
+
+
+# 挂载静态文件目录。
+#
+# 以后浏览器访问：
+#   /uploads/demo/demo-cover.jpg
+#
+# FastAPI 会去读取：
+#   backend/uploads/demo/demo-cover.jpg
+app.mount(
+    "/uploads",
+    StaticFiles(directory=UPLOADS_DIR),
+    name="uploads",
+)
+
+
+# 挂载漫画 API。
+#
+# comics_router 里面已经有 prefix="/api/comics"，
+# 所以最终接口路径是：
+#   GET /api/comics
+app.include_router(comics_router)
 
 @app.get("/")
 def root():
