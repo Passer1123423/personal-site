@@ -17,9 +17,9 @@
 | 路由 | 页面 | 当前状态 | 说明 |
 |---|---|---|---|
 | `/` | 首页 | 实现 | 展示网站简介、精选漫画、栏目入口 |
-| 漫画系列详情页 | `/comics/:seriesSlug` |
-| 漫画分部详情页 | `/comics/:seriesSlug/:partSlug` |
-| 漫画阅读页 | `/comics/:seriesSlug/:partSlug/:chapterSlug` |
+| 漫画系列详情页 | `/work/comics/:seriesSlug` |
+| 漫画分部详情页 | `work//comics/:seriesSlug/:partSlug` |
+| 漫画阅读页 | `/work/comics/:seriesSlug/:partSlug/:chapterSlug` |
 | `/novels` | 小说页 | 占位 | 暂不实现具体功能 |
 | `/projects` | 项目页 | 占位 | 暂不实现具体功能 |
 | `/posts` | 随笔页 | 占位 | 暂不实现具体功能 |
@@ -42,7 +42,7 @@
 - 进入小说页
 - 进入项目页
 
-其中漫画按钮跳转到 `/comics`。
+其中漫画按钮跳转到 `/work/comics`。
 
 2. 精选漫画区域
 
@@ -56,7 +56,7 @@
 
 当前阶段这些栏目只需要能跳转到对应占位页面。
 
-## 4. 漫画列表页 `/comics`
+## 4. 漫画列表页 `/work//comics`
 
 漫画列表页是漫画模块的总入口。
 
@@ -94,7 +94,7 @@
 
 页面不能空白。
 
-## 5. 漫画系列详情页 `/comics/:seriesSlug`
+## 5. 漫画系列详情页 `/work/comics/:seriesSlug`
 
 漫画系列详情页。
 

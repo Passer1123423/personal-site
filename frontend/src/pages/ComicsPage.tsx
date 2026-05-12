@@ -21,7 +21,12 @@ function ComicsPage() {
         setSeriesList(data)
       } catch (error) {
         console.error(error)
-        setErrorMessage('漫画列表加载失败，请确认后端服务是否正在运行。')
+
+        if (error instanceof Error) {
+          setErrorMessage(error.message)
+        } else {
+          setErrorMessage('漫画列表加载失败。')
+        }
       } finally {
         setIsLoading(false)
       }

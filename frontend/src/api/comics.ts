@@ -88,13 +88,23 @@ export type ComicReaderData = {
 };
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+  let response: Response
 
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+  try {
+    response = await fetch(url)
+  } catch {
+    throw new Error('无法连接后端服务。')
   }
 
-  return response.json();
+  if (response.status === 404) {
+    throw new Error('请求的内容不存在。')
+  }
+
+  if (!response.ok) {
+    throw new Error(`请求失败，状态码：${response.status}`)
+  }
+
+  return response.json()
 }
 
 export function getComicSeriesList() {

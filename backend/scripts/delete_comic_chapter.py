@@ -5,15 +5,15 @@ from sqlmodel import Session, select
 
 from app.database import engine
 from app.models import ComicSeries, ComicPart, ComicChapter, ComicPage, Asset
-
+from app.services.comic_admin import delete_chapter, delete_part, delete_series
 
 SERIES_SLUG = "test-series"
-PART_SLUG = "part-2"
-CHAPTER_SLUG = "chapter-001"
+PART_SLUG = "part-3"
+CHAPTER_SLUG = "chapter-006"
 
 UPLOADS_ROOT = Path("uploads/comics")
 
-
+"""
 def get_target_chapter(session: Session):
     statement = (
         select(ComicChapter)
@@ -112,7 +112,9 @@ def delete_chapter():
         reorder_chapters(session, part_id)
 
         print("删除完成")
-
+"""
 
 if __name__ == "__main__":
-    delete_chapter()
+    with Session(engine) as session:
+        #delete_chapter(session=session,series_slug=SERIES_SLUG, part_slug=PART_SLUG, chapter_slug=CHAPTER_SLUG)
+        delete_part(session, series_slug=SERIES_SLUG, part_slug=PART_SLUG)

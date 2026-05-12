@@ -11,17 +11,17 @@ from app.services.comic_admin import get_or_create_series,get_or_create_part,cre
 
 # ===== 这里先手动指定，后续可以改成命令行参数或后台表单 =====
 
-SERIES_SLUG = "test-series"
-SERIES_TITLE = "测试漫画"
+SERIES_SLUG = "test-series-2"
+SERIES_TITLE = "op炼狱"
 SERIES_SUMMARY = "用于测试漫画上传和阅读流程。"
 SERIES_DISPLAY_ORDER = 0
 
-PART_SLUG = "part-2"
+PART_SLUG = "part-1"
 PART_TITLE = "小测试"
 PART_SUMMARY = "测试分部。"
 PART_DISPLAY_ORDER = 0
 
-CHAPTER_TITLE = "测试章节"
+CHAPTER_TITLE = "三度背叛"
 
 # 把本次要导入的一章图片先放到这里
 SOURCE_DIR = Path("import_data/comic_chapter")

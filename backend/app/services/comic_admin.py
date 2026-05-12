@@ -1,13 +1,18 @@
 from pathlib import Path
 from shutil import copy2
 from uuid import uuid4
+from shutil import rmtree
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.database import engine
 from app.models import Asset, ComicSeries, ComicPart, ComicChapter, ComicPage
 
+
+# ===== 文件识别 =====
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+UPLOADS_ROOT = Path("uploads/comics")
 
 def guess_mime_type(path: Path) -> str:
     suffix = path.suffix.lower()
@@ -25,18 +30,192 @@ def guess_mime_type(path: Path) -> str:
         return "image/gif"
     return "application/octet-stream"
 
+def list_image_files(source_dir: Path) -> list[Path]:
+    if not source_dir.exists():
+        raise FileNotFoundError(f"导入目录不存在：{source_dir}")
+
+    files = []
+
+    for path in source_dir.iterdir():
+        if not path.is_file():
+            continue
+
+        if ":Zone.Identifier" in path.name:
+            continue
+
+        if path.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+
+        files.append(path)
+
+    files.sort(key=lambda path: path.stat().st_mtime)
+
+    if not files:
+        raise ValueError(f"导入目录中没有图片文件：{source_dir}")
+
+    print("将导入以下图片：")
+    for index, path in enumerate(files, start=1):
+        print(f"{index}. {path.name}")
+
+    return files
+
+# ===== 仅获取/没有时返回 =====
+def get_series(
+    session: Session,
+    series: ComicSeries | None=None,
+    series_id: str | None=None,
+    series_slug: str | None=None,
+) -> ComicSeries:
+
+    if series:
+        return series
+
+    if series_id:
+        statement = select(ComicSeries).where(ComicSeries.id == series_id)
+        series = session.exec(statement).first()
+    elif series_slug:
+        statement = select(ComicSeries).where(ComicSeries.slug == series_slug)
+        series = session.exec(statement).first()
+    else:
+        raise ValueError("未输入有效series_id/series_slug")
+
+    if not series:
+        raise ValueError("未找到目标series")
+
+    return series
+
+def get_part(
+    session: Session,
+    part: ComicPart | None=None,
+    part_id: str | None=None,
+    series: ComicSeries | None=None,
+    series_id: str | None=None,
+    series_slug:str | None=None,
+    part_slug: str | None=None,
+) -> ComicPart:
+    if part:
+        return part
+
+    if part_id:
+        statement = select(ComicPart).where(ComicPart.id == part_id)
+        part = session.exec(statement).first()
+        if part:
+            return part
+
+    if not part_slug:
+        raise ValueError("未输入有效 part_id / part_slug")
+
+    series = get_series(
+        session = session,
+        series = series,
+        series_id = series_id,
+        series_slug = series_slug,
+    )
+
+    statement = (
+        select(ComicPart)
+        .where(ComicPart.series_id == series.id)
+        .where(ComicPart.slug == part_slug)
+    )
+    part = session.exec(statement).first()
+
+    if not part:
+        raise ValueError("未找到目标 part")
+
+    return part
+
+def get_chapter(
+    session: Session,
+    chapter: ComicChapter | None=None,
+    chapter_id: str | None=None,
+    series: ComicSeries | None=None,
+    series_id: str | None=None,
+    series_slug: str | None=None,
+    part: ComicPart | None=None,
+    part_id: str | None=None,
+    part_slug: str | None=None,
+    chapter_slug: str | None=None,
+) -> ComicChapter:
+
+    if chapter_id:
+        statement = select(ComicChapter).where(ComicChapter.id == chapter_id)
+        chapter = session.exec(statement).first()
+
+    if chapter:
+        return chapter
+
+    if not chapter_slug:
+        raise ValueError("未输入有效 chapter_id / chapter_slug")
+
+    series = get_series(
+        session = session,
+        series = series,
+        series_id = series_id,
+        series_slug = series_slug,
+    )
+
+    part = get_part(
+        session = session,
+        part = part,
+        part_id = part_id,
+        part_slug = part_slug,
+        series = series,
+        series_id = series_id,
+        series_slug = series_slug,
+    )
+
+    statement = (
+        select(ComicChapter)
+        .where(ComicChapter.part_id == part.id)
+        .where(ComicChapter.slug == chapter_slug)
+    )
+    chapter = session.exec(statement).first()
+
+    if not chapter:
+        raise ValueError("未找到目标 chapter")
+
+    return chapter
+
+def get_pages(
+    session: Session,
+    chapter: ComicChapter,
+) -> list[ComicPage]:
+
+    statement = select(ComicPage).where(ComicPage.chapter_id == chapter.id)
+    pages = session.exec(statement).all()
+
+    if not pages:
+        raise ValueError("未找到目标chapter下的pages")
+
+    return pages
+
+# ===== 获取/没有时创建 =====
 def get_or_create_series(
     session: Session,
     series_slug: str,
-    series_title: str,
+    series_title: str | None,
     series_summary: str | None,
-    display_order: int,
+    display_order: int | None=None,
 ) -> ComicSeries:
     statement = select(ComicSeries).where(ComicSeries.slug == series_slug)
     series = session.exec(statement).first()
 
     if series:
         return series
+
+    if series_title:
+        series_title = series_title
+    else:
+        series_title = "未命名系列"
+
+    if display_order is None:
+        statement = select(func.max(ComicSeries.display_order))
+        max_order = session.exec(statement).one()
+
+        if max_order is None:
+            display_order = 0
+        else:
+            display_order = max_order + 1
 
     series = ComicSeries(
         id=str(uuid4()),
@@ -60,7 +239,7 @@ def get_or_create_part(
     part_slug: str,
     part_title: str | None,
     part_summary: str | None,
-    display_order: int,
+    display_order: int | None=None,
 ) -> ComicPart:
     statement = (
         select(ComicPart)
@@ -72,6 +251,15 @@ def get_or_create_part(
 
     if part:
         return part
+
+    if display_order is None:
+        statement = select(func.max(ComicPart.display_order))
+        max_order = session.exec(statement).one()
+
+        if max_order is None:
+            display_order = 0
+        else:
+            display_order = max_order + 1
 
     if part_title:
         title = f"第{display_order}章 {part_title}"
@@ -128,6 +316,7 @@ def create_next_chapter(
 
     return chapter
 
+# ===== 导入章节 =====
 def copy_image_to_uploads(
     source_path: Path,
     series_slug: str,
@@ -192,35 +381,6 @@ def create_comic_page(
     session.refresh(page)
 
     return page
-
-def list_image_files(source_dir: Path) -> list[Path]:
-    if not source_dir.exists():
-        raise FileNotFoundError(f"导入目录不存在：{source_dir}")
-
-    files = []
-
-    for path in source_dir.iterdir():
-        if not path.is_file():
-            continue
-
-        if ":Zone.Identifier" in path.name:
-            continue
-
-        if path.suffix.lower() not in IMAGE_EXTENSIONS:
-            continue
-
-        files.append(path)
-
-    files.sort(key=lambda path: path.stat().st_mtime)
-
-    if not files:
-        raise ValueError(f"导入目录中没有图片文件：{source_dir}")
-
-    print("将导入以下图片：")
-    for index, path in enumerate(files, start=1):
-        print(f"{index}. {path.name}")
-
-    return files
 
 def import_comic_chapter_from_dir(
     session: Session,
@@ -289,3 +449,160 @@ def import_comic_chapter_from_dir(
         "pages": pages,
         "page_count": len(pages),
     }
+
+# ===== 删除 =====
+def delete_chapter_files(
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+):
+    chapter_dir = (
+        UPLOADS_ROOT
+        / series_slug
+        / part_slug
+        / chapter_slug
+    )
+
+    if chapter_dir.exists():
+        rmtree(chapter_dir)
+        print(f"已删除目录：{chapter_dir}")
+    else:
+        print(f"目录不存在：{chapter_dir}")
+
+def reorder_chapters(session: Session, part_id: str):#重排part下的chapter display order
+    statement = (
+        select(ComicChapter)
+        .where(ComicChapter.part_id == part_id)
+        .order_by(ComicChapter.display_order)
+    )
+
+    chapters = session.exec(statement).all()
+
+    for index, chapter in enumerate(chapters, start=1):
+        chapter.display_order = index
+
+    session.commit()
+
+def delete_chapter(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+):
+    chapter = get_chapter(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+        chapter_slug=chapter_slug,
+    )
+
+    print(f"准备删除：{chapter.title} ({chapter.slug})")
+
+    page_statement = (
+        select(ComicPage)
+        .where(ComicPage.chapter_id == chapter.id)
+    )
+
+    pages = session.exec(page_statement).all()
+
+    asset_ids = []
+
+    for page in pages:
+        if page.asset_id:
+            asset_ids.append(page.asset_id)
+
+    delete_chapter_files(series_slug, part_slug, chapter_slug)
+
+    for page in pages:
+        session.delete(page)
+
+    session.commit()
+
+    print(f"已删除 {len(pages)} 个 comic_page")
+
+    for asset_id in asset_ids:
+        asset = session.get(Asset, asset_id)
+        if asset:
+            session.delete(asset)
+    session.commit()
+
+    print(f"已删除 {len(asset_ids)} 个 asset")
+
+    part_id = chapter.part_id
+    session.delete(chapter)
+    session.commit()
+
+    print("已删除 chapter")
+
+    reorder_chapters(session, part_id)
+
+    print("删除完成")
+
+def delete_part(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+):
+    part = get_part(session=session, series_slug=series_slug, part_slug=part_slug)
+
+    statement = select(ComicChapter).where(ComicChapter.part_id == part.id)
+    chapters = session.exec(statement).all()
+
+    chapters_slug = []
+    for chapter in chapters:
+        chapters_slug.append(chapter.slug)
+
+    for chapter_slug in chapters_slug:
+        delete_chapter(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+            chapter_slug=chapter_slug,
+        )
+
+    session.commit()
+
+    if part.cover_asset_id:
+        asset = session.get(Asset, part.cover_asset_id)
+
+        if asset:
+            print("检测到part封面")
+            session.delete(asset)
+            print("part封面已删除")
+
+    session.delete(part)
+    session.commit()
+    print(f"已删除part{part.title}")
+
+def delete_series(
+    session: Session,
+    series_slug: str,
+):
+    series = get_series(session=session, series_slug=series_slug)
+
+    statement = select(ComicPart).where(ComicPart.series_id == series.id)
+    parts = session.exec(statement).all()
+
+    parts_slug = []
+    for part in parts:
+        parts_slug.append(part.slug)
+
+    for part_slug in parts_slug:
+        delete_part(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+        )
+    session.commit()
+
+    if series.cover_asset_id:
+        asset = session.get(Asset, series.cover_asset_id)
+
+        if asset:
+            print("检测到series封面")
+            session.delete(asset)
+            print("series封面已删除")
+
+    session.delete(series)
+    session.commit()
+    print(f"已删除series{series.title}")
