@@ -8,6 +8,7 @@ import WorksPage from './pages/WorksPage'
 import ComicReaderPage from './pages/ComicReaderPage'
 import ComicsPage from './pages/ComicsPage'
 import ComicSeriesPage from './pages/ComicSeriesPage'
+import AdminComicsPage from "./pages/AdminComicsPage";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           element={<ComicReaderPage />}
         />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/admin/comics" element={<AdminComicsPage />} />
       </Routes>
 
       <Footer />

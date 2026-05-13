@@ -12,6 +12,8 @@ from app.models import ComicSeries, ComicPart, ComicChapter, ComicPage
 from app.services.comic_admin import (
     import_comic_chapter_from_dir,
     delete_chapter,
+    delete_part,
+    delete_series,
 )
 
 
@@ -93,6 +95,8 @@ async def create_admin_comic_chapter(
     series_slug: str = Form(...),
     part_slug: str = Form(...),
     chapter_title: str | None = Form(None),
+    series_title: str | None = Form(None),
+    part_title: str | None = Form(None),
     files: list[UploadFile] = File(...),
     session: Session = Depends(get_session),
 ):
@@ -122,6 +126,8 @@ async def create_admin_comic_chapter(
             source_dir=temp_path,
             series_slug=series_slug,
             part_slug=part_slug,
+            series_title=series_title,
+            part_title=part_title,
             chapter_title=chapter_title,
         )
 
@@ -149,4 +155,45 @@ def delete_admin_comic_chapter(
         "seriesSlug": series_slug,
         "partSlug": part_slug,
         "chapterSlug": chapter_slug,
+    }
+
+@router.delete("/{series_slug}/{part_slug}")
+def delete_admin_comic_part(
+    series_slug: str,
+    part_slug: str,
+    session: Session = Depends(get_session),
+):
+    try:
+        delete_part(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    return {
+        "deleted": True,
+        "type": "part",
+        "seriesSlug": series_slug,
+        "partSlug": part_slug,
+    }
+
+@router.delete("/{series_slug}")
+def delete_admin_comic_series(
+    series_slug: str,
+    session: Session = Depends(get_session),
+):
+    try:
+        delete_series(
+            session=session,
+            series_slug=series_slug,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    return {
+        "deleted": True,
+        "type": "series",
+        "seriesSlug": series_slug,
     }

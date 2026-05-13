@@ -570,9 +570,10 @@ def delete_part(
             session.delete(asset)
             print("part封面已删除")
 
+    part_title = part.title
     session.delete(part)
     session.commit()
-    print(f"已删除part{part.title}")
+    print(f"已删除part{part_title}")
 
 def delete_series(
     session: Session,
@@ -603,6 +604,7 @@ def delete_series(
             session.delete(asset)
             print("series封面已删除")
 
+    series_title = series.title
     session.delete(series)
     session.commit()
-    print(f"已删除series{series.title}")
+    print(f"已删除series{series_title}")

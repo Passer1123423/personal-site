@@ -24,10 +24,11 @@ function ComicPageImage({
   }
 
   return (
-    <ComicPageImage
-      key={page.id}
-      src={imageUrl}
-      displayOrder={page.displayOrder}
+    <img
+      src={src}
+      alt={`第 ${displayOrder} 页`}
+      className="w-full rounded-xl bg-white shadow-sm"
+      onError={() => setHasError(true)}
     />
   )
 }
@@ -137,11 +138,10 @@ function ComicReaderPage() {
             }
 
             return (
-              <img
+              <ComicPageImage
                 key={page.id}
                 src={imageUrl}
-                alt={`第 ${page.displayOrder} 页`}
-                className="w-full rounded-xl bg-white shadow-sm"
+                displayOrder={page.displayOrder}
               />
             )
           })
