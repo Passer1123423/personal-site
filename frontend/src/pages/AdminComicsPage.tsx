@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   deleteAdminComicChapter,
+  deleteAdminComicPart,
+  deleteAdminComicSeries,
   fetchAdminComicsTree,
   type AdminComicSeries,
   uploadAdminComicChapter,
@@ -17,6 +19,7 @@ function AdminComicsPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [seriesMode, setSeriesMode] = useState<"existing" | "new">("existing");
   const [partMode, setPartMode] = useState<"existing" | "new">("existing");
@@ -251,6 +254,77 @@ function AdminComicsPage() {
     }
   }
 
+  async function handleDeletePart(seriesSlug: string, partSlug: string) {
+    const input = window.prompt(
+      `删除 part 会删除其下所有章节、页面和图片文件。\n\n确认删除请输入 ${partSlug}`
+    );
+
+    if (input === null){
+      return;
+    }
+
+    if (input !== partSlug) {
+      setSuccessMessage("");
+      setErrorMessage("输入slug错误，请检查后重新输入");
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      await deleteAdminComicPart({
+        seriesSlug,
+        partSlug,
+      });
+
+      setErrorMessage("");
+      setSuccessMessage(`已删除 part：${seriesSlug}/${partSlug}`);
+      await loadTree();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error instanceof Error ? error.message : "删除 part 失败。");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteSeries(seriesSlug: string) {
+    const input = window.prompt(
+      `删除 series 会删除其下所有 part、chapter、页面和图片文件。\n\n确认删除请输入 ${seriesSlug}`
+    );
+
+    if (input === null){
+      return;
+    }
+
+    if (input !== seriesSlug) {
+      setSuccessMessage("");
+      setErrorMessage("输入slug错误，请检查后重新输入");
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      await deleteAdminComicSeries({
+        seriesSlug,
+      });
+
+      setErrorMessage("");
+      setSuccessMessage(`已删除 series：${seriesSlug}`);
+      await loadTree();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "删除 series 失败。"
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (loading) {
     return <main className="mx-auto max-w-5xl p-6">正在加载后台数据...</main>;
   }
@@ -267,6 +341,12 @@ function AdminComicsPage() {
       {errorMessage && (
         <section className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
           {errorMessage}
+        </section>
+      )}
+
+      {successMessage && (
+        <section className="rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
+          {successMessage}
         </section>
       )}
 
@@ -420,9 +500,20 @@ function AdminComicsPage() {
           <div className="mt-4 space-y-6">
             {tree.map((series) => (
               <div key={series.id} className="rounded-xl bg-slate-50 p-4">
-                <h3 className="font-semibold">
-                  {series.title} ({series.slug})
-                </h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-semibold">
+                    {series.title} ({series.slug})
+                  </h3>
+
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handleDeleteSeries(series.slug)}
+                    className="rounded-lg border border-red-400 px-3 py-1 text-sm text-red-700 disabled:opacity-50"
+                  >
+                    删除 series
+                  </button>
+                </div>
 
                 <div className="mt-3 space-y-4">
                   {series.parts.length === 0 ? (
@@ -433,9 +524,20 @@ function AdminComicsPage() {
                         key={part.id}
                         className="rounded-lg border border-slate-200 bg-white p-3"
                       >
-                        <h4 className="font-medium">
-                          {part.title} ({part.slug})
-                        </h4>
+                        <div className="flex items-center justify-between gap-3">
+                          <h4 className="font-medium">
+                            {part.title} ({part.slug})
+                          </h4>
+
+                          <button
+                            type="button"
+                            disabled={submitting}
+                            onClick={() => handleDeletePart(series.slug, part.slug)}
+                            className="rounded-lg border border-red-300 px-3 py-1 text-sm text-red-600 disabled:opacity-50"
+                          >
+                            删除 part
+                          </button>
+                        </div>
 
                         {part.chapters.length === 0 ? (
                           <p className="mt-2 text-sm text-slate-500">

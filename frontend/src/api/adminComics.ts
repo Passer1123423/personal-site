@@ -106,3 +106,25 @@ export async function deleteAdminComicChapter(params: {
   );
 }
 
+export async function deleteAdminComicPart(params: {
+  seriesSlug: string;
+  partSlug: string;
+}) {
+  return fetchJson(
+    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
+export async function deleteAdminComicSeries(params: {
+  seriesSlug: string;
+}) {
+  return fetchJson(
+    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}`,
+    {
+      method: "DELETE",
+    }
+  );
+}

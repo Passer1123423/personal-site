@@ -608,3 +608,4 @@ def delete_series(
     session.delete(series)
     session.commit()
     print(f"已删除series{series_title}")
+
