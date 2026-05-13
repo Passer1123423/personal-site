@@ -17,8 +17,9 @@ http://127.0.0.1:8000
 /uploads/demo/demo-cover.jpg
 
 前端使用 resolveAssetUrl(url) 转换为完整地址。
-
-2. 漫画数据层级
+```
+## 2. 漫画数据层级
+```txt
 ComicSeries
 ├── cover_asset_id -> Asset
 └── ComicPart
@@ -34,7 +35,9 @@ ComicPart 表示系列下的一部、卷、篇章或短篇集。
 ComicChapter 表示某一部下面的一话或一章。
 ComicPage 表示章节中的单页图片。
 Asset 表示实际图片资源。
-3. 获取漫画系列列表
+```
+## 3. 获取漫画系列列表
+```
 GET /api/comics
 
 用途：
@@ -61,7 +64,9 @@ GET /api/comics
 前端页面：
 
 /works/comics
-4. 获取漫画系列详情
+```
+## 4. 获取漫画系列详情
+```
 GET /api/comics/{series_slug}
 
 用途：
@@ -113,7 +118,9 @@ GET /api/comics/{series_slug}
 前端页面：
 
 /works/comics/:seriesSlug
-5. 获取漫画阅读数据
+```
+## 5. 获取漫画阅读数据
+```
 GET /api/comics/{series_slug}/{part_slug}/{chapter_slug}
 
 用途：
@@ -159,8 +166,10 @@ GET /api/comics/{series_slug}/{part_slug}/{chapter_slug}
 前端页面：
 
 /works/comics/:seriesSlug/:partSlug/:chapterSlug
+```
 
-6.上传图片注册
+## 4.上传图片注册
+```
 早期的上传功能只支持图片上传。那作者肯定是先选择一个系列、分部然后上传。章节可以按单次上传直接累加划分，page应该是像发微信朋友圈一样，可以按选择时间、或手动点击决定顺序，让图片右上角显示个带数字的圈。这样从series到page的标号就都有了。
 早期上传功能：
 选择 series / part
@@ -187,9 +196,10 @@ display_order 必须连贯，如果有删除需要将后续的序号往前递进
 /api/admin/comics
 
 二者必须分开，避免把上传、删除等管理操作混入公开展示接口。
+```
 
 ## 1. 权限预留
-
+```
 当前阶段网站只在 local 运行，暂不实现账号系统。
 
 但所有 admin API 都必须统一经过权限依赖函数：
@@ -199,9 +209,9 @@ require_admin_user()
 当前 require_admin_user() 可以直接返回 local admin。
 
 后续接入账号系统时，只替换 require_admin_user() 的实现，不修改具体业务接口。
-
+```
 ## 2. 获取 admin 漫画结构
-
+```
 GET /api/admin/comics/tree
 
 用途：
@@ -240,9 +250,9 @@ GET /api/admin/comics/tree
     ]
   }
 ]
-
+```
 ## 3. 上传并发布新章节
-
+```
 POST /api/admin/comics/chapters
 
 Content-Type:
@@ -285,9 +295,9 @@ files: File[]
   "chapterTitle": "第3话 相遇",
   "pageCount": 12
 }
-
+```
 ## 4. 删除章节
-
+```
 DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
 
 Query 参数：
@@ -314,34 +324,41 @@ deleteFiles: boolean = true
   "partSlug": "part-1",
   "chapterSlug": "chapter-003"
 }
-
+```
 ## 5. 删除 part
-
+```
 DELETE /api/admin/comics/{series_slug}/{part_slug}
 
 Query 参数：
 
-deleteFiles: boolean = true
+series_slug/part_slug
+
+用途：
+调用删除chapter函数删除part_slug所属的所有chapter
+注销part以及删除封面
+
+第一版可以先不接前端按钮，只保留接口设计。
+```
+## 6. 删除章节
+```
+DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
 
 用途：
 
-删除一个 ComicPart 及其下属 chapters。
+删除一个 ComicChapter。
 
-第一版可以先不接前端按钮，只保留接口设计。
+当前规则：
 
-## 6. 删除 series
+1. 删除 chapter 下属 ComicPage
+2. 删除 chapter 下属 Asset
+3. 删除 ComicChapter
+4. 删除 uploads 中对应章节文件夹
+5. 删除后重排后续 chapter.display_order
+6. chapter.slug 不因重排改变
 
-DELETE /api/admin/comics/{series_slug}
-
-Query 参数：
-
-deleteFiles: boolean = true
-
-用途：
-
-删除一个 ComicSeries 及其下属 parts / chapters。
-
-第一版可以先不接前端按钮，只保留接口设计。
+当前版本不提供 deleteFiles 参数。
+后续如果需要只删数据库、不删文件，再改造 service 层。
+```
 
 ## 7. 第一版 admin 页面
 

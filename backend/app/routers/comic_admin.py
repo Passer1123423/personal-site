@@ -9,7 +9,10 @@ from app.database import get_session
 from app.dependencies.auth import require_admin_user
 from app.models import ComicSeries, ComicPart, ComicChapter, ComicPage
 
-from ..services.comic_admin import import_comic_chapter_from_dir
+from app.services.comic_admin import (
+    import_comic_chapter_from_dir,
+    delete_chapter,
+)
 
 
 router = APIRouter(
@@ -123,3 +126,27 @@ async def create_admin_comic_chapter(
         )
 
     return result
+
+@router.delete("/{series_slug}/{part_slug}/{chapter_slug}")
+def delete_admin_comic_chapter(
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    session: Session = Depends(get_session),
+):
+    try:
+        delete_chapter(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+            chapter_slug=chapter_slug,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    return {
+        "deleted": True,
+        "seriesSlug": series_slug,
+        "partSlug": part_slug,
+        "chapterSlug": chapter_slug,
+    }
