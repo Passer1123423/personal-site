@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from app.database import engine
 from app.models import Asset, ComicSeries, ComicPart, ComicChapter, ComicPage
 
+import re
 
 # ===== 文件识别 =====
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -253,7 +254,7 @@ def get_or_create_part(
         return part
 
     if display_order is None:
-        statement = select(func.max(ComicPart.display_order))
+        statement = select(func.max(ComicPart.display_order)).where(ComicPart.series_id==series)
         max_order = session.exec(statement).one()
 
         if max_order is None:
@@ -480,6 +481,9 @@ def reorder_chapters(session: Session, part_id: str):#重排part下的chapter di
 
     for index, chapter in enumerate(chapters, start=1):
         chapter.display_order = index
+        title = chapter.title
+        new_title = re.sub(r"第\d+话",f"第{index}话", title)
+        chapter.title = new_title
 
     session.commit()
 
@@ -609,3 +613,104 @@ def delete_series(
     session.commit()
     print(f"已删除series{series_title}")
 
+# ===== 顺序 =====
+def update_chapter_order_title(title: str, new_order: int) -> str:
+    return re.sub(
+        r"^第\s*\d+\s*话",
+        f"第{new_order}话",
+        title,
+        count=1,
+    )
+
+def shift_chapter(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    direction: str,
+):
+    chapter = get_chapter(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+        chapter_slug=chapter_slug,
+    )
+
+    if direction == "up":
+        target_order = chapter.display_order - 1
+    elif direction == "down":
+        target_order = chapter.display_order + 1
+    else:
+        raise ValueError("direction 必须是 up 或 down")
+
+    statement = (
+        select(ComicChapter)
+        .where(ComicChapter.part_id == chapter.part_id)
+        .where(ComicChapter.display_order == target_order)
+    )
+
+    target_chapter = session.exec(statement).first()
+
+    if not target_chapter:
+        return {
+            "moved": False,
+            "reason": "已经到边界，无法继续移动。",
+            "chapterSlug": chapter.slug,
+            "displayOrder": chapter.display_order,
+        }
+
+    old_order = chapter.display_order
+    target_old_order = target_chapter.display_order
+
+    chapter.display_order = target_old_order
+    target_chapter.display_order = old_order
+
+    chapter.title = update_chapter_order_title(
+        chapter.title,
+        chapter.display_order,
+    )
+    target_chapter.title = update_chapter_order_title(
+        target_chapter.title,
+        target_chapter.display_order,
+    )
+
+    session.commit()
+    session.refresh(chapter)
+    session.refresh(target_chapter)
+
+    return {
+        "moved": True,
+        "chapterSlug": chapter.slug,
+        "displayOrder": chapter.display_order,
+        "targetChapterSlug": target_chapter.slug,
+        "targetDisplayOrder": target_chapter.display_order,
+    }
+
+def shift_chapter_up(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+):
+    return shift_chapter(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+        chapter_slug=chapter_slug,
+        direction="up",
+    )
+
+
+def shift_chapter_down(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+):
+    return shift_chapter(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+        chapter_slug=chapter_slug,
+        direction="down",
+    )

@@ -9,11 +9,16 @@ from app.database import get_session
 from app.dependencies.auth import require_admin_user
 from app.models import ComicSeries, ComicPart, ComicChapter, ComicPage
 
+from pydantic import BaseModel
+class MoveChapterRequest(BaseModel):
+    direction: str
+
 from app.services.comic_admin import (
     import_comic_chapter_from_dir,
     delete_chapter,
     delete_part,
     delete_series,
+    shift_chapter,
 )
 
 
@@ -197,3 +202,24 @@ def delete_admin_comic_series(
         "type": "series",
         "seriesSlug": series_slug,
     }
+
+@router.patch("/{series_slug}/{part_slug}/{chapter_slug}/move")
+def move_admin_comic_chapter(
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    payload: MoveChapterRequest,
+    session: Session = Depends(get_session),
+):
+    try:
+        result = shift_chapter(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+            chapter_slug=chapter_slug,
+            direction=payload.direction,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return result
