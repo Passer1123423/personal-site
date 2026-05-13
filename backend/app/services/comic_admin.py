@@ -262,9 +262,9 @@ def get_or_create_part(
             display_order = max_order + 1
 
     if part_title:
-        title = f"第{display_order}章 {part_title}"
+        title = f"第{display_order+1}章 {part_title}"
     else:
-        title = f"第{display_order}章"
+        title = f"第{display_order+1}章"
 
     part = ComicPart(
         id=str(uuid4()),
@@ -385,16 +385,16 @@ def create_comic_page(
 def import_comic_chapter_from_dir(
     session: Session,
     source_dir: Path,
-    uploads_root: Path,
     series_slug: str,
-    series_title: str,
-    series_summary: str | None,
-    series_display_order: int,
     part_slug: str,
-    part_title: str | None,
-    part_summary: str | None,
-    part_display_order: int,
-    chapter_title=str | None,
+    series_title: str | None=None,
+    series_summary: str | None=None,
+    part_title: str | None=None,
+    part_summary: str | None=None,
+    chapter_title: str | None=None,
+    uploads_root: Path | None = UPLOADS_ROOT,
+    series_display_order: int | None = None,
+    part_display_order: int | None=None,
 ):
     image_files = list_image_files(source_dir)
 

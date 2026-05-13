@@ -5,6 +5,7 @@
     <orderEntry type="jdk" jdkName="Python 3.10.12 WSL (Ubuntu-22.04): (/home/passer/personal-site/backend/.venv/bin/python3.10)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="frontend" />
+    <orderEntry type="module" module-name="docs" />
   </component>
   <component name="PyDocumentationSettings">
     <option name="format" value="PLAIN" />

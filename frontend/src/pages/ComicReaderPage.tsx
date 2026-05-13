@@ -6,6 +6,32 @@ import {
   type ComicReaderData,
 } from '../api/comics'
 
+function ComicPageImage({
+  src,
+  displayOrder,
+}: {
+  src: string
+  displayOrder: number
+}) {
+  const [hasError, setHasError] = useState(false)
+
+  if (hasError) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-400">
+        第 {displayOrder} 页图片加载失败
+      </div>
+    )
+  }
+
+  return (
+    <ComicPageImage
+      key={page.id}
+      src={imageUrl}
+      displayOrder={page.displayOrder}
+    />
+  )
+}
+
 function ComicReaderPage() {
   const { seriesSlug, partSlug, chapterSlug } = useParams()
 

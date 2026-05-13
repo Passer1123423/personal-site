@@ -12,6 +12,8 @@ frontend/dist
 backend/.venv
 backend/__pycache__
 backend/.env
+backend/import
+backend/upload
 
 # uploaded files
 uploads
