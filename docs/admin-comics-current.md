@@ -2,7 +2,7 @@
 
 本文档用于锚定当前漫画后台管理功能的实际实现状态。
 
-当前 admin 功能只服务于本地内容管理，不是完整后台系统。目标是方便作者在本地上传漫画章节、查看漫画结构、删除测试章节。
+当前 admin 功能只服务于本地内容管理，不是完整后台系统。目标是方便作者在本地上传漫画章节、查看漫画结构、删除测试内容、调整章节顺序。
 
 公开展示页面和后台管理页面必须分开。
 
@@ -26,18 +26,25 @@
 
 ## 1. 当前已实现功能
 
-当前已经基本实现漫画后台管理的最小闭环：
+当前已经实现漫画后台管理的本地最小管理闭环：
 
 1. 查看漫画结构
 2. 选择已有 series / part
 3. 新建 series / part 并上传章节
 4. 上传多张图片并创建新 chapter
 5. 删除 chapter
-6. 上传成功后刷新漫画结构
-7. 删除成功后刷新漫画结构
-8. 前端对重复 slug 做提示和拦截，避免误操作
+6. 删除 part
+7. 删除 series
+8. 上移 chapter
+9. 下移 chapter
+10. 上传成功后刷新漫画结构
+11. 删除成功后刷新漫画结构
+12. 调整顺序成功后刷新漫画结构
+13. 前端对重复 slug 做提示和拦截，避免误操作
+14. 前端有成功提示和错误提示
+15. 前端页面已经拆分为多个内部组件，避免主页面 JSX 过深
 
-当前不实现完整后台系统，只实现本地发布工具。
+当前不实现完整后台系统，只实现本地漫画发布和管理工具。
 
 ## 2. 后端相关文件
 
@@ -89,6 +96,14 @@ backend/app/routers/comic_admin.py
 GET /api/admin/comics/tree
 POST /api/admin/comics/chapters
 DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
+DELETE /api/admin/comics/{series_slug}/{part_slug}
+DELETE /api/admin/comics/{series_slug}
+PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/move
+
+说明：
+
+admin router 只负责接收请求、调用 service、返回结果。
+具体业务逻辑仍然放在 app/services/comic_admin.py 中。
 
 ### 2.3 main.py
 
@@ -174,7 +189,7 @@ files: File[]
 8. 后端按接收到的文件顺序保存到临时目录
 9. 临时目录中的文件按 001.jpg、002.jpg、003.jpg 等顺序命名
 10. 最终调用 app/services/comic_admin.py 中的 import_comic_chapter_from_dir()
-11. service 负责创建 chapter、asset、comic_page
+11. service 负责创建 series、part、chapter、asset、comic_page
 12. page.display_order 决定阅读顺序
 13. asset 不承担页序
 
@@ -203,6 +218,18 @@ def import_comic_chapter_from_dir(
 4. 前端对重复 slug 的提示只是为了避免用户混淆
 5. 后端不额外做存在性检查
 6. 后续调用 service 时必须先核对实际函数签名，不要凭设想写参数
+
+chapter 标题生成规则：
+
+如果传入 chapter_title：
+
+title = f"第{next_order}话 {chapter_title}"
+
+如果没有传入 chapter_title：
+
+title = f"第{next_order}话"
+
+因此章节标题中的“第X话”部分可以和 display_order 保持同步。
 
 Swagger UI 中多文件上传显示可能不稳定。
 实际测试以 curl 和前端 FormData 为准。
@@ -237,6 +264,138 @@ delete_chapter(
 
 也就是说，删除 chapter 时会同时删除数据库记录和 uploads 文件。
 
+### 3.4 删除 part
+
+DELETE /api/admin/comics/{series_slug}/{part_slug}
+
+用途：
+
+删除一个 part 及其下属所有 chapter。
+
+当前调用 service：
+
+delete_part(
+    session=session,
+    series_slug=series_slug,
+    part_slug=part_slug,
+)
+
+当前 service 行为：
+
+1. 查找 part
+2. 查找该 part 下所有 chapter
+3. 逐个调用 delete_chapter()
+4. 删除 part cover asset
+5. 删除 ComicPart
+
+说明：
+
+删除 part 会级联删除其下所有 chapter、page、asset 和对应 uploads 文件。
+这是高风险操作，前端必须要求输入 part_slug 才能确认删除。
+
+### 3.5 删除 series
+
+DELETE /api/admin/comics/{series_slug}
+
+用途：
+
+删除一个 series 及其下属所有 part。
+
+当前调用 service：
+
+delete_series(
+    session=session,
+    series_slug=series_slug,
+)
+
+当前 service 行为：
+
+1. 查找 series
+2. 查找该 series 下所有 part
+3. 逐个调用 delete_part()
+4. 删除 series cover asset
+5. 删除 ComicSeries
+
+说明：
+
+删除 series 会级联删除其下所有 part、chapter、page、asset 和对应 uploads 文件。
+这是最高风险操作，前端必须要求输入 series_slug 才能确认删除。
+
+### 3.6 移动 chapter 顺序
+
+PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/move
+
+Content-Type:
+
+application/json
+
+请求体：
+
+{
+  "direction": "up"
+}
+
+或：
+
+{
+  "direction": "down"
+}
+
+用途：
+
+上移或下移某个 chapter。
+
+当前调用 service：
+
+shift_chapter(
+    session=session,
+    series_slug=series_slug,
+    part_slug=part_slug,
+    chapter_slug=chapter_slug,
+    direction=payload.direction,
+)
+
+当前 service 行为：
+
+1. 查找当前 chapter
+2. 根据 direction 找到相邻 chapter
+3. 交换两个 chapter 的 display_order
+4. 同步更新两个 chapter.title 中的“第X话”
+5. session.commit()
+6. 返回移动结果
+
+当前返回示例：
+
+移动成功：
+
+{
+  "moved": true,
+  "chapterSlug": "chapter-002",
+  "displayOrder": 1,
+  "targetChapterSlug": "chapter-001",
+  "targetDisplayOrder": 2
+}
+
+到达边界：
+
+{
+  "moved": false,
+  "reason": "已经到边界，无法继续移动。",
+  "chapterSlug": "chapter-002",
+  "displayOrder": 2
+}
+
+说明：
+
+1. chapter.slug 不变
+2. chapter.id 不变
+3. uploads 文件路径不变
+4. 只交换 display_order
+5. title 中的“第X话”随 display_order 更新
+6. 公开展示页面的章节顺序也会随 display_order 改变
+
+当前章节标题规则可以保证标题以“第X话”开头，因此自动替换标题编号是可控的。
+
 ## 4. 前端相关文件
 
 当前前端 admin 相关文件：
@@ -264,12 +423,25 @@ http://127.0.0.1:18001
 fetchAdminComicsTree()
 uploadAdminComicChapter()
 deleteAdminComicChapter()
+deleteAdminComicPart()
+deleteAdminComicSeries()
+moveAdminComicChapter()
 
 当前类型：
 
 AdminComicSeries
 AdminComicPart
 AdminComicChapter
+
+当前 moveAdminComicChapter() 请求：
+
+PATCH /api/admin/comics/{seriesSlug}/{partSlug}/{chapterSlug}/move
+
+请求体：
+
+{
+  "direction": "up" | "down"
+}
 
 ### 4.2 AdminComicsPage.tsx
 
@@ -296,7 +468,39 @@ frontend/src/pages/AdminComicsPage.tsx
 11. 显示待上传图片顺序
 12. 上传并创建章节
 13. 删除 chapter
-14. 操作完成后刷新 tree
+14. 删除 part
+15. 删除 series
+16. 上移 chapter
+17. 下移 chapter
+18. 操作完成后刷新 tree
+19. 显示成功提示
+20. 显示错误提示
+21. 成功提示自动消失
+22. 错误提示自动消失
+
+当前页面已经进行组件拆分。
+
+当前内部组件结构：
+
+AdminComicsPage
+├── MessageArea
+├── UploadChapterForm
+└── ComicTreeView
+    └── SeriesBlock
+        └── PartBlock
+            └── ChapterRow
+
+说明：
+
+1. AdminComicsPage 负责 state、请求、操作函数和页面总结构
+2. MessageArea 负责显示成功和错误提示
+3. UploadChapterForm 负责上传新章节表单
+4. ComicTreeView 负责展示漫画结构
+5. SeriesBlock 负责展示单个 series
+6. PartBlock 负责展示单个 part
+7. ChapterRow 负责展示单个 chapter 以及移动、删除按钮
+
+拆分后避免 AdminComicsPage 的 JSX 过深，后续维护时优先保持这种分块结构。
 
 ### 4.3 App.tsx
 
@@ -347,12 +551,44 @@ loading:
 是否正在加载 tree。
 
 submitting:
-是否正在上传或删除。
+是否正在上传、删除或移动。
 
 errorMessage:
 前端错误提示。
 
-## 6. slug 选择与绑定逻辑
+successMessage:
+前端成功提示。
+
+fileInputRef:
+用于控制隐藏的文件 input，实现自定义“选择图片”按钮。
+
+## 6. 提示信息逻辑
+
+当前前端有两类提示：
+
+errorMessage:
+显示红色错误提示。
+
+successMessage:
+显示绿色成功提示。
+
+当前规则：
+
+1. 操作开始前通常清空旧的 errorMessage 和 successMessage
+2. 操作成功后设置 successMessage
+3. 操作失败后设置 errorMessage
+4. successMessage 会在数秒后自动清空
+5. errorMessage 会在数秒后自动清空
+
+这样可以避免旧提示长期残留，造成操作结果混淆。
+
+删除 part / series 时：
+
+1. 用户输入正确 slug 并删除成功，显示成功提示
+2. 用户输入错误 slug，显示错误提示
+3. 用户点击取消，不执行操作
+
+## 7. slug 选择与绑定逻辑
 
 前端不是靠按钮本身记住数据，而是靠后端返回的 tree 数据绑定 slug。
 
@@ -372,13 +608,57 @@ series.slug
 part.slug
 chapter.slug
 
-点击删除按钮时，请求：
+点击删除 chapter 时，请求：
 
 DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
 
+删除 part 按钮渲染时绑定：
+
+series.slug
+part.slug
+
+点击删除 part 时，请求：
+
+DELETE /api/admin/comics/{series_slug}/{part_slug}
+
+删除 series 按钮渲染时绑定：
+
+series.slug
+
+点击删除 series 时，请求：
+
+DELETE /api/admin/comics/{series_slug}
+
+移动 chapter 按钮渲染时绑定：
+
+series.slug
+part.slug
+chapter.slug
+direction
+
+点击上移时，请求：
+
+PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/move
+
+body:
+
+{
+  "direction": "up"
+}
+
+点击下移时，请求：
+
+PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/move
+
+body:
+
+{
+  "direction": "down"
+}
+
 这就是前端按钮和后端数据对应的方式。
 
-## 7. 新建 series / part 的当前规则
+## 8. 新建 series / part 的当前规则
 
 当前 admin 页面允许选择：
 
@@ -413,7 +693,7 @@ files
 
 这个逻辑只是为了避免用户混淆，不是安全校验。
 
-## 8. 文件上传规则
+## 9. 文件上传规则
 
 前端使用：
 
@@ -444,30 +724,116 @@ multiple
 当前没有实现拖拽排序。
 第一版只按文件选择顺序上传。
 
-## 9. 当前不要继续扩展的功能
+## 10. 删除规则
 
-以下功能暂时不做：
+当前 admin 页面支持删除：
 
-1. 删除 series 的前端按钮
-2. 删除 part 的前端按钮
-3. 单独新建空 series
-4. 单独新建空 part
-5. 编辑 series 元信息
-6. 编辑 part 元信息
-7. 编辑 chapter 元信息
-8. 删除单页 page
-9. 已发布 chapter 的图片重排
-10. 拖拽排序上传图片
-11. 账号登录页面
-12. 真实权限系统
+1. chapter
+2. part
+3. series
+
+### 10.1 删除 chapter
+
+删除 chapter 使用普通确认。
+
+删除后会同时删除：
+
+1. ComicChapter
+2. ComicPage
+3. Asset
+4. uploads 中对应 chapter 文件夹
+
+删除后会重排该 part 下的 chapter.display_order。
+
+### 10.2 删除 part
+
+删除 part 前必须输入 part_slug。
+
+删除后会同时删除：
+
+1. ComicPart
+2. 其下所有 ComicChapter
+3. 其下所有 ComicPage
+4. 相关 Asset
+5. uploads 中对应文件夹内容
+6. part cover asset
+
+这是高风险操作。
+
+### 10.3 删除 series
+
+删除 series 前必须输入 series_slug。
+
+删除后会同时删除：
+
+1. ComicSeries
+2. 其下所有 ComicPart
+3. 其下所有 ComicChapter
+4. 其下所有 ComicPage
+5. 相关 Asset
+6. uploads 中对应文件夹内容
+7. series cover asset
+
+这是最高风险操作。
+
+当前删除接口不提供 deleteFiles 参数。
+删除数据库记录时会同步删除 uploads 文件。
+
+## 11. 章节顺序规则
+
+当前 admin 页面支持 chapter 上移和下移。
+
+前端按钮样式：
+
+1. 上移按钮使用半箭头
+2. 下移按钮使用半箭头
+3. 按钮位于每个 chapter 行右侧
+
+当前逻辑：
+
+1. 点击上移，调用 moveAdminComicChapter(direction="up")
+2. 点击下移，调用 moveAdminComicChapter(direction="down")
+3. 后端交换相邻 chapter 的 display_order
+4. 后端同步更新标题中的“第X话”
+5. 前端刷新 tree
+6. 公开页面顺序同步改变
+
+当前不做拖拽排序。
 
 原因：
 
-当前目标是先稳定本地漫画发布工具。
-series / part 删除风险较高，容易误删大量内容。
-空 series / part 新建涉及更多元信息字段，放到后续阶段处理。
+拖拽排序需要更多前端状态维护，也需要更复杂的批量更新接口。
+当前阶段上移 / 下移已经足够满足本地管理需求。
 
-## 10. 当前已知注意点
+## 12. 当前不做的功能
+
+以下功能暂时不做：
+
+1. 单独新建空 series
+2. 单独新建空 part
+3. 编辑 series 元信息
+4. 编辑 part 元信息
+5. 编辑 chapter 元信息
+6. 修改 series_slug
+7. 修改 part_slug
+8. 修改 chapter_slug
+9. 删除单页 page
+10. 已发布 chapter 的图片重排
+11. 拖拽排序上传图片
+12. 账号登录页面
+13. 真实权限系统
+14. 作者名字段
+15. 作者表
+16. 作者页面
+
+说明：
+
+当前已经支持“新建 series / part 并上传 chapter”，但不支持单独创建空 series / part。
+当前重命名先不做，因为后续可能还要补作者名等字段。
+当前不做 slug 重命名，因为 slug 会影响 URL、uploads 路径和 Asset.url。
+作者名相关功能先搁置。
+
+## 13. 当前已知注意点
 
 1. 后端 service 是实际业务逻辑中心
 2. API router 不直接重写数据库业务逻辑
@@ -478,9 +844,14 @@ series / part 删除风险较高，容易误删大量内容。
 7. Swagger UI 对多文件上传显示可能不准
 8. curl 和前端 FormData 测试更可靠
 9. 当前删除 chapter 会删除数据库记录和文件
-10. 当前 delete chapter 没有 deleteFiles 可选项
+10. 当前删除 part 会级联删除其下所有内容
+11. 当前删除 series 会级联删除其下所有内容
+12. 当前 delete chapter / part / series 都没有 deleteFiles 可选项
+13. 当前移动 chapter 只改变 display_order 和 title，不改变 slug
+14. 当前 chapter.slug 保持稳定，公开阅读 URL 不因排序变化而改变
+15. 当前 admin 页面已经拆组件，后续不要再把大量 JSX 塞回主 return 中
 
-## 11. 当前测试通过的链路
+## 14. 当前测试通过的链路
 
 当前核心链路已经跑通：
 
@@ -496,17 +867,52 @@ series / part 删除风险较高，容易误删大量内容。
 10. 删除 chapter
 11. 删除完成后 tree 刷新
 12. 被删除 chapter 从后台结构中消失
+13. 删除 part
+14. 删除 part 后 tree 刷新
+15. 被删除 part 从后台结构中消失
+16. 删除 series
+17. 删除 series 后 tree 刷新
+18. 被删除 series 从后台结构中消失
+19. 上移 chapter
+20. 上移后 tree 刷新
+21. displayOrder 与 title 更新
+22. 下移 chapter
+23. 下移后 tree 刷新
+24. displayOrder 与 title 更新
+25. 到达边界时返回 moved=false，并显示边界提示
 
-## 12. 后续开发顺序建议
+## 15. 当前前端结构维护原则
+
+AdminComicsPage.tsx 当前已经拆分为多个组件。
+
+后续维护原则：
+
+1. 主组件只保留 state、请求、操作函数和页面总结构
+2. 上传表单放在 UploadChapterForm
+3. 漫画结构树放在 ComicTreeView
+4. series 渲染放在 SeriesBlock
+5. part 渲染放在 PartBlock
+6. chapter 渲染放在 ChapterRow
+7. 不要继续在主组件 return 中追加大段嵌套 JSX
+8. 如果组件继续变大，再考虑拆到 src/components/admin/ 下
+
+暂时不强制拆成多个文件。
+当前阶段保持在 AdminComicsPage.tsx 内部拆函数组件即可。
+
+## 16. 后续开发顺序建议
 
 下一阶段建议顺序：
 
-1. 保持当前 admin 核心功能不变
-2. 继续测试不同 series / part 下的上传
-3. 测试新建 series + 新建 part + 上传章节
-4. 测试删除刚上传的测试 chapter
-5. 确认 uploads 目录和数据库一致
-6. 再考虑是否做图片预览和拖拽排序
-7. 最后再考虑 series / part 删除和编辑功能
+1. 继续测试不同 series / part 下的上传
+2. 测试新建 series + 新建 part + 上传章节
+3. 测试删除刚上传的测试 chapter
+4. 测试删除测试 part
+5. 测试删除测试 series
+6. 测试 chapter 上移 / 下移
+7. 确认 uploads 目录和数据库一致
+8. 再考虑是否做图片预览
+9. 再考虑是否做上传前拖拽排序
+10. 最后再考虑 series / part / chapter 元信息编辑
 
 不要在当前阶段急着扩展完整后台系统。
+当前目标是稳定本地漫画发布与管理工具。

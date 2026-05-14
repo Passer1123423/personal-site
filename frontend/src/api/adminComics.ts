@@ -128,3 +128,30 @@ export async function deleteAdminComicSeries(params: {
     }
   );
 }
+
+export async function moveAdminComicChapter(params: {
+  seriesSlug: string;
+  partSlug: string;
+  chapterSlug: string;
+  direction: "up" | "down";
+}) {
+  return fetchJson<{
+    moved: boolean;
+    reason?: string;
+    chapterSlug: string;
+    displayOrder: number;
+    targetChapterSlug?: string;
+    targetDisplayOrder?: number;
+  }>(
+    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}/move`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        direction: params.direction,
+      }),
+    }
+  );
+}
