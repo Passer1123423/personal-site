@@ -141,6 +141,22 @@ class Asset(SQLModel, table=True):
     # 上传时间。
     created_at: datetime = Field(default_factory=now_utc)
 
+class User(SQLModel, table=True):
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    username: str = Field(index=True, unique=True)
+    display_name: str | None = Field(default=None)
+
+    password_hash: str
+
+    role: str = "reader"
+    is_active: bool = True
+
+    avatar_asset_id: str | None = Field(default=None, foreign_key="asset.id")
+    bio: str = ""
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
 
 class ComicSeries(SQLModel, table=True):
     """

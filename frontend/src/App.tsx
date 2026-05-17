@@ -9,6 +9,7 @@ import ComicReaderPage from './pages/ComicReaderPage'
 import ComicsPage from './pages/ComicsPage'
 import ComicSeriesPage from './pages/ComicSeriesPage'
 import AdminComicsPage from "./pages/AdminComicsPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
         />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/admin/comics" element={<AdminComicsPage />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
       </Routes>
 
       <Footer />

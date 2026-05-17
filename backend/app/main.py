@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from .database import create_db_and_tables
 from .routers.comics import router as comics_router
 from .routers.comic_admin import router as comic_admin_router
+from app.routers.auth import router as auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -102,6 +103,7 @@ app.mount(
 # 所以最终接口路径是：
 #   GET /api/comics
 app.include_router(comics_router)
+app.include_router(auth_router)
 app.include_router(comic_admin_router)
 
 @app.get("/")

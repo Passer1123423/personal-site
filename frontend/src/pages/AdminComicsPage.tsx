@@ -17,6 +17,9 @@ import {
   uploadAdminComicChapter,
 } from "../api/adminComics";
 
+import { useNavigate } from "react-router-dom";
+import { clearAccessToken, getMe } from "../api/auth";
+
 const NEW_OPTION = "__new__";
 
 type AdminComicPart = AdminComicSeries["parts"][number];
@@ -500,6 +503,9 @@ function ChapterRow({
 }
 
 function AdminComicsPage() {
+  const navigate = useNavigate();
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
   const [tree, setTree] = useState<AdminComicSeries[]>([]);
   const [selectedSeriesSlug, setSelectedSeriesSlug] = useState("");
   const [selectedPartSlug, setSelectedPartSlug] = useState("");
@@ -555,8 +561,30 @@ function AdminComicsPage() {
   }
 
   useEffect(() => {
+    async function checkLogin() {
+      try {
+        const user = await getMe();
+
+        if (user.role !== "admin") {
+          navigate("/admin/login");
+        }
+        setIsAuthReady(true);
+      } catch {
+        clearAccessToken();
+        navigate("/admin/login");
+      }
+    }
+
+    checkLogin();
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+
     loadTree();
-  }, []);
+  }, [isAuthReady]);
 
   useEffect(() => {
     if (!successMessage) {
@@ -901,6 +929,16 @@ function AdminComicsPage() {
 
   if (loading) {
     return <main className="mx-auto max-w-5xl p-6">正在加载后台数据...</main>;
+  }
+
+  if (!isAuthReady) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
+        <section className="mx-auto max-w-5xl">
+          <p className="text-sm text-slate-400">正在检查登录状态...</p>
+        </section>
+      </main>
+    );
   }
 
   return (

@@ -1,109 +1,289 @@
-# 页面结构设计
+# Page Design
 
-当前阶段重点实现漫画模块。小说、项目、随笔暂时只保留页面骨架，后续再扩展具体功能。
+本文档描述当前前端路由和页面状态。实际路由定义在：
 
-本文档只规划页面、路由和页面之间的跳转关系。数据结构、接口设计和后端实现放到其他文档中处理。
+```txt
+frontend/src/App.tsx
+```
 
-## 1. 页面设计原则
+## 路由总览
 
-网站采用多页面路由结构，不再使用页面内锚点跳转。
+| 路由 | 页面组件 | 当前状态 |
+|---|---|---|
+| `/` | `HomePage` | 已实现 |
+| `/projects` | `ProjectsPage` | 静态项目列表 |
+| `/works` | `WorksPage` | 作品入口页 |
+| `/works/comics` | `ComicsPage` | 已接公开漫画 API |
+| `/works/comics/:seriesSlug` | `ComicSeriesPage` | 已接公开漫画 API |
+| `/works/comics/:seriesSlug/:partSlug/:chapterSlug` | `ComicReaderPage` | 已接公开漫画 API |
+| `/about` | `AboutPage` | 已实现 |
+| `/admin/comics` | `AdminComicsPage` | 已接后台漫画 API |
 
-首页只展示精选内容和入口，不承载完整内容。完整内容放在对应栏目页面中。
+注意：
 
-当前优先实现漫画模块，保证漫画可以从列表页进入系列详情页，再进入章节阅读页。
+- 当前真实路由使用 `/works`，不是 `/work`。
+- 漫画阅读路由包含 `seriesSlug`、`partSlug`、`chapterSlug` 三段。
+- 当前没有单独的 `/novels`、`/posts` 路由。
 
-## 2. 路由结构
+## 首页
 
-| 路由 | 页面 | 当前状态 | 说明 |
-|---|---|---|---|
-| `/` | 首页 | 实现 | 展示网站简介、精选漫画、栏目入口 |
-| 漫画系列详情页 | `/work/comics/:seriesSlug` |
-| 漫画分部详情页 | `work//comics/:seriesSlug/:partSlug` |
-| 漫画阅读页 | `/work/comics/:seriesSlug/:partSlug/:chapterSlug` |
-| `/novels` | 小说页 | 占位 | 暂不实现具体功能 |
-| `/projects` | 项目页 | 占位 | 暂不实现具体功能 |
-| `/posts` | 随笔页 | 占位 | 暂不实现具体功能 |
+路由：
 
-## 3. 首页 `/`
+```txt
+/
+```
 
-首页用于展示个人网站的整体入口。
+组件：
 
-首页不展示全部漫画，只展示少量精选漫画和栏目入口。
+```txt
+frontend/src/pages/HomePage.tsx
+```
 
-页面内容包括：
+当前内容：
 
-1. Hero 区域
+- `Hero`
+- 精选项目
+- 小说存档入口
+- 漫画存档入口
 
-展示网站标题、简短介绍和主要入口按钮。
+当前首页中的小说和漫画入口都指向 `/works`。
 
-主要按钮包括：
+## Projects 页面
 
-- 进入漫画页
-- 进入小说页
-- 进入项目页
+路由：
 
-其中漫画按钮跳转到 `/work/comics`。
+```txt
+/projects
+```
 
-2. 精选漫画区域
+组件：
 
-展示少量精选漫画卡片。
+```txt
+frontend/src/pages/ProjectsPage.tsx
+```
 
-每个漫画卡片点击后进入对应的漫画系列详情页。
+当前数据来源：
 
-3. 栏目入口区域
+```txt
+frontend/src/data/projects.ts
+```
 
-展示小说、项目、随笔等入口。
+当前是静态项目列表，没有后端项目 API。
 
-当前阶段这些栏目只需要能跳转到对应占位页面。
+## Works 页面
 
-## 4. 漫画列表页 `/work//comics`
+路由：
 
-漫画列表页是漫画模块的总入口。
+```txt
+/works
+```
 
-页面内容包括：
+组件：
 
-1. 页面标题区
+```txt
+frontend/src/pages/WorksPage.tsx
+```
 
-显示页面标题和简短说明。
+当前内容：
 
-例如：
+- 小说存档卡片，暂无后端闭环。
+- 漫画存档卡片，点击进入 `/works/comics`。
 
-“漫画”
+## 漫画列表页
 
-“这里收录个人创作的漫画与图像叙事作品。”
+路由：
 
-2. 漫画系列列表
+```txt
+/works/comics
+```
 
-以卡片形式展示所有漫画系列。
+组件：
 
-每个卡片展示：
+```txt
+frontend/src/pages/ComicsPage.tsx
+```
 
-- 封面图
-- 标题
-- 简介
-- 状态
-- 更新时间
+前端调用：
 
-点击卡片后进入对应漫画系列详情页。
+```ts
+getComicSeriesList()
+```
 
-3. 空状态
+后端接口：
 
-如果暂时没有漫画，显示：
+```txt
+GET /api/comics
+```
 
-“暂时还没有公开的漫画作品。”
+页面状态：
 
-页面不能空白。
+- loading
+- error
+- empty
+- series card list
 
-## 5. 漫画系列详情页 `/work/comics/:seriesSlug`
+每个卡片链接到：
 
-漫画系列详情页。
+```txt
+/works/comics/{series.slug}
+```
 
-功能：
-展示某个漫画系列的标题、简介、系列封面、状态，以及该系列下的分部列表。
+## 漫画系列详情页
 
-每个分部展示：
-分部标题
-分部简介
-分部封面
-分部状态
-章节入口
+路由：
+
+```txt
+/works/comics/:seriesSlug
+```
+
+组件：
+
+```txt
+frontend/src/pages/ComicSeriesPage.tsx
+```
+
+前端调用：
+
+```ts
+getComicSeriesDetail(seriesSlug)
+```
+
+后端接口：
+
+```txt
+GET /api/comics/{series_slug}
+```
+
+页面展示：
+
+- series 标题
+- series 简介
+- series 封面或占位图
+- series status
+- series visibility
+- parts 列表
+- 每个 part 下的 chapter 入口
+
+每个 chapter 链接到：
+
+```txt
+/works/comics/{series.slug}/{part.slug}/{chapter.slug}
+```
+
+## 漫画阅读页
+
+路由：
+
+```txt
+/works/comics/:seriesSlug/:partSlug/:chapterSlug
+```
+
+组件：
+
+```txt
+frontend/src/pages/ComicReaderPage.tsx
+```
+
+前端调用：
+
+```ts
+getComicReaderData(seriesSlug, partSlug, chapterSlug)
+```
+
+后端接口：
+
+```txt
+GET /api/comics/{series_slug}/{part_slug}/{chapter_slug}
+```
+
+页面展示：
+
+- 返回系列详情页链接
+- chapter 标题
+- series / part / pageCount
+- chapter summary
+- 按 `pages[].displayOrder` 渲染图片
+
+图片地址处理：
+
+```ts
+resolveAssetUrl(page.imageUrl)
+```
+
+## 漫画后台页
+
+路由：
+
+```txt
+/admin/comics
+```
+
+组件：
+
+```txt
+frontend/src/pages/AdminComicsPage.tsx
+```
+
+前端 API：
+
+```txt
+frontend/src/api/adminComics.ts
+```
+
+后端 API prefix：
+
+```txt
+/api/admin/comics
+```
+
+当前页面功能：
+
+- 加载后台漫画树。
+- 上传新 chapter。
+- 选择已有 series / part。
+- 新建 series / part。
+- 删除 series / part / chapter。
+- 上移 / 下移 chapter。
+- 显示成功和错误消息。
+
+当前页面不是公开展示页面，不应混入 `/works/comics` 的公开阅读流程。
+
+## 命名对接
+
+前端路由参数：
+
+```txt
+seriesSlug
+partSlug
+chapterSlug
+```
+
+后端路径参数：
+
+```txt
+series_slug
+part_slug
+chapter_slug
+```
+
+前端 API 层负责在 URL 中拼接 slug。
+
+API 返回字段：
+
+```txt
+displayOrder
+coverUrl
+createdAt
+updatedAt
+publishedAt
+```
+
+数据库字段：
+
+```txt
+display_order
+cover_asset_id
+created_at
+updated_at
+published_at
+```

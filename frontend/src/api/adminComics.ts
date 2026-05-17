@@ -1,3 +1,5 @@
+import { getAccessToken } from "./auth";
+
 const API_BASE_URL = "http://127.0.0.1:18001";
 
 export type AdminComicChapter = {
@@ -27,6 +29,15 @@ export type AdminComicSeries = {
   parts: AdminComicPart[];
 };
 
+function getAdminHeaders(extraHeaders?: HeadersInit): HeadersInit {
+  const token = getAccessToken();
+
+  return {
+    ...extraHeaders,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   let response: Response;
 
@@ -55,7 +66,9 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export async function fetchAdminComicsTree() {
-  return fetchJson<AdminComicSeries[]>(`${API_BASE_URL}/api/admin/comics/tree`);
+  return fetchJson<AdminComicSeries[]>(`${API_BASE_URL}/api/admin/comics/tree`, {
+    headers: getAdminHeaders(),
+  });
 }
 
 export async function uploadAdminComicChapter(params: {
@@ -89,6 +102,7 @@ export async function uploadAdminComicChapter(params: {
 
   return fetchJson(`${API_BASE_URL}/api/admin/comics/chapters`, {
     method: "POST",
+    headers: getAdminHeaders(),
     body: formData,
   });
 }
@@ -102,6 +116,7 @@ export async function deleteAdminComicChapter(params: {
     `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}`,
     {
       method: "DELETE",
+      headers: getAdminHeaders(),
     }
   );
 }
@@ -114,8 +129,9 @@ export async function deleteAdminComicPart(params: {
     `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}`,
     {
       method: "DELETE",
+      headers: getAdminHeaders(),
     }
-  );
+);
 }
 
 export async function deleteAdminComicSeries(params: {
@@ -125,8 +141,9 @@ export async function deleteAdminComicSeries(params: {
     `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}`,
     {
       method: "DELETE",
+      headers: getAdminHeaders(),
     }
-  );
+);
 }
 
 export async function moveAdminComicChapter(params: {
@@ -146,9 +163,9 @@ export async function moveAdminComicChapter(params: {
     `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}/move`,
     {
       method: "PATCH",
-      headers: {
+      headers: getAdminHeaders({
         "Content-Type": "application/json",
-      },
+      }),
       body: JSON.stringify({
         direction: params.direction,
       }),

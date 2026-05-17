@@ -1,288 +1,334 @@
-漫画发布流程
+# Content Workflow
 
-1. 作者选择系列
-2. 作者选择 part
-3. 上传一批图片
-4. 前端生成图片预览
-5. 前端生成 page 顺序圈
-6. 作者可调整顺序
-7. 提交后自动创建 chapter
-8. 后端创建 asset
-9. 后端创建 comic_page
-10. display_order 连续排序
+本文档描述当前漫画内容从上传到公开阅读、再到后台删除的实际工作流。
 
-删除 page
+## 当前内容来源
 
-1. 删除指定 page
-2. 后续 page 自动前移重排
+漫画内容可以通过两种方式进入系统：
 
-删除 chapter
+1. 前端 `/admin/comics` 上传章节。
+2. 后端脚本 `backend/scripts/import_comic_chapter.py` 调用 service 导入本地目录。
 
-1. 删除 chapter
-2. 删除 comic_page
-3. 可选删除 asset
-4. 可选删除 uploads 文件
+两条路径最终都应调用：
 
-202605112047更新
-## comic_admin.py 当前职责
+```py
+import_comic_chapter_from_dir(...)
+```
 
-当前 `app/services/comic_admin.py` 作为漫画内容管理 service，
-负责：
-
-- 漫画图片识别
-- series / part / chapter 创建
-- 图片复制到正式 uploads
-- asset 注册
-- comic_page 注册
-- 整章导入流程
-
-scripts/ 中的脚本不再直接包含业务逻辑，
-而是调用 comic_admin 中的函数。
-
-后续 API 接口和后台 UI 也直接调用这些 service。
-
----
-
-## 当前结构
+核心业务逻辑位于：
 
 ```txt
-app/services/comic_admin.py
-├── 文件识别
-├── 创建 / 获取
-├── 导入章节
-└── （后续）删除 / 重排
-文件识别
-IMAGE_EXTENSIONS
+backend/app/services/comic_admin.py
+```
 
-定义允许导入的图片类型：
+## 上传章节工作流
 
-IMAGE_EXTENSIONS = {
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".webp",
-    ".gif",
-}
-guess_mime_type(path)
+前端页面：
 
-根据图片后缀推断 mime_type。
+```txt
+/admin/comics
+```
 
-用于 Asset 注册。
+前端 API：
 
-list_image_files(source_dir)
+```ts
+uploadAdminComicChapter(params)
+```
 
-作用：
+后端 API：
 
-扫描缓存区目录
-过滤非法文件
-跳过 Windows Zone.Identifier
-按文件修改时间排序
-返回图片列表
+```txt
+POST /api/admin/comics/chapters
+```
 
-当前规则：
+流程：
 
-page.display_order
-=
-文件修改时间顺序
+```txt
+用户选择或新建 series
+-> 用户选择或新建 part
+-> 用户选择多张图片
+-> 前端用 FormData 提交
+-> 后端校验扩展名
+-> 后端写入 TemporaryDirectory
+-> 临时文件按 001.ext、002.ext 命名
+-> import_comic_chapter_from_dir(...)
+-> get_or_create_series(...)
+-> get_or_create_part(...)
+-> create_next_chapter(...)
+-> copy_image_to_uploads(...)
+-> create_asset(...)
+-> create_comic_page(...)
+-> 返回导入结果
+-> 前端刷新 admin tree
+```
 
-后续 UI 上传时可以改成：
+## 当前图片顺序规则
 
-用户拖拽顺序
-创建 / 获取
-get_or_create_series()
+前端选择文件后，会按浏览器提供的 `FileList` 顺序追加到 FormData。
 
-作用：
+后端 router 写临时文件时按接收到的顺序命名：
 
-根据 slug 查找 series
-如果已存在则直接返回
-不自动更新 title / summary
-不自动重排 display_order
+```txt
+001.ext
+002.ext
+003.ext
+```
 
-series.slug 为永久标识。
+service 的 `list_image_files(source_dir)` 会按文件修改时间排序。
 
-display_order 控制展示顺序。
+由于临时文件是按接收顺序连续写入，当前实际效果通常等同于上传接收顺序。
 
-get_or_create_part()
+正式页序保存到：
 
-作用：
+```txt
+ComicPage.display_order
+```
 
-根据 slug 查找 part
-已存在则直接返回
-part 不自动递增创建
-display_order 手动指定
+不要依赖以下内容作为阅读顺序：
 
-当前设计：
-
-part.slug
-稳定 URL 标识
-
-part.display_order
-控制展示顺序
-create_next_chapter()
-
-作用：
-
-自动创建下一章
-自动计算 chapter.display_order
-自动生成 chapter.slug
-
-当前规则：
-
-chapter-001
-chapter-002
-chapter-003
-
-slug 不因删除或重排改变。
-
-chapter.title 自动生成：
-
-第1话
-第2话 相遇
-第3话 测试章节
-
-作者可输入副标题后缀。
-
-导入章节
-copy_image_to_uploads()
-
-作用：
-
-将缓存区图片复制到正式 uploads
-自动生成：
-001.jpg
-002.png
-003.webp
-
-正式目录结构：
-
-uploads/
-└── comics/
-    └── {series_slug}/
-        └── {part_slug}/
-            └── {chapter_slug}/
-
-返回：
-
-target_path
-asset_url
-create_asset()
-
-作用：
-
-创建 Asset 记录。
-
-Asset 只负责：
-
-文件名
-url
-mime_type
-size
-usage
-
-不承担漫画页序。
-
-create_comic_page()
-
-作用：
-
-创建 ComicPage。
-
-真正的阅读顺序由：
-
-comic_page.display_order
-
-控制。
-
-而不是：
-
-asset.id
+```txt
+Asset.id
+Asset.created_at
+文件原始名称
 上传时间
-文件名
-import_comic_chapter_from_dir()
+```
 
-当前核心导入函数。
+## 创建 series / part / chapter
 
-作用：
+### Series
 
-缓存区目录
-↓
-识别图片
-↓
-创建 / 获取 series
-↓
-创建 / 获取 part
-↓
-创建新 chapter
-↓
-复制图片到 uploads
-↓
-创建 asset
-↓
-创建 comic_page
-↓
-返回导入结果
+函数：
 
-后续：
+```py
+get_or_create_series(...)
+```
 
-scripts
-API
-后台 UI
+规则：
 
-统一调用此函数。
+- `series_slug` 已存在则直接返回。
+- 已存在时不更新 title / summary。
+- 不存在时创建新 `ComicSeries`。
+- 新建默认 `status="ongoing"`、`visibility="public"`。
 
-当前整体工作流
-用户上传图片
-↓
-进入缓存区
-↓
-用户排序 / 预览
-↓
-点击发布
-↓
-调用 import_comic_chapter_from_dir()
-↓
-复制到 uploads
-↓
-注册数据库
-↓
-前端 API 自动可读
+### Part
 
-当前设计目标：
+函数：
 
-缓存区负责“准备”
-comic_admin 负责“发布”
-uploads 负责正式静态资源
-SQLite 负责正式内容索引
-:contentReference[oaicite:0]{index=0}
+```py
+get_or_create_part(...)
+```
 
-## comic_admin.py 在工作流中的位置
+规则：
 
-`app/services/comic_admin.py` 是漫画内容管理的核心 service 文件。
+- 在指定 series 下查找 `part_slug`。
+- 已存在则直接返回。
+- 已存在时不更新 title / summary。
+- 不存在时创建新 `ComicPart`。
+- 新建默认 `status="ongoing"`、`visibility="public"`。
 
-当前它负责：
+### Chapter
 
-1. 从缓存区识别图片文件
-2. 创建或获取 ComicSeries
-3. 创建或获取 ComicPart
-4. 自动创建下一话 ComicChapter
-5. 将图片复制到正式 uploads 目录
-6. 创建 Asset
-7. 创建 ComicPage
-8. 删除 chapter / part / series
-9. 删除对应文件夹
-10. 重排 display_order
+函数：
 
-当前约定：
+```py
+create_next_chapter(...)
+```
 
-- scripts 只负责临时命令行调用
-- service 负责真正业务逻辑
-- 后续 API 和后台 UI 也应该调用 service
-- 不直接让前端操作数据库或 uploads 正式目录
+规则：
 
-整体流程：
+- 每次上传都会创建新 chapter。
+- `chapter_slug` 自动生成，如 `chapter-001`。
+- `display_order` 使用当前 part 下已有 chapter 数量 + 1。
+- `visibility="public"`。
 
-缓存区图片
-→ comic_admin.py 注册
-→ uploads 正式文件
-→ SQLite 数据库索引
-→ 前端 API 展示
+标题：
+
+```txt
+第1话
+第2话 标题后缀
+```
+
+## 正式存储工作流
+
+每张图片会复制到：
+
+```txt
+backend/uploads/comics/{series_slug}/{part_slug}/{chapter_slug}/{page_no}.{ext}
+```
+
+对外访问 URL：
+
+```txt
+/uploads/comics/{series_slug}/{part_slug}/{chapter_slug}/{page_no}.{ext}
+```
+
+数据库写入：
+
+```txt
+Asset
+ComicPage
+```
+
+`Asset.url` 保存对外访问 URL。
+
+`ComicPage.asset_id` 关联 `Asset.id`。
+
+`ComicPage.display_order` 保存页序。
+
+## 公开阅读工作流
+
+漫画列表：
+
+```txt
+GET /api/comics
+-> /works/comics
+```
+
+系列详情：
+
+```txt
+GET /api/comics/{series_slug}
+-> /works/comics/:seriesSlug
+```
+
+章节阅读：
+
+```txt
+GET /api/comics/{series_slug}/{part_slug}/{chapter_slug}
+-> /works/comics/:seriesSlug/:partSlug/:chapterSlug
+```
+
+公开 API 会过滤：
+
+```txt
+visibility == "public"
+```
+
+阅读页返回 `pages[]`，每个 page 包含：
+
+```txt
+displayOrder
+imageUrl
+width
+height
+```
+
+前端使用：
+
+```ts
+resolveAssetUrl(page.imageUrl)
+```
+
+得到完整图片地址。
+
+## 删除 chapter 工作流
+
+入口：
+
+```txt
+DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
+```
+
+service：
+
+```py
+delete_chapter(...)
+```
+
+流程：
+
+```txt
+get_chapter(...)
+-> 查询 ComicPage
+-> 收集 asset_id
+-> 删除 uploads 中 chapter 文件夹
+-> 删除 ComicPage
+-> 删除 Asset
+-> 删除 ComicChapter
+-> reorder_chapters(part_id)
+```
+
+重排会更新：
+
+```txt
+ComicChapter.display_order
+ComicChapter.title 中的 第N话
+```
+
+`chapter.slug` 不会因为重排而改变。
+
+## 删除 part 工作流
+
+入口：
+
+```txt
+DELETE /api/admin/comics/{series_slug}/{part_slug}
+```
+
+service：
+
+```py
+delete_part(...)
+```
+
+流程：
+
+```txt
+get_part(...)
+-> 查询 part 下所有 chapter
+-> 逐个 delete_chapter(...)
+-> 删除 part.cover_asset_id 对应 Asset
+-> 删除 ComicPart
+```
+
+## 删除 series 工作流
+
+入口：
+
+```txt
+DELETE /api/admin/comics/{series_slug}
+```
+
+service：
+
+```py
+delete_series(...)
+```
+
+流程：
+
+```txt
+get_series(...)
+-> 查询 series 下所有 part
+-> 逐个 delete_part(...)
+-> 删除 series.cover_asset_id 对应 Asset
+-> 删除 ComicSeries
+```
+
+## 移动 chapter 工作流
+
+入口：
+
+```txt
+PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/move
+```
+
+service：
+
+```py
+shift_chapter(...)
+```
+
+流程：
+
+```txt
+get_chapter(...)
+-> 计算目标 display_order
+-> 查找相邻 chapter
+-> 边界则返回 moved: false
+-> 交换 display_order
+-> 更新两个 chapter 标题中的 第N话
+-> commit
+```
+
+`chapter.slug` 不会因为移动而改变。

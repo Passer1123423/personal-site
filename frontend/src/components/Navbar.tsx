@@ -1,4 +1,6 @@
-import { NavLink } from 'react-router'
+import { NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { clearAccessToken, getMe } from "../api/auth";
 
 const navItems = [
   { label: 'Home', to: '/' },
@@ -8,6 +10,42 @@ const navItems = [
 ]
 
 function Navbar() {
+  const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function checkLogin() {
+      try {
+        await getMe();
+
+        if (isMounted) {
+          setIsLoggedIn(true);
+        }
+      } catch {
+        if (isMounted) {
+          setIsLoggedIn(false);
+        }
+      }
+    }
+
+    checkLogin();
+
+    window.addEventListener("auth-changed", checkLogin);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("auth-changed", checkLogin);
+    };
+  }, []);
+
+  function handleLogout() {
+    clearAccessToken();
+    setIsLoggedIn(false);
+    navigate("/");
+  }
+
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
@@ -34,12 +72,22 @@ function Navbar() {
           ))}
         </div>
 
-        <NavLink
-          to="/works"
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-        >
-          进入作品区
-        </NavLink>
+        {isLoggedIn ? (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+          >
+            退出登录
+          </button>
+        ) : (
+          <NavLink
+            to="/admin/login"
+            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+          >
+            登录
+          </NavLink>
+        )}
       </nav>
     </header>
   )

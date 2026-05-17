@@ -1,387 +1,602 @@
 # API Design
 
-当前后端使用 FastAPI 提供接口。
-当前阶段只实现漫画展示相关 API。
+本文档只描述当前已经实现的 API。公开展示接口和后台管理接口分开记录。
 
-## 1. 基础约定
+## 基础约定
 
-后端地址：
+后端由 FastAPI 提供接口。
+
+前端当前硬编码 API base URL：
 
 ```txt
-http://127.0.0.1:8000
-
-前端请求时统一通过 src/api/comics.ts 封装。
-
-静态资源地址由后端返回相对路径，例如：
-
-/uploads/demo/demo-cover.jpg
-
-前端使用 resolveAssetUrl(url) 转换为完整地址。
+http://127.0.0.1:18001
 ```
-## 2. 漫画数据层级
+
+位置：
+
 ```txt
-ComicSeries
-├── cover_asset_id -> Asset
-└── ComicPart
-    ├── cover_asset_id -> Asset
-    └── ComicChapter
-        └── ComicPage
-            └── asset_id -> Asset
-
-说明：
-
-ComicSeries 表示一个漫画系列。
-ComicPart 表示系列下的一部、卷、篇章或短篇集。
-ComicChapter 表示某一部下面的一话或一章。
-ComicPage 表示章节中的单页图片。
-Asset 表示实际图片资源。
-```
-## 3. 获取漫画系列列表
-```
-GET /api/comics
-
-用途：
-
-获取所有公开漫画系列，用于 /works/comics 页面。
-
-返回示例：
-
-[
-  {
-    "id": "series-id",
-    "slug": "demo-comic",
-    "title": "测试漫画",
-    "summary": "这是用于验证数据库结构的测试漫画。",
-    "status": "ongoing",
-    "visibility": "public",
-    "displayOrder": 1,
-    "coverUrl": "/uploads/demo/demo-cover.jpg",
-    "createdAt": "2026-05-10T18:07:03.334660",
-    "updatedAt": "2026-05-10T18:07:03.334672"
-  }
-]
-
-前端页面：
-
-/works/comics
-```
-## 4. 获取漫画系列详情
-```
-GET /api/comics/{series_slug}
-
-用途：
-
-获取某个漫画系列的详情，包括系列信息、分部列表和章节列表。
-
-返回示例：
-
-{
-  "id": "series-id",
-  "slug": "demo-comic",
-  "title": "测试漫画",
-  "summary": "这是用于验证数据库结构的测试漫画。",
-  "status": "ongoing",
-  "visibility": "public",
-  "displayOrder": 1,
-  "coverUrl": "/uploads/demo/demo-cover.jpg",
-  "createdAt": "2026-05-10T18:07:03.334660",
-  "updatedAt": "2026-05-10T18:07:03.334672",
-  "parts": [
-    {
-      "id": "part-id",
-      "slug": "part-1",
-      "title": "第一部",
-      "summary": "测试漫画的第一部分。",
-      "status": "ongoing",
-      "visibility": "public",
-      "displayOrder": 1,
-      "coverUrl": "/uploads/demo/demo-part-1-cover.jpg",
-      "createdAt": "2026-05-10T18:07:03.336367",
-      "updatedAt": "2026-05-10T18:07:03.336378",
-      "chapters": [
-        {
-          "id": "chapter-id",
-          "slug": "chapter-1",
-          "title": "第 1 话",
-          "summary": "这是测试章节。",
-          "visibility": "public",
-          "displayOrder": 1,
-          "publishedAt": null,
-          "createdAt": "2026-05-10T18:07:03.337731",
-          "updatedAt": "2026-05-10T18:07:03.337741"
-        }
-      ]
-    }
-  ]
-}
-
-前端页面：
-
-/works/comics/:seriesSlug
-```
-## 5. 获取漫画阅读数据
-```
-GET /api/comics/{series_slug}/{part_slug}/{chapter_slug}
-
-用途：
-
-获取某一章的阅读数据，包括章节信息、页数和图片列表。
-
-返回示例：
-
-{
-  "series": {
-    "id": "series-id",
-    "slug": "demo-comic",
-    "title": "测试漫画"
-  },
-  "part": {
-    "id": "part-id",
-    "slug": "part-1",
-    "title": "第一部"
-  },
-  "chapter": {
-    "id": "chapter-id",
-    "slug": "chapter-1",
-    "title": "第 1 话",
-    "summary": "这是测试章节。",
-    "publishedAt": null,
-    "createdAt": "2026-05-10T18:07:03.337731",
-    "updatedAt": "2026-05-10T18:07:03.337741"
-  },
-  "pageCount": 2,
-  "pages": [
-    {
-      "id": "page-id-1",
-      "displayOrder": 1,
-      "imageUrl": "/uploads/demo/demo-page-001.jpg",
-      "width": null,
-      "height": null,
-      "createdAt": "2026-05-10T18:07:03.338000",
-      "updatedAt": "2026-05-10T18:07:03.338000"
-    }
-  ]
-}
-
-前端页面：
-
-/works/comics/:seriesSlug/:partSlug/:chapterSlug
+frontend/src/api/comics.ts
+frontend/src/api/adminComics.ts
 ```
 
-## 4.上传图片注册
+后端返回上传资源时使用相对路径，例如：
+
+```txt
+/uploads/comics/test-series/part-1/chapter-001/001.jpg
 ```
-早期的上传功能只支持图片上传。那作者肯定是先选择一个系列、分部然后上传。章节可以按单次上传直接累加划分，page应该是像发微信朋友圈一样，可以按选择时间、或手动点击决定顺序，让图片右上角显示个带数字的圈。这样从series到page的标号就都有了。
-早期上传功能：
-选择 series / part
-上传多张图片
-前端显示预览和页码圈
-允许手动调整顺序
-提交后创建一个 chapter
-每张图片生成 asset
-每张图片生成 comic_page
-用 display_order 记录最终页序
-display_order 必须连贯，如果有删除需要将后续的序号往前递进重排
 
-202605122031新增
-# Admin API Design
+前端使用 `resolveAssetUrl(url)` 转换为完整 URL。
 
-当前 admin API 只用于本地内容管理。
+## 公开漫画 API
 
-公开展示接口使用：
+公开漫画 API 的 router 在：
 
+```txt
+backend/app/routers/comics.py
+```
+
+prefix：
+
+```txt
 /api/comics
-
-后台管理接口使用：
-
-/api/admin/comics
-
-二者必须分开，避免把上传、删除等管理操作混入公开展示接口。
 ```
 
-## 1. 权限预留
-```
-当前阶段网站只在 local 运行，暂不实现账号系统。
+公开接口只返回 `visibility == "public"` 的 series、part、chapter。
 
-但所有 admin API 都必须统一经过权限依赖函数：
-
-require_admin_user()
-
-当前 require_admin_user() 可以直接返回 local admin。
-
-后续接入账号系统时，只替换 require_admin_user() 的实现，不修改具体业务接口。
-```
-## 2. 获取 admin 漫画结构
-```
-GET /api/admin/comics/tree
+### GET /api/comics
 
 用途：
 
-获取所有漫画系列、分部、章节。
+获取公开漫画系列列表，用于 `/works/comics`。
 
-用于 admin 页面选择 series / part，以及展示可删除章节。
+后端函数：
+
+```py
+def list_comics(session: Session = Depends(get_session)):
+```
+
+返回 item 字段：
+
+```txt
+id: string
+slug: string
+title: string
+summary: string
+status: string
+visibility: string
+displayOrder: number
+coverUrl: string | null
+createdAt: datetime
+updatedAt: datetime
+```
+
+前端调用：
+
+```ts
+getComicSeriesList()
+```
+
+前端类型：
+
+```ts
+ComicSeriesListItem
+```
+
+### GET /api/comics/{series_slug}
+
+用途：
+
+获取某个公开漫画系列详情，用于 `/works/comics/:seriesSlug`。
+
+后端函数：
+
+```py
+def get_comic_detail(
+    series_slug: str,
+    session: Session = Depends(get_session),
+):
+```
+
+路径参数：
+
+```txt
+series_slug: 必填
+```
 
 返回结构：
 
-[
-  {
-    "id": "series-id",
-    "slug": "demo-comic",
-    "title": "测试漫画",
-    "visibility": "public",
-    "displayOrder": 1,
-    "parts": [
-      {
-        "id": "part-id",
-        "slug": "part-1",
-        "title": "第一部",
-        "visibility": "public",
-        "displayOrder": 1,
-        "chapters": [
-          {
-            "id": "chapter-id",
-            "slug": "chapter-001",
-            "title": "第1话",
-            "visibility": "public",
-            "displayOrder": 1,
-            "pageCount": 12
-          }
-        ]
-      }
-    ]
-  }
-]
+```txt
+series
+└── parts[]
+    └── chapters[]
 ```
-## 3. 上传并发布新章节
+
+返回 series 字段：
+
+```txt
+id
+slug
+title
+summary
+status
+visibility
+displayOrder
+coverUrl
+createdAt
+updatedAt
+parts
 ```
-POST /api/admin/comics/chapters
 
-Content-Type:
+返回 part 字段：
 
-multipart/form-data
+```txt
+id
+slug
+title
+summary
+status
+visibility
+displayOrder
+coverUrl
+createdAt
+updatedAt
+chapters
+```
+
+返回 chapter 字段：
+
+```txt
+id
+slug
+title
+summary
+visibility
+displayOrder
+publishedAt
+createdAt
+updatedAt
+```
+
+前端调用：
+
+```ts
+getComicSeriesDetail(seriesSlug)
+```
+
+前端类型：
+
+```ts
+ComicSeriesDetail
+```
+
+### GET /api/comics/{series_slug}/{part_slug}/{chapter_slug}
 
 用途：
 
-上传一批图片，并自动创建一个新的 ComicChapter。
+获取某个公开章节的阅读数据，用于 `/works/comics/:seriesSlug/:partSlug/:chapterSlug`。
+
+后端函数：
+
+```py
+def get_comic_chapter_reader(
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    session: Session = Depends(get_session),
+):
+```
+
+路径参数：
+
+```txt
+series_slug: 必填
+part_slug: 必填
+chapter_slug: 必填
+```
+
+返回结构：
+
+```txt
+series
+part
+chapter
+pageCount
+pages[]
+```
+
+返回 page 字段：
+
+```txt
+id
+displayOrder
+imageUrl
+width
+height
+createdAt
+updatedAt
+```
+
+前端调用：
+
+```ts
+getComicReaderData(seriesSlug, partSlug, chapterSlug)
+```
+
+前端类型：
+
+```ts
+ComicReaderData
+```
+
+## 漫画后台 API
+
+漫画后台 API 的 router 在：
+
+```txt
+backend/app/routers/comic_admin.py
+```
+
+prefix：
+
+```txt
+/api/admin/comics
+```
+
+router 统一挂了依赖：
+
+```py
+dependencies=[Depends(require_admin_user)]
+```
+
+当前 `require_admin_user()` 在 `backend/app/dependencies/auth.py` 中依赖 `require_current_user`，要求请求带有效 bearer token，且当前用户 `role` 必须是 `"admin"`：
+
+```py
+def require_admin_user(
+    current_user: User = Depends(require_current_user),
+) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="没有管理员权限",
+        )
+
+    return current_user
+```
+
+前端调用 admin API 时应通过 `Authorization: Bearer ${token}` 传递 token；当前 token 保存在 localStorage 的 `personal_site_access_token`。
+
+### GET /api/admin/comics/tree
+
+用途：
+
+获取后台漫画结构树，用于 `/admin/comics`。
+
+后端函数：
+
+```py
+def get_admin_comics_tree(session: Session = Depends(get_session)):
+```
+
+返回结构：
+
+```txt
+series[]
+└── parts[]
+    └── chapters[]
+```
+
+返回 series 字段：
+
+```txt
+id
+slug
+title
+visibility
+displayOrder
+parts
+```
+
+返回 part 字段：
+
+```txt
+id
+slug
+title
+visibility
+displayOrder
+chapters
+```
+
+返回 chapter 字段：
+
+```txt
+id
+slug
+title
+visibility
+displayOrder
+pageCount
+```
+
+前端调用：
+
+```ts
+fetchAdminComicsTree()
+```
+
+### POST /api/admin/comics/chapters
+
+用途：
+
+上传多张图片并创建一个新 chapter。series 和 part 不存在时，service 会创建。
+
+Content-Type：
+
+```txt
+multipart/form-data
+```
+
+后端函数：
+
+```py
+async def create_admin_comic_chapter(
+    series_slug: str = Form(...),
+    part_slug: str = Form(...),
+    chapter_title: str | None = Form(None),
+    series_title: str | None = Form(None),
+    part_title: str | None = Form(None),
+    files: list[UploadFile] = File(...),
+    session: Session = Depends(get_session),
+):
+```
 
 表单字段：
 
-seriesSlug: string
-partSlug: string
-titleSuffix: string | null
-files: File[]
+```txt
+series_slug: 必填
+part_slug: 必填
+files: 必填，至少一张图片
+chapter_title: 可选
+series_title: 可选
+part_title: 可选
+```
 
-规则：
+支持的图片扩展名：
 
--第一版前端优先选择已有 series 和已有 part。
--后端 service 支持在 series_slug 或 part_slug 不存在时自动创建，但普通 admin 页面暂不提供完整的新建表单。
--后续若需要新建 series / part，再补充 title / summary / display_order 等可空客制化字段。
-- 前端负责显示图片预览和页码顺序
-- 前端按最终页序提交 files
-- 后端按接收到的 files 顺序生成 ComicPage.display_order
-- 后端自动创建 chapter
-- chapter.slug 自动递增
-- chapter.title 自动生成，可追加 titleSuffix
-- 每张图片创建一个 Asset
-- 每张图片创建一个 ComicPage
-- Asset 不承担页序
-- ComicPage.display_order 决定阅读顺序
+```txt
+.jpg
+.jpeg
+.png
+.webp
+.gif
+```
 
-返回示例：
+处理流程：
 
+```txt
+UploadFile[]
+-> 临时目录，命名为 001.ext、002.ext ...
+-> import_comic_chapter_from_dir(...)
+-> uploads/comics/{series_slug}/{part_slug}/{chapter_slug}/
+-> Asset
+-> ComicPage
+```
+
+前端调用：
+
+```ts
+uploadAdminComicChapter(params)
+```
+
+前端参数：
+
+```ts
 {
-  "seriesSlug": "demo-comic",
-  "partSlug": "part-1",
-  "chapterSlug": "chapter-003",
-  "chapterTitle": "第3话 相遇",
-  "pageCount": 12
+  seriesSlug: string;
+  partSlug: string;
+  seriesTitle?: string;
+  partTitle?: string;
+  chapterTitle: string;
+  files: File[];
 }
 ```
-## 4. 删除章节
-```
-DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
 
-Query 参数：
-
-deleteFiles: boolean = true
+### DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
 
 用途：
 
-删除一个 ComicChapter。
+删除一个 chapter 及其页面、asset 和上传目录。
 
-规则：
+后端函数：
 
-- 删除 chapter 下属 ComicPage
-- 删除 ComicChapter
-- 可选删除 uploads 中对应章节文件夹
-- 删除后重排后续 chapter.display_order
-- chapter.slug 不因重排改变
-
-返回示例：
-
-{
-  "deleted": true,
-  "seriesSlug": "demo-comic",
-  "partSlug": "part-1",
-  "chapterSlug": "chapter-003"
-}
+```py
+def delete_admin_comic_chapter(
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    session: Session = Depends(get_session),
+):
 ```
-## 5. 删除 part
+
+调用 service：
+
+```py
+delete_chapter(
+    session=session,
+    series_slug=series_slug,
+    part_slug=part_slug,
+    chapter_slug=chapter_slug,
+)
 ```
-DELETE /api/admin/comics/{series_slug}/{part_slug}
 
-Query 参数：
+前端调用：
 
-series_slug/part_slug
-
-用途：
-调用删除chapter函数删除part_slug所属的所有chapter
-注销part以及删除封面
-
-第一版可以先不接前端按钮，只保留接口设计。
+```ts
+deleteAdminComicChapter({ seriesSlug, partSlug, chapterSlug })
 ```
-## 6. 删除章节
-```
-DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
+
+### DELETE /api/admin/comics/{series_slug}/{part_slug}
 
 用途：
 
-删除一个 ComicChapter。
+删除一个 part，包含其下所有 chapter、page、asset 和上传目录。
 
-当前规则：
+后端函数：
 
-1. 删除 chapter 下属 ComicPage
-2. 删除 chapter 下属 Asset
-3. 删除 ComicChapter
-4. 删除 uploads 中对应章节文件夹
-5. 删除后重排后续 chapter.display_order
-6. chapter.slug 不因重排改变
-
-当前版本不提供 deleteFiles 参数。
-后续如果需要只删数据库、不删文件，再改造 service 层。
+```py
+def delete_admin_comic_part(
+    series_slug: str,
+    part_slug: str,
+    session: Session = Depends(get_session),
+):
 ```
 
-## 7. 第一版 admin 页面
+调用 service：
 
-前端页面：
+```py
+delete_part(
+    session=session,
+    series_slug=series_slug,
+    part_slug=part_slug,
+)
+```
 
-/admin/comics
+前端调用：
 
-功能：
+```ts
+deleteAdminComicPart({ seriesSlug, partSlug })
+```
 
-1. 加载 /api/admin/comics/tree
-2. 选择 series
-3. 选择 part
-4. 选择多张图片
-5. 生成图片预览
-6. 显示页码顺序
-7. 提交发布新 chapter
-8. 展示已有 chapter
-9. 支持删除 chapter
+### DELETE /api/admin/comics/{series_slug}
 
-暂不实现：
+用途：
 
-- 登录页面
-- 账号系统
-- 删除单页
-- 修改已发布章节顺序
-- 编辑 series / part 元信息
+删除一个 series，包含其下所有 part、chapter、page、asset 和上传目录。
+
+后端函数：
+
+```py
+def delete_admin_comic_series(
+    series_slug: str,
+    session: Session = Depends(get_session),
+):
+```
+
+调用 service：
+
+```py
+delete_series(
+    session=session,
+    series_slug=series_slug,
+)
+```
+
+前端调用：
+
+```ts
+deleteAdminComicSeries({ seriesSlug })
+```
+
+### PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/move
+
+用途：
+
+上移或下移同一个 part 下的 chapter。
+
+后端请求体：
+
+```py
+class MoveChapterRequest(BaseModel):
+    direction: str
+```
+
+后端函数：
+
+```py
+def move_admin_comic_chapter(
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    payload: MoveChapterRequest,
+    session: Session = Depends(get_session),
+):
+```
+
+`direction` 当前允许值：
+
+```txt
+up
+down
+```
+
+调用 service：
+
+```py
+shift_chapter(
+    session=session,
+    series_slug=series_slug,
+    part_slug=part_slug,
+    chapter_slug=chapter_slug,
+    direction=payload.direction,
+)
+```
+
+前端调用：
+
+```ts
+moveAdminComicChapter({
+  seriesSlug,
+  partSlug,
+  chapterSlug,
+  direction,
+})
+```
+
+返回字段：
+
+```txt
+moved: boolean
+reason?: string
+chapterSlug: string
+displayOrder: number
+targetChapterSlug?: string
+targetDisplayOrder?: number
+```
+
+## 字段命名映射
+
+数据库模型使用 Python / SQL 风格：
+
+```txt
+display_order
+cover_asset_id
+created_at
+updated_at
+published_at
+```
+
+API 返回给前端时使用 camelCase：
+
+```txt
+displayOrder
+coverUrl
+createdAt
+updatedAt
+publishedAt
+```
+
+路由路径参数使用 snake_case：
+
+```txt
+series_slug
+part_slug
+chapter_slug
+```
+
+前端函数参数使用 camelCase：
+
+```txt
+seriesSlug
+partSlug
+chapterSlug
+```
