@@ -528,17 +528,13 @@ get_series(...)
 def update_chapter_order_title(title: str, new_order: int) -> str:
 ```
 
-用正则替换标题开头的：
+用正则只替换标题开头的 `第N话`：
 
 ```txt
-第 N 话
+^第\s*\d+\s*话
 ```
 
-为：
-
-```txt
-第{new_order}话
-```
+返回新标题，不负责 commit。
 
 ### shift_chapter
 
@@ -563,22 +559,22 @@ down
 
 行为：
 
-- 通过 slug 定位 chapter。
-- `up` 时目标顺序为当前 `display_order - 1`。
-- `down` 时目标顺序为当前 `display_order + 1`。
-- 查找同一 part 下目标顺序的 chapter。
-- 找不到目标时返回 `moved: False`。
-- 找到目标时交换两个 chapter 的 `display_order`。
-- 同步更新两个 chapter 标题中的话数。
+- 定位当前 chapter。
+- `up` 查找 `display_order - 1` 的相邻 chapter。
+- `down` 查找 `display_order + 1` 的相邻 chapter。
+- 没有目标时返回 `moved: False`，不抛错。
+- 有目标时交换两个 chapter 的 `display_order`。
+- 使用 `update_chapter_order_title(...)` 同步更新两个标题开头的话数。
 
-返回成功结构：
+返回：
 
 ```txt
 moved
+reason?
 chapterSlug
 displayOrder
-targetChapterSlug
-targetDisplayOrder
+targetChapterSlug?
+targetDisplayOrder?
 ```
 
 ### shift_chapter_up / shift_chapter_down
@@ -588,4 +584,144 @@ def shift_chapter_up(...)
 def shift_chapter_down(...)
 ```
 
-这两个函数只是 `shift_chapter(..., direction="up/down")` 的薄封装。当前 router 直接调用 `shift_chapter()`。
+这两个函数只是 `shift_chapter(..., direction="up" | "down")` 的包装。
+
+## 重命名函数
+
+### rename_series
+
+```py
+def rename_series(
+    session: Session,
+    series_slug: str,
+    title: str,
+) -> ComicSeries:
+```
+
+行为：
+
+- `title.strip()` 后不能为空。
+- 通过 `series_slug` 定位 series。
+- 只更新 `ComicSeries.title`。
+- 不修改 `slug`、`summary`、`status`、`visibility`。
+
+空标题时抛：
+
+```txt
+series 标题不能为空
+```
+
+### rename_part
+
+```py
+def rename_part(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    title: str,
+) -> ComicPart:
+```
+
+行为：
+
+- `title.strip()` 后不能为空。
+- 通过 `series_slug + part_slug` 定位 part。
+- 只更新 `ComicPart.title`。
+- 不修改 `slug`、`summary`、`status`、`visibility`。
+
+空标题时抛：
+
+```txt
+part 标题不能为空
+```
+
+### build_chapter_title
+
+```py
+def build_chapter_title(display_order: int, custom_title: str | None) -> str:
+```
+
+规则：
+
+```txt
+custom_title 有值：第{display_order}话 {custom_title}
+custom_title 为空：第{display_order}话
+```
+
+### rename_chapter
+
+```py
+def rename_chapter(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    custom_title: str | None,
+) -> ComicChapter:
+```
+
+行为：
+
+- 通过 `series_slug + part_slug + chapter_slug` 定位 chapter。
+- 调用 `build_chapter_title(chapter.display_order, custom_title)`。
+- 只更新 `ComicChapter.title`。
+- 不修改 `slug`、`display_order`、`visibility`。
+
+## Part Owner 函数
+
+### list_owner_candidates
+
+```py
+def list_owner_candidates(session: Session) -> list[User]:
+```
+
+返回可作为 owner 的用户：
+
+```txt
+User.is_active == True
+User.role in ["author", "admin"]
+order by User.username
+```
+
+### get_part_owner
+
+```py
+def get_part_owner(
+    session: Session,
+    part: ComicPart,
+) -> User | None:
+```
+
+查询该 part 的第一条：
+
+```txt
+ComicPartUserLink.part_id == part.id
+ComicPartUserLink.role == "owner"
+```
+
+没有 link 时返回 `None`。有 link 时通过 `session.get(User, link.user_id)` 返回用户。
+
+### set_part_owner
+
+```py
+def set_part_owner(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    username: str | None,
+) -> User | None:
+```
+
+行为：
+
+- 通过 `series_slug + part_slug` 定位 part。
+- 删除该 part 下所有 `role == "owner"` 的 `ComicPartUserLink`。
+- `username` 会先 `(username or "").strip()`。
+- `username` 为空时 commit 并返回 `None`，表示清空 owner。
+- 非空时查询 `User.username == username`。
+- 用户不存在时抛 `用户不存在`。
+- 用户停用时抛 `不能选择已停用用户作为 owner`。
+- 用户角色不是 `author` 或 `admin` 时抛 `owner 必须是 author 或 admin`。
+- 通过校验后创建新的 `ComicPartUserLink(part_id=part.id, user_id=user.id, role="owner")`。
+
+注意：当前 owner 关系挂在 part 上，不挂在 series 或 chapter 上。

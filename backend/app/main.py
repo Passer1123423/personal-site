@@ -22,9 +22,11 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from .database import create_db_and_tables
+from app.routers.users import router as users_router
 from .routers.comics import router as comics_router
 from .routers.comic_admin import router as comic_admin_router
 from app.routers.auth import router as auth_router
+from app.routers.user_admin import router as user_admin_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -102,9 +104,11 @@ app.mount(
 # comics_router 里面已经有 prefix="/api/comics"，
 # 所以最终接口路径是：
 #   GET /api/comics
+app.include_router(users_router)
 app.include_router(comics_router)
 app.include_router(auth_router)
 app.include_router(comic_admin_router)
+app.include_router(user_admin_router)
 
 @app.get("/")
 def root():

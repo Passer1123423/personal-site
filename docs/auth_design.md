@@ -1,13 +1,15 @@
 1. 新增 User 模型
 2. 新增 create_user.py 脚本
 3. 新增密码哈希工具
-4. 新增登录接口 POST /api/auth/login
-5. 新增当前用户接口 GET /api/auth/me
-6. 改 require_admin_user，从固定返回改为校验 token + role
-7. 前端新增 auth.ts
-8. 前端新增 /admin/login
-9. /admin/comics 未登录时跳转登录页
-10. adminComics.ts 请求带 Authorization
+4. 新增注册接口 POST /api/auth/register
+5. 新增登录接口 POST /api/auth/login
+6. 新增当前用户接口 GET /api/auth/me
+7. 新增公开用户接口 GET /api/users/{username}
+8. 新增用户后台接口 /api/admin/users
+9. 改 require_admin_user，从固定返回改为校验 token + role
+10. 前端新增 auth.ts、users.ts、adminUsers.ts
+11. 前端新增 /admin/login、/register、/users/:username、/admin、/admin/users
+12. adminComics.ts 和 adminUsers.ts 请求带 Authorization
 
 User 模型目标
 
@@ -80,6 +82,27 @@ app.include_router(comic_admin_router)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 当前后端认证流程
+
+POST /api/auth/register
+
+请求体字段：
+
+username
+displayName
+password
+bio（后端支持，当前前端注册表单不提交）
+
+处理流程：
+
+1. `username = payload.username.strip()`。
+2. `display_name = payload.displayName.strip()`。
+3. 用户名为空返回 400，detail 为 `用户名不能为空`。
+4. 显示名为空返回 400，detail 为 `显示名不能为空`。
+5. 密码少于 6 位返回 400，detail 为 `密码至少需要 6 位`。
+6. 用户名已存在返回 400，detail 为 `用户名已存在`。
+7. 创建 `User`，其中 `role="reader"`。
+8. 使用 `create_access_token({"sub": user.username})` 生成 token。
+9. 返回 `accessToken`、`tokenType`、`user`。
 
 POST /api/auth/login
 
@@ -237,6 +260,12 @@ accessToken: string
 tokenType: string
 user: AuthUser
 
+前端类型 `RegisterParams` 当前字段：
+
+username: string
+displayName: string
+password: string
+
 函数：
 
 login(username: string, password: string): Promise<LoginResponse>
@@ -253,6 +282,9 @@ getAccessToken(): string | null
 
 clearAccessToken()
 删除 localStorage 的 `personal_site_access_token`，然后派发 `auth-changed` 事件。
+
+register(params: RegisterParams): Promise<LoginResponse>
+调用 `POST /api/auth/register`，请求 JSON 为 `{ username, displayName, password }`。失败时优先使用后端 `detail`，否则抛出 `注册失败`。
 
 前端登录页
 
@@ -277,7 +309,7 @@ isSubmitting
 
 页面加载时会调用 `getMe()`：
 
-1. 如果当前 token 有效且 `user.role === "admin"`，跳转 `/admin/comics`，并使用 `{ replace: true }`。
+1. 如果当前 token 有效，跳转 `/users/${user.username}`，并使用 `{ replace: true }`。
 2. 如果失败，调用 `clearAccessToken()`。
 
 提交登录时：
@@ -285,9 +317,34 @@ isSubmitting
 1. `event.preventDefault()`。
 2. 调用 `login(username.trim(), password)`。
 3. 成功后调用 `saveAccessToken(result.accessToken)`。
-4. 如果 `result.user.role === "admin"`，跳转 `/admin/comics`。
-5. 否则显示 `当前账号暂无后台权限。`。
-6. 捕获异常时显示异常 message，兜底为 `登录失败`。
+4. 跳转 `/users/${result.user.username}`。
+5. 捕获异常时显示异常 message，兜底为 `登录失败`。
+
+前端注册页
+
+当前文件：
+
+frontend/src/pages/RegisterPage.tsx
+
+当前路由：
+
+/register
+
+页面状态：
+
+username
+displayName
+password
+confirmPassword
+errorMessage
+isSubmitting
+
+提交注册时：
+
+1. 如果两次密码不一致，显示 `两次输入的密码不一致`。
+2. 调用 `register({ username: username.trim(), displayName: displayName.trim(), password })`。
+3. 成功后调用 `saveAccessToken(result.accessToken)`。
+4. 跳转 `/users/${result.user.username}`。
 
 漫画后台页面进入校验
 
@@ -330,6 +387,29 @@ deleteAdminComicChapter
 deleteAdminComicPart
 deleteAdminComicSeries
 moveAdminComicChapter
+renameAdminComicSeries
+renameAdminComicPart
+renameAdminComicChapter
+fetchAdminComicOwnerCandidates
+setAdminComicPartOwner
+
+用户后台请求头
+
+当前文件：
+
+frontend/src/api/adminUsers.ts
+
+该文件从 `./auth` 引入：
+
+getAccessToken
+
+通过 `getAdminHeaders(extraHeaders?: HeadersInit)` 给用户后台请求补充 token。当前已带 Authorization 的请求包括：
+
+fetchAdminUsers
+createAdminUser
+updateAdminUser
+resetAdminUserPassword
+deleteAdminUser
 
 Navbar 登录状态
 
@@ -345,13 +425,68 @@ Navbar 当前会调用 `getMe()` 判断登录状态：
 
 未登录时显示前往 `/admin/login` 的“登录”入口。
 
-已登录时显示“退出登录”按钮。
+已登录时显示当前用户显示名，链接到 `/users/${currentUser.username}`，并显示“退出登录”按钮。
 
 退出登录流程：
 
 1. 调用 `clearAccessToken()`。
 2. `setIsLoggedIn(false)`。
 3. 跳转 `/`。
+
+公开用户页
+
+当前文件：
+
+frontend/src/pages/UserPage.tsx
+
+当前路由：
+
+/users/:username
+
+前端调用：
+
+getUserProfile(username)
+
+后端接口：
+
+GET /api/users/{username}
+
+页面展示：
+
+username
+displayName
+bio
+role
+
+当前作品、收藏、动态区域是占位内容，公开用户 API 的 `series` 字段固定为空数组。
+
+用户后台页面
+
+当前文件：
+
+frontend/src/pages/AdminUsersPage.tsx
+
+当前路由：
+
+/admin/users
+
+进入页面时先调用 `getMe()`：
+
+1. 如果不是 admin，跳转 `/admin/login`。
+2. 如果失败，调用 `clearAccessToken()` 并跳转 `/admin/login`。
+3. 成功后保存当前登录用户名，用于禁止修改或删除当前用户。
+
+当前功能：
+
+- 获取用户列表。
+- 创建用户。
+- 修改用户显示名。
+- 修改用户角色。
+- 启用或停用用户。
+- 重置密码。
+- 删除用户。
+
+用户后台接口全部要求当前用户是 `admin`。
 
 创建用户脚本
 

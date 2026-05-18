@@ -332,3 +332,80 @@ get_chapter(...)
 ```
 
 `chapter.slug` 不会因为移动而改变。
+
+## 重命名工作流
+
+series 重命名入口：
+
+```txt
+PATCH /api/admin/comics/{series_slug}/rename
+```
+
+part 重命名入口：
+
+```txt
+PATCH /api/admin/comics/{series_slug}/{part_slug}/rename
+```
+
+chapter 重命名入口：
+
+```txt
+PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/rename
+```
+
+调用链：
+
+```txt
+AdminComicsPage EditableTitle
+-> frontend/src/api/adminComics.ts
+-> backend/app/routers/comic_admin.py
+-> backend/app/services/comic_admin.py
+-> 更新 title
+-> 前端 loadTree(...)
+```
+
+命名规则：
+
+- series / part 重命名请求体使用 `title`，只修改标题，不修改 slug。
+- chapter 重命名请求体使用 `customTitle`，后端按当前 `display_order` 生成完整标题。
+- chapter 标题保存为 `第{display_order}话 {customTitle}` 或 `第{display_order}话`。
+- 移动或删除重排时，仍会同步更新标题中的话数前缀。
+
+## Part Owner 工作流
+
+owner 候选入口：
+
+```txt
+GET /api/admin/comics/owner-candidates
+```
+
+设置 owner 入口：
+
+```txt
+PATCH /api/admin/comics/{series_slug}/{part_slug}/owner
+```
+
+前端流程：
+
+```txt
+AdminComicsPage
+-> loadOwnerCandidates()
+-> fetchAdminComicOwnerCandidates()
+-> PartBlock select 展示候选用户
+-> setAdminComicPartOwner({ seriesSlug, partSlug, username })
+-> loadTree({ seriesSlug, partSlug })
+```
+
+后端设置流程：
+
+```txt
+set_part_owner(...)
+-> get_part(...)
+-> 删除该 part 现有 role == "owner" 的 ComicPartUserLink
+-> username 为空则 commit 并返回 None
+-> 查询 User.username
+-> 校验用户存在、启用、role 是 author/admin
+-> 创建 ComicPartUserLink(role="owner")
+```
+
+当前 owner 只影响后台漫画树展示，不影响公开漫画列表、系列详情或阅读接口。

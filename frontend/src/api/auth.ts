@@ -19,6 +19,12 @@ export type LoginResponse = {
   user: AuthUser;
 };
 
+export type RegisterParams = {
+  username: string;
+  displayName: string;
+  password: string;
+};
+
 export async function login(username: string, password: string): Promise<LoginResponse> {
   const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: "POST",
@@ -69,4 +75,25 @@ export function getAccessToken(): string | null {
 export function clearAccessToken() {
   localStorage.removeItem(TOKEN_KEY);
   window.dispatchEvent(new Event("auth-changed"));
+}
+
+export async function register(params: RegisterParams): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      username: params.username,
+      displayName: params.displayName,
+      password: params.password,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.detail ?? "注册失败");
+  }
+
+  return response.json();
 }

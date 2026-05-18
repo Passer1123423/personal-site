@@ -7,11 +7,17 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.dependencies.auth import require_admin_user
-from app.models import ComicSeries, ComicPart, ComicChapter, ComicPage
+from app.models import (
+    Asset,
+    ComicSeries,
+    ComicPart,
+    ComicChapter,
+    ComicPage,
+    User,
+    ComicPartUserLink,
+)
 
 from pydantic import BaseModel
-class MoveChapterRequest(BaseModel):
-    direction: str
 
 from app.services.comic_admin import (
     import_comic_chapter_from_dir,
@@ -19,8 +25,37 @@ from app.services.comic_admin import (
     delete_part,
     delete_series,
     shift_chapter,
+    rename_series,
+    rename_part,
+    rename_chapter,
+    list_owner_candidates,
+    get_part_owner,
+    set_part_owner,
 )
 
+class MoveChapterRequest(BaseModel):
+    direction: str
+
+class RenameTitleRequest(BaseModel):
+    title: str
+
+
+class RenameChapterRequest(BaseModel):
+    customTitle: str | None = None
+
+class SetPartOwnerRequest(BaseModel):
+    username: str | None = None
+def user_to_owner_item(user: User | None):
+    if not user:
+        return None
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "displayName": user.display_name,
+        "role": user.role,
+        "avatarUrl": None,
+    }
 
 router = APIRouter(
     prefix="/api/admin/comics",
@@ -71,6 +106,7 @@ def get_admin_comics_tree(session: Session = Depends(get_session)):
                     }
                 )
 
+            owner = get_part_owner(session, part)
             part_items.append(
                 {
                     "id": part.id,
@@ -78,6 +114,7 @@ def get_admin_comics_tree(session: Session = Depends(get_session)):
                     "title": part.title,
                     "visibility": part.visibility,
                     "displayOrder": part.display_order,
+                    "owner": user_to_owner_item(owner),
                     "chapters": chapter_items,
                 }
             )
@@ -94,6 +131,14 @@ def get_admin_comics_tree(session: Session = Depends(get_session)):
         )
 
     return result
+
+@router.get("/owner-candidates")
+def get_admin_comic_owner_candidates(
+    session: Session = Depends(get_session),
+):
+    users = list_owner_candidates(session)
+
+    return [user_to_owner_item(user) for user in users]
 
 @router.post("/chapters")
 async def create_admin_comic_chapter(
@@ -223,3 +268,103 @@ def move_admin_comic_chapter(
         raise HTTPException(status_code=400, detail=str(exc))
 
     return result
+
+@router.patch("/{series_slug}/rename")
+def rename_admin_comic_series(
+    series_slug: str,
+    payload: RenameTitleRequest,
+    session: Session = Depends(get_session),
+):
+    try:
+        series = rename_series(
+            session=session,
+            series_slug=series_slug,
+            title=payload.title,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": series.id,
+        "slug": series.slug,
+        "title": series.title,
+        "visibility": series.visibility,
+        "displayOrder": series.display_order,
+    }
+
+
+@router.patch("/{series_slug}/{part_slug}/rename")
+def rename_admin_comic_part(
+    series_slug: str,
+    part_slug: str,
+    payload: RenameTitleRequest,
+    session: Session = Depends(get_session),
+):
+    try:
+        part = rename_part(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+            title=payload.title,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": part.id,
+        "slug": part.slug,
+        "title": part.title,
+        "visibility": part.visibility,
+        "displayOrder": part.display_order,
+    }
+
+
+@router.patch("/{series_slug}/{part_slug}/{chapter_slug}/rename")
+def rename_admin_comic_chapter(
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    payload: RenameChapterRequest,
+    session: Session = Depends(get_session),
+):
+    try:
+        chapter = rename_chapter(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+            chapter_slug=chapter_slug,
+            custom_title=payload.customTitle,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": chapter.id,
+        "slug": chapter.slug,
+        "title": chapter.title,
+        "visibility": chapter.visibility,
+        "displayOrder": chapter.display_order,
+    }
+
+@router.patch("/{series_slug}/{part_slug}/owner")
+def set_admin_comic_part_owner(
+    series_slug: str,
+    part_slug: str,
+    payload: SetPartOwnerRequest,
+    session: Session = Depends(get_session),
+):
+    try:
+        owner = set_part_owner(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+            username=payload.username,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "seriesSlug": series_slug,
+        "partSlug": part_slug,
+        "owner": user_to_owner_item(owner),
+    }

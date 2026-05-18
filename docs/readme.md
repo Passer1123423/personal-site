@@ -30,13 +30,17 @@ backend/
 │   ├── dependencies/
 │   │   └── auth.py
 │   ├── routers/
+│   │   ├── auth.py
 │   │   ├── comics.py
-│   │   └── comic_admin.py
+│   │   ├── comic_admin.py
+│   │   ├── user_admin.py
+│   │   └── users.py
 │   └── services/
 │       └── comic_admin.py
 ├── data/
 │   └── site.db
 ├── scripts/
+│   ├── create_user.py
 │   ├── import_comic_chapter.py
 │   └── delete_comic_chapter.py
 └── uploads/
@@ -47,10 +51,18 @@ frontend/
 ├── src/
 │   ├── App.tsx
 │   ├── api/
+│   │   ├── auth.ts
 │   │   ├── comics.ts
-│   │   └── adminComics.ts
+│   │   ├── adminComics.ts
+│   │   ├── adminUsers.ts
+│   │   └── users.ts
 │   └── pages/
+│       ├── AdminHomePage.tsx
 │       ├── AdminComicsPage.tsx
+│       ├── AdminUsersPage.tsx
+│       ├── AdminLoginPage.tsx
+│       ├── RegisterPage.tsx
+│       ├── UserPage.tsx
 │       ├── ComicsPage.tsx
 │       ├── ComicSeriesPage.tsx
 │       └── ComicReaderPage.tsx
@@ -69,15 +81,21 @@ docs/
 - 启动时调用 `create_db_and_tables()`
 - 注册 CORS
 - 挂载 `/uploads`
+- 注册认证 router
+- 注册公开用户 router
 - 注册公开漫画 router
 - 注册漫画 admin router
+- 注册用户 admin router
 - 提供 `/` 和 `/health`
 
 已注册 router：
 
 ```txt
+app.include_router(users_router)
 app.include_router(comics_router)
+app.include_router(auth_router)
 app.include_router(comic_admin_router)
+app.include_router(user_admin_router)
 ```
 
 ## 数据库与静态资源
@@ -121,10 +139,12 @@ backend/app/models.py
 当前模型：
 
 - `Asset`
+- `User`
 - `ComicSeries`
 - `ComicPart`
 - `ComicChapter`
 - `ComicPage`
+- `ComicPartUserLink`
 
 ## 当前可用页面
 
@@ -137,13 +157,18 @@ backend/app/models.py
 /works/comics
 /works/comics/:seriesSlug
 /works/comics/:seriesSlug/:partSlug/:chapterSlug
+/register
+/users/:username
 /about
 ```
 
-后台漫画页面：
+后台页面：
 
 ```txt
+/admin
 /admin/comics
+/admin/users
+/admin/login
 ```
 
 ## 当前 API 分组
@@ -154,10 +179,28 @@ backend/app/models.py
 /api/comics
 ```
 
+认证 API：
+
+```txt
+/api/auth
+```
+
+公开用户 API：
+
+```txt
+/api/users
+```
+
 漫画后台 API：
 
 ```txt
 /api/admin/comics
+```
+
+用户后台 API：
+
+```txt
+/api/admin/users
 ```
 
 前端当前 API base URL 写在：
@@ -165,6 +208,9 @@ backend/app/models.py
 ```txt
 frontend/src/api/comics.ts
 frontend/src/api/adminComics.ts
+frontend/src/api/auth.ts
+frontend/src/api/users.ts
+frontend/src/api/adminUsers.ts
 ```
 
 当前值：
@@ -173,7 +219,7 @@ frontend/src/api/adminComics.ts
 http://127.0.0.1:18001
 ```
 
-如果后端实际运行端口变化，需要同步修改这两个文件，或后续改成环境变量配置。
+如果后端实际运行端口变化，需要同步修改这些文件，或后续改成环境变量配置。
 
 ## 当前模块状态
 
@@ -187,8 +233,18 @@ http://127.0.0.1:18001
 - 后台创建 series / part
 - 后台删除 series / part / chapter
 - 后台移动 chapter 顺序
+- 后台重命名 series / part / chapter
+- 后台设置 part owner
 - 上传图片落盘到 `backend/uploads/comics`
 - 数据索引保存到 SQLite
+
+用户与认证模块当前具备：
+
+- 注册 reader 用户
+- 登录并保存 bearer token
+- 获取当前用户
+- 公开用户主页
+- 管理员创建、编辑、停用、重置密码、删除用户
 
 项目页、首页、Works 页等已存在前端页面，但漫画以外的内容仍主要是静态展示或入口页。
 

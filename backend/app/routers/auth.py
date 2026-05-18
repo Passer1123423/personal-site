@@ -8,6 +8,7 @@ from app.models import User
 from app.core.security import (
     verify_password,
     create_access_token,
+    hash_password,
 )
 from app.dependencies.auth import require_current_user
 
@@ -19,6 +20,11 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class RegisterRequest(BaseModel):
+    username: str
+    displayName: str
+    password: str
+    bio: str = ""
 
 def user_to_public(user: User) -> dict:
     return {
@@ -32,6 +38,62 @@ def user_to_public(user: User) -> dict:
         "createdAt": user.created_at,
     }
 
+@router.post("/register")
+def register(
+    payload: RegisterRequest,
+    session: Session = Depends(get_session),
+):
+    username = payload.username.strip()
+    display_name = payload.displayName.strip()
+    password = payload.password
+
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户名不能为空",
+        )
+
+    if not display_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="显示名不能为空",
+        )
+
+    if len(password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码至少需要 6 位",
+        )
+
+    existing_user = session.exec(
+        select(User).where(User.username == username)
+    ).first()
+
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户名已存在",
+        )
+
+    user = User(
+        username=username,
+        display_name=display_name,
+        password_hash=hash_password(password),
+        role="reader",
+        bio=payload.bio,
+    )
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    access_token = create_access_token({"sub": user.username})
+
+    return {
+        "accessToken": access_token,
+        "tokenType": "bearer",
+        "user": user_to_public(user),
+    }
 
 @router.post("/login")
 def login(

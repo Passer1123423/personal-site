@@ -7,7 +7,15 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.database import engine
-from app.models import Asset, ComicSeries, ComicPart, ComicChapter, ComicPage
+from app.models import (
+    Asset,
+    ComicSeries,
+    ComicPart,
+    ComicChapter,
+    ComicPage,
+    User,
+    ComicPartUserLink,
+)
 
 import re
 
@@ -714,3 +722,168 @@ def shift_chapter_down(
         chapter_slug=chapter_slug,
         direction="down",
     )
+
+# ===== 重命名 =====
+def rename_series(
+    session: Session,
+    series_slug: str,
+    title: str,
+) -> ComicSeries:
+    title = title.strip()
+
+    if not title:
+        raise ValueError("series 标题不能为空")
+
+    series = get_series(
+        session=session,
+        series_slug=series_slug,
+    )
+
+    series.title = title
+    session.add(series)
+    session.commit()
+    session.refresh(series)
+
+    return series
+
+
+def rename_part(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    title: str,
+) -> ComicPart:
+    title = title.strip()
+
+    if not title:
+        raise ValueError("part 标题不能为空")
+
+    part = get_part(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+    )
+
+    part.title = title
+    session.add(part)
+    session.commit()
+    session.refresh(part)
+
+    return part
+
+
+def build_chapter_title(display_order: int, custom_title: str | None) -> str:
+    custom_title = (custom_title or "").strip()
+
+    if custom_title:
+        return f"第{display_order}话 {custom_title}"
+
+    return f"第{display_order}话"
+
+
+def rename_chapter(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    custom_title: str | None,
+) -> ComicChapter:
+    chapter = get_chapter(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+        chapter_slug=chapter_slug,
+    )
+
+    chapter.title = build_chapter_title(
+        display_order=chapter.display_order,
+        custom_title=custom_title,
+    )
+
+    session.add(chapter)
+    session.commit()
+    session.refresh(chapter)
+
+    return chapter
+
+# ===== Part Owner =====
+def list_owner_candidates(session: Session) -> list[User]:
+    statement = (
+        select(User)
+        .where(User.is_active == True)
+        .where(User.role.in_(["author", "admin"]))
+        .order_by(User.username)
+    )
+
+    return session.exec(statement).all()
+
+
+def get_part_owner(
+    session: Session,
+    part: ComicPart,
+) -> User | None:
+    statement = (
+        select(ComicPartUserLink)
+        .where(ComicPartUserLink.part_id == part.id)
+        .where(ComicPartUserLink.role == "owner")
+    )
+
+    link = session.exec(statement).first()
+
+    if not link:
+        return None
+
+    return session.get(User, link.user_id)
+
+
+def set_part_owner(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    username: str | None,
+) -> User | None:
+    part = get_part(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+    )
+
+    existing_links = session.exec(
+        select(ComicPartUserLink)
+        .where(ComicPartUserLink.part_id == part.id)
+        .where(ComicPartUserLink.role == "owner")
+    ).all()
+
+    for link in existing_links:
+        session.delete(link)
+
+    username = (username or "").strip()
+
+    if not username:
+        session.commit()
+        return None
+
+    user = session.exec(
+        select(User).where(User.username == username)
+    ).first()
+
+    if not user:
+        raise ValueError("用户不存在")
+
+    if not user.is_active:
+        raise ValueError("不能选择已停用用户作为 owner")
+
+    if user.role not in {"author", "admin"}:
+        raise ValueError("owner 必须是 author 或 admin")
+
+    link = ComicPartUserLink(
+        part_id=part.id,
+        user_id=user.id,
+        role="owner",
+    )
+
+    session.add(link)
+    session.commit()
+    session.refresh(user)
+
+    return user

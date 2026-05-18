@@ -17,6 +17,9 @@ http://127.0.0.1:18001
 ```txt
 frontend/src/api/comics.ts
 frontend/src/api/adminComics.ts
+frontend/src/api/auth.ts
+frontend/src/api/users.ts
+frontend/src/api/adminUsers.ts
 ```
 
 后端返回上传资源时使用相对路径，例如：
@@ -26,6 +29,184 @@ frontend/src/api/adminComics.ts
 ```
 
 前端使用 `resolveAssetUrl(url)` 转换为完整 URL。
+
+## 认证 API
+
+认证 router 在：
+
+```txt
+backend/app/routers/auth.py
+```
+
+prefix：
+
+```txt
+/api/auth
+```
+
+前端封装：
+
+```txt
+frontend/src/api/auth.ts
+```
+
+token 保存 key：
+
+```txt
+personal_site_access_token
+```
+
+前端保存或清除 token 后会派发：
+
+```txt
+window.dispatchEvent(new Event("auth-changed"))
+```
+
+### POST /api/auth/register
+
+用途：
+
+注册 reader 用户，并直接返回登录 token。
+
+请求体：
+
+```txt
+username: string
+displayName: string
+password: string
+bio?: string
+```
+
+后端校验：
+
+- `username.trim()` 不能为空。
+- `displayName.trim()` 不能为空。
+- `password` 至少 6 位。
+- `username` 不能重复。
+
+创建用户时固定：
+
+```txt
+role = "reader"
+```
+
+前端调用：
+
+```ts
+register({ username, displayName, password })
+```
+
+注意：当前前端 `RegisterParams` 没有暴露 `bio`，注册请求不会提交 bio。
+
+### POST /api/auth/login
+
+用途：
+
+用户名密码登录。
+
+请求体：
+
+```txt
+username: string
+password: string
+```
+
+返回：
+
+```txt
+accessToken
+tokenType
+user
+```
+
+前端调用：
+
+```ts
+login(username, password)
+```
+
+### GET /api/auth/me
+
+用途：
+
+用 bearer token 获取当前用户。
+
+请求头：
+
+```txt
+Authorization: Bearer {token}
+```
+
+前端调用：
+
+```ts
+getMe()
+```
+
+公开用户字段：
+
+```txt
+id
+username
+displayName
+role
+isActive
+avatarUrl
+bio
+createdAt
+```
+
+当前公开用户字段没有 `updatedAt`，`avatarUrl` 固定为 `null`。
+
+## 公开用户 API
+
+公开用户 API 的 router 在：
+
+```txt
+backend/app/routers/users.py
+```
+
+prefix：
+
+```txt
+/api/users
+```
+
+### GET /api/users/{username}
+
+用途：
+
+获取公开用户主页数据，用于 `/users/:username`。
+
+后端函数：
+
+```py
+def get_user_profile(
+    username: str,
+    session: Session = Depends(get_session),
+):
+```
+
+找不到用户或用户 `is_active == false` 时返回 404，detail 为 `用户不存在`。
+
+返回字段：
+
+```txt
+username
+displayName
+avatarUrl
+bio
+role
+series
+```
+
+当前 `series` 固定返回空数组，`avatarUrl` 固定为 `null`。
+
+前端调用：
+
+```ts
+getUserProfile(username)
+```
 
 ## 公开漫画 API
 
@@ -304,6 +485,7 @@ slug
 title
 visibility
 displayOrder
+owner
 chapters
 ```
 
@@ -318,10 +500,64 @@ displayOrder
 pageCount
 ```
 
+返回 owner 字段：
+
+```txt
+null
+```
+
+或：
+
+```txt
+id
+username
+displayName
+role
+avatarUrl
+```
+
 前端调用：
 
 ```ts
 fetchAdminComicsTree()
+```
+
+### GET /api/admin/comics/owner-candidates
+
+用途：
+
+获取可设置为 part owner 的用户候选列表。
+
+后端函数：
+
+```py
+def get_admin_comic_owner_candidates(
+    session: Session = Depends(get_session),
+):
+```
+
+候选过滤：
+
+```txt
+User.is_active == True
+User.role in ["author", "admin"]
+order by User.username
+```
+
+返回 item 字段：
+
+```txt
+id
+username
+displayName
+role
+avatarUrl
+```
+
+前端调用：
+
+```ts
+fetchAdminComicOwnerCandidates()
 ```
 
 ### POST /api/admin/comics/chapters
@@ -563,6 +799,294 @@ targetChapterSlug?: string
 targetDisplayOrder?: number
 ```
 
+### PATCH /api/admin/comics/{series_slug}/rename
+
+用途：
+
+重命名 series 的 `title`，不修改 `slug`。
+
+请求体：
+
+```txt
+title: string
+```
+
+后端函数：
+
+```py
+def rename_admin_comic_series(
+    series_slug: str,
+    payload: RenameTitleRequest,
+    session: Session = Depends(get_session),
+):
+```
+
+前端调用：
+
+```ts
+renameAdminComicSeries({ seriesSlug, title })
+```
+
+返回字段：
+
+```txt
+id
+slug
+title
+visibility
+displayOrder
+```
+
+### PATCH /api/admin/comics/{series_slug}/{part_slug}/rename
+
+用途：
+
+重命名 part 的 `title`，不修改 `slug`。
+
+请求体：
+
+```txt
+title: string
+```
+
+前端调用：
+
+```ts
+renameAdminComicPart({ seriesSlug, partSlug, title })
+```
+
+返回字段：
+
+```txt
+id
+slug
+title
+visibility
+displayOrder
+```
+
+### PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/rename
+
+用途：
+
+重命名 chapter 的标题后缀。后端会根据当前 `display_order` 生成完整标题。
+
+请求体：
+
+```txt
+customTitle: string | null
+```
+
+生成规则：
+
+```txt
+customTitle 有值：第{display_order}话 {customTitle}
+customTitle 为空：第{display_order}话
+```
+
+前端调用：
+
+```ts
+renameAdminComicChapter({ seriesSlug, partSlug, chapterSlug, customTitle })
+```
+
+返回字段：
+
+```txt
+id
+slug
+title
+visibility
+displayOrder
+```
+
+### PATCH /api/admin/comics/{series_slug}/{part_slug}/owner
+
+用途：
+
+设置或清空 part owner。
+
+请求体：
+
+```txt
+username: string | null
+```
+
+后端规则：
+
+- 先删除该 part 现有 `role == "owner"` 的 `ComicPartUserLink`。
+- `username` 为空或 `null` 时清空 owner。
+- 非空时用户必须存在、启用，且角色是 `author` 或 `admin`。
+
+前端调用：
+
+```ts
+setAdminComicPartOwner({ seriesSlug, partSlug, username })
+```
+
+返回字段：
+
+```txt
+seriesSlug
+partSlug
+owner
+```
+
+## 用户后台 API
+
+用户后台 API 的 router 在：
+
+```txt
+backend/app/routers/user_admin.py
+```
+
+prefix：
+
+```txt
+/api/admin/users
+```
+
+router 统一挂了：
+
+```py
+dependencies=[Depends(require_admin_user)]
+```
+
+前端封装：
+
+```txt
+frontend/src/api/adminUsers.ts
+```
+
+### GET /api/admin/users
+
+用途：
+
+获取用户列表，按 `User.created_at` 排序。
+
+前端调用：
+
+```ts
+fetchAdminUsers()
+```
+
+返回 item 字段：
+
+```txt
+id
+username
+displayName
+role
+isActive
+avatarUrl
+bio
+createdAt
+updatedAt
+```
+
+### POST /api/admin/users
+
+用途：
+
+管理员创建用户。
+
+请求体：
+
+```txt
+username: string
+displayName: string
+password: string
+role: "reader" | "author" | "admin"
+bio?: string
+```
+
+校验：
+
+- `username.trim()` 不能为空。
+- `displayName.trim()` 不能为空。
+- `password` 至少 6 位。
+- `role` 必须是 `reader` / `author` / `admin`。
+- `username` 不能重复。
+
+前端调用：
+
+```ts
+createAdminUser(params)
+```
+
+### PATCH /api/admin/users/{username}
+
+用途：
+
+管理员更新用户资料、角色或启用状态。
+
+请求体字段均可选：
+
+```txt
+displayName?: string
+role?: "reader" | "author" | "admin"
+isActive?: boolean
+bio?: string
+```
+
+前端调用：
+
+```ts
+updateAdminUser(username, params)
+```
+
+### PATCH /api/admin/users/{username}/password
+
+用途：
+
+管理员重置用户密码。
+
+请求体：
+
+```txt
+password: string
+```
+
+密码至少 6 位。
+
+前端调用：
+
+```ts
+resetAdminUserPassword(username, { password })
+```
+
+### DELETE /api/admin/users/{username}
+
+用途：
+
+管理员删除用户。
+
+请求体：
+
+```txt
+confirmUsername: string
+adminPassword: string
+```
+
+规则：
+
+- 不能删除当前登录用户。
+- `confirmUsername` 必须等于路径中的 `username`。
+- `adminPassword` 必须能通过当前管理员的密码校验。
+
+前端调用：
+
+```ts
+deleteAdminUser(username, { confirmUsername, adminPassword })
+```
+
+返回：
+
+```txt
+deleted: true
+username: string
+```
+
 ## 字段命名映射
 
 数据库模型使用 Python / SQL 风格：
@@ -600,3 +1124,8 @@ seriesSlug
 partSlug
 chapterSlug
 ```
+
+请求体也遵循前后端边界：
+
+- 后端 Pydantic 请求体当前使用 camelCase 字段，例如 `displayName`、`isActive`、`customTitle`、`confirmUsername`、`adminPassword`。
+- multipart/form-data 字段仍使用 snake_case，例如 `series_slug`、`part_slug`、`chapter_title`。

@@ -1,6 +1,6 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { clearAccessToken, getMe } from "../api/auth";
+import { clearAccessToken, getMe, type AuthUser } from "../api/auth";
 
 const navItems = [
   { label: 'Home', to: '/' },
@@ -11,21 +11,21 @@ const navItems = [
 
 function Navbar() {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     async function checkLogin() {
       try {
-        await getMe();
+        const user = await getMe();
 
         if (isMounted) {
-          setIsLoggedIn(true);
+          setCurrentUser(user);
         }
       } catch {
         if (isMounted) {
-          setIsLoggedIn(false);
+          setCurrentUser(null);
         }
       }
     }
@@ -42,7 +42,7 @@ function Navbar() {
 
   function handleLogout() {
     clearAccessToken();
-    setIsLoggedIn(false);
+    setCurrentUser(null);
     navigate("/");
   }
 
@@ -72,18 +72,28 @@ function Navbar() {
           ))}
         </div>
 
-        {isLoggedIn ? (
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-          >
-            退出登录
-          </button>
+        {currentUser ? (
+          <div className="flex items-center gap-3">
+            <Link
+              to={`/users/${currentUser.username}`}
+              className="inline-block text-sm font-semibold text-blue-600 underline underline-offset-4 transition duration-150 hover:scale-110 hover:-rotate-1 hover:text-blue-600"
+              title="进入用户主页"
+            >
+              {currentUser.displayName || currentUser.username}
+            </Link>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+            >
+              退出登录
+            </button>
+          </div>
         ) : (
           <NavLink
             to="/admin/login"
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+            className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
           >
             登录
           </NavLink>

@@ -12,10 +12,12 @@
 - 后台上传章节
 - 后台删除内容
 - 后台移动章节顺序
+- 后台重命名漫画内容
+- 后台设置 part owner
 - SQLite 数据索引
 - `backend/uploads/comics` 静态资源存储
 
-漫画以外的模块当前主要是前端页面或静态数据。
+用户模块已经具备注册、登录、公开用户页和管理员用户管理。漫画以外的内容模块当前主要是前端页面或静态数据。
 
 ## 待补齐的工程信息
 
@@ -44,7 +46,7 @@ python-multipart
 
 ### API base URL 配置
 
-前端当前在两个文件中硬编码：
+前端当前在多个 API 文件中硬编码：
 
 ```txt
 http://127.0.0.1:18001
@@ -55,9 +57,12 @@ http://127.0.0.1:18001
 ```txt
 frontend/src/api/comics.ts
 frontend/src/api/adminComics.ts
+frontend/src/api/auth.ts
+frontend/src/api/users.ts
+frontend/src/api/adminUsers.ts
 ```
 
-后续维护时应保证两个文件一致，或改成统一配置。
+后续维护时应保证这些文件一致，或改成统一配置。
 
 ### 数据库迁移说明
 
@@ -70,6 +75,31 @@ SQLModel.metadata.create_all(engine)
 在应用启动时创建。
 
 当前没有迁移系统。修改模型字段前，需要明确如何处理已有 `backend/data/site.db`。
+
+本轮新增或涉及的表包括：
+
+```txt
+user
+comic_part_user_link
+```
+
+已有数据库如果缺少这些表，需要确认启动时 `create_all` 是否已经创建，或补充迁移/重建说明。
+
+### Admin 页面组件拆分
+
+`frontend/src/pages/AdminComicsPage.tsx` 当前已经在同文件内拆出局部组件。后续优先把后台页面的共享结构抽出，服务于：
+
+```txt
+AdminComicsPage
+AdminUsersPage
+后续用户上传页面
+```
+
+拆分时应优先稳定：
+
+- 页面权限检查模式：`getMe()` + `role === "admin"`。
+- API 层函数参数命名：前端 camelCase，multipart 字段 snake_case。
+- 消息区、标题编辑、表格/树节点、确认操作等后台交互组件。
 
 ### 上传资源清理
 

@@ -11,12 +11,21 @@ export type AdminComicChapter = {
   pageCount: number;
 };
 
+export type AdminComicOwner = {
+  id: string;
+  username: string;
+  displayName: string;
+  role: string;
+  avatarUrl: string | null;
+};
+
 export type AdminComicPart = {
   id: string;
   slug: string;
   title: string;
   visibility: string;
   displayOrder: number;
+  owner: AdminComicOwner | null;
   chapters: AdminComicChapter[];
 };
 
@@ -170,5 +179,92 @@ export async function moveAdminComicChapter(params: {
         direction: params.direction,
       }),
     }
+  );
+}
+
+export async function renameAdminComicSeries(params: {
+  seriesSlug: string;
+  title: string;
+}) {
+  return fetchJson(
+    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/rename`,
+    {
+      method: "PATCH",
+      headers: getAdminHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        title: params.title,
+      }),
+    },
+  );
+}
+
+export async function renameAdminComicPart(params: {
+  seriesSlug: string;
+  partSlug: string;
+  title: string;
+}) {
+  return fetchJson(
+    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/rename`,
+    {
+      method: "PATCH",
+      headers: getAdminHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        title: params.title,
+      }),
+    },
+  );
+}
+
+export async function renameAdminComicChapter(params: {
+  seriesSlug: string;
+  partSlug: string;
+  chapterSlug: string;
+  customTitle: string;
+}) {
+  return fetchJson(
+    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}/rename`,
+    {
+      method: "PATCH",
+      headers: getAdminHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        customTitle: params.customTitle,
+      }),
+    },
+  );
+}
+
+export async function fetchAdminComicOwnerCandidates(): Promise<
+  AdminComicOwner[]
+> {
+  return fetchJson<AdminComicOwner[]>(
+    `${API_BASE_URL}/api/admin/comics/owner-candidates`,
+    {
+      headers: getAdminHeaders(),
+    },
+  );
+}
+
+export async function setAdminComicPartOwner(params: {
+  seriesSlug: string;
+  partSlug: string;
+  username: string | null;
+}) {
+  return fetchJson(
+    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/owner`,
+    {
+      method: "PATCH",
+      headers: getAdminHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        username: params.username,
+      }),
+    },
   );
 }

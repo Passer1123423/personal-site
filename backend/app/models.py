@@ -441,3 +441,19 @@ class ComicPage(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
+
+class ComicPartUserLink(SQLModel, table=True):
+    __tablename__ = "comic_part_user_link"
+
+    __table_args__ = (
+        UniqueConstraint("part_id", "user_id", name="uq_comic_part_user"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    part_id: str = Field(index=True, foreign_key="comic_part.id")
+    user_id: str = Field(index=True, foreign_key="user.id")
+
+    role: str = "owner"
+
+    created_at: datetime = Field(default_factory=now_utc)

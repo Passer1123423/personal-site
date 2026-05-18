@@ -13,8 +13,14 @@ import {
   deleteAdminComicSeries,
   fetchAdminComicsTree,
   moveAdminComicChapter,
+  renameAdminComicChapter,
+  renameAdminComicPart,
+  renameAdminComicSeries,
   type AdminComicSeries,
   uploadAdminComicChapter,
+  fetchAdminComicOwnerCandidates,
+  setAdminComicPartOwner,
+  type AdminComicOwner,
 } from "../api/adminComics";
 
 import { useNavigate } from "react-router-dom";
@@ -49,6 +55,106 @@ function MessageArea({
       )}
     </>
   );
+}
+
+function EditableTitle({
+  value,
+  disabled,
+  onSave,
+  inputClassName = "",
+}: {
+  value: string;
+  disabled: boolean;
+  onSave: (value: string) => Promise<void>;
+  inputClassName?: string;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftValue, setDraftValue] = useState(value);
+
+  useEffect(() => {
+    setDraftValue(value);
+  }, [value]);
+
+  function startEdit() {
+    if (disabled) {
+      return;
+    }
+
+    setDraftValue(value);
+    setIsEditing(true);
+  }
+
+  function cancelEdit() {
+    setDraftValue(value);
+    setIsEditing(false);
+  }
+
+  async function saveEdit() {
+    await onSave(draftValue);
+    setIsEditing(false);
+  }
+
+  if (isEditing) {
+    return (
+      <span className="inline-flex items-center gap-2">
+        <input
+          value={draftValue}
+          onChange={(event) => setDraftValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              saveEdit();
+            }
+
+            if (event.key === "Escape") {
+              cancelEdit();
+            }
+          }}
+          className={`rounded-lg border border-slate-300 px-2 py-1 text-sm text-slate-900 outline-none focus:border-blue-400 ${inputClassName}`}
+          autoFocus
+        />
+
+        <button
+          type="button"
+          onClick={saveEdit}
+          disabled={disabled}
+          className="rounded-md border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 disabled:opacity-50"
+          title="保存"
+        >
+          ✓
+        </button>
+
+        <button
+          type="button"
+          onClick={cancelEdit}
+          disabled={disabled}
+          className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+          title="取消"
+        >
+          ×
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEdit}
+      disabled={disabled}
+      className="group inline-flex items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+      title="点击重命名"
+    >
+      <span className="group-hover:underline">{value || ""}</span>
+      <span className="text-xs text-slate-400 transition group-hover:text-slate-600">
+        ✎
+      </span>
+    </button>
+  );
+}
+
+function getChapterCustomTitle(chapter: AdminComicChapter): string {
+  const prefixPattern = new RegExp(`^第\\s*${chapter.displayOrder}\\s*话\\s*`);
+  return chapter.title.replace(prefixPattern, "");
 }
 
 function UploadChapterForm({
@@ -263,13 +369,30 @@ function UploadChapterForm({
 function ComicTreeView({
   tree,
   submitting,
+  onRenameSeries,
+  onRenamePart,
+  onRenameChapter,
   onDeleteSeries,
   onDeletePart,
   onMoveChapter,
   onDeleteChapter,
+  ownerCandidates,
+  onSetPartOwner,
 }: {
   tree: AdminComicSeries[];
   submitting: boolean;
+  onRenameSeries: (seriesSlug: string, title: string) => Promise<void>;
+  onRenamePart: (
+    seriesSlug: string,
+    partSlug: string,
+    title: string
+  ) => Promise<void>;
+  onRenameChapter: (
+    seriesSlug: string,
+    partSlug: string,
+    chapterSlug: string,
+    customTitle: string
+  ) => Promise<void>;
   onDeleteSeries: (seriesSlug: string) => void;
   onDeletePart: (seriesSlug: string, partSlug: string) => void;
   onMoveChapter: (
@@ -283,6 +406,12 @@ function ComicTreeView({
     partSlug: string,
     chapterSlug: string
   ) => void;
+  ownerCandidates: AdminComicOwner[];
+  onSetPartOwner: (
+    seriesSlug: string,
+    partSlug: string,
+    username: string | null
+  ) => Promise<void>;
 }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -297,10 +426,15 @@ function ComicTreeView({
               key={series.id}
               series={series}
               submitting={submitting}
+              onRenameSeries={onRenameSeries}
+              onRenamePart={onRenamePart}
+              onRenameChapter={onRenameChapter}
               onDeleteSeries={onDeleteSeries}
               onDeletePart={onDeletePart}
               onMoveChapter={onMoveChapter}
               onDeleteChapter={onDeleteChapter}
+              ownerCandidates={ownerCandidates}
+              onSetPartOwner={onSetPartOwner}
             />
           ))}
         </div>
@@ -312,13 +446,30 @@ function ComicTreeView({
 function SeriesBlock({
   series,
   submitting,
+  onRenameSeries,
+  onRenamePart,
+  onRenameChapter,
   onDeleteSeries,
   onDeletePart,
   onMoveChapter,
   onDeleteChapter,
+  ownerCandidates,
+  onSetPartOwner,
 }: {
   series: AdminComicSeries;
   submitting: boolean;
+  onRenameSeries: (seriesSlug: string, title: string) => Promise<void>;
+  onRenamePart: (
+    seriesSlug: string,
+    partSlug: string,
+    title: string
+  ) => Promise<void>;
+  onRenameChapter: (
+    seriesSlug: string,
+    partSlug: string,
+    chapterSlug: string,
+    customTitle: string
+  ) => Promise<void>;
   onDeleteSeries: (seriesSlug: string) => void;
   onDeletePart: (seriesSlug: string, partSlug: string) => void;
   onMoveChapter: (
@@ -332,12 +483,23 @@ function SeriesBlock({
     partSlug: string,
     chapterSlug: string
   ) => void;
+  ownerCandidates: AdminComicOwner[];
+  onSetPartOwner: (
+    seriesSlug: string,
+    partSlug: string,
+    username: string | null
+  ) => Promise<void>;
 }) {
   return (
     <div className="rounded-xl bg-slate-50 p-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-semibold">
-          {series.title} ({series.slug})
+          <EditableTitle
+            value={series.title}
+            disabled={submitting}
+            onSave={(title) => onRenameSeries(series.slug, title)}
+          />{" "}
+          <span className="text-slate-500">({series.slug})</span>
         </h3>
 
         <button
@@ -360,9 +522,13 @@ function SeriesBlock({
               seriesSlug={series.slug}
               part={part}
               submitting={submitting}
+              onRenamePart={onRenamePart}
+              onRenameChapter={onRenameChapter}
               onDeletePart={onDeletePart}
               onMoveChapter={onMoveChapter}
               onDeleteChapter={onDeleteChapter}
+              ownerCandidates={ownerCandidates}
+              onSetPartOwner={onSetPartOwner}
             />
           ))
         )}
@@ -375,13 +541,28 @@ function PartBlock({
   seriesSlug,
   part,
   submitting,
+  onRenamePart,
+  onRenameChapter,
   onDeletePart,
   onMoveChapter,
   onDeleteChapter,
+  ownerCandidates,
+  onSetPartOwner,
 }: {
   seriesSlug: string;
   part: AdminComicPart;
   submitting: boolean;
+  onRenamePart: (
+    seriesSlug: string,
+    partSlug: string,
+    title: string
+  ) => Promise<void>;
+  onRenameChapter: (
+    seriesSlug: string,
+    partSlug: string,
+    chapterSlug: string,
+    customTitle: string
+  ) => Promise<void>;
   onDeletePart: (seriesSlug: string, partSlug: string) => void;
   onMoveChapter: (
     seriesSlug: string,
@@ -394,13 +575,51 @@ function PartBlock({
     partSlug: string,
     chapterSlug: string
   ) => void;
+  ownerCandidates: AdminComicOwner[];
+  onSetPartOwner: (
+    seriesSlug: string,
+    partSlug: string,
+    username: string | null
+  ) => Promise<void>;
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="font-medium">
-          {part.title} ({part.slug})
-        </h4>
+        <div>
+          <h4 className="font-medium">
+            <EditableTitle
+              value={part.title}
+              disabled={submitting}
+              onSave={(title) => onRenamePart(seriesSlug, part.slug, title)}
+            />{" "}
+            <span className="text-slate-500">({part.slug})</span>
+          </h4>
+
+          <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
+            <span>owner</span>
+            <select
+              value={part.owner?.username ?? ""}
+              onChange={(event) =>
+                onSetPartOwner(
+                  seriesSlug,
+                  part.slug,
+                  event.target.value || null,
+                )
+              }
+              disabled={submitting}
+              className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 outline-none focus:border-blue-400 disabled:opacity-60"
+            >
+              <option value="">未指定</option>
+              {ownerCandidates.map((user) => (
+                <option key={user.id} value={user.username}>
+                  {user.displayName} (@{user.username}, {user.role})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+
 
         <button
           type="button"
@@ -423,6 +642,7 @@ function PartBlock({
               partSlug={part.slug}
               chapter={chapter}
               submitting={submitting}
+              onRenameChapter={onRenameChapter}
               onMoveChapter={onMoveChapter}
               onDeleteChapter={onDeleteChapter}
             />
@@ -438,6 +658,7 @@ function ChapterRow({
   partSlug,
   chapter,
   submitting,
+  onRenameChapter,
   onMoveChapter,
   onDeleteChapter,
 }: {
@@ -445,6 +666,12 @@ function ChapterRow({
   partSlug: string;
   chapter: AdminComicChapter;
   submitting: boolean;
+  onRenameChapter: (
+    seriesSlug: string,
+    partSlug: string,
+    chapterSlug: string,
+    customTitle: string
+  ) => Promise<void>;
   onMoveChapter: (
     seriesSlug: string,
     partSlug: string,
@@ -461,7 +688,16 @@ function ChapterRow({
     <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
       <div>
         <p className="font-medium">
-          {chapter.displayOrder}. {chapter.title}
+          <span className="mr-2 text-slate-500">{chapter.displayOrder}.</span>
+          <span className="mr-1 text-slate-500">第{chapter.displayOrder}话</span>
+          <EditableTitle
+            value={getChapterCustomTitle(chapter)}
+            disabled={submitting}
+            onSave={(customTitle) =>
+              onRenameChapter(seriesSlug, partSlug, chapter.slug, customTitle)
+            }
+            inputClassName="w-40"
+          />
         </p>
         <p className="text-sm text-slate-500">
           {chapter.slug} · {chapter.pageCount} 页
@@ -526,6 +762,8 @@ function AdminComicsPage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [ownerCandidates, setOwnerCandidates] = useState<AdminComicOwner[]>([]);
+
   async function loadTree(preferred?: {
     seriesSlug?: string;
     partSlug?: string;
@@ -584,7 +822,20 @@ function AdminComicsPage() {
     }
 
     loadTree();
+    loadOwnerCandidates();
   }, [isAuthReady]);
+
+  async function loadOwnerCandidates() {
+    try {
+      const data = await fetchAdminComicOwnerCandidates();
+      setOwnerCandidates(data);
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "加载 owner 候选人失败。"
+      );
+    }
+  }
 
   useEffect(() => {
     if (!successMessage) {
@@ -887,6 +1138,74 @@ function AdminComicsPage() {
     }
   }
 
+  async function handleRenameSeries(seriesSlug: string, title: string) {
+    setSubmitting(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      await renameAdminComicSeries({ seriesSlug, title });
+      setSuccessMessage(`已重命名 series：${seriesSlug}`);
+      await loadTree({ seriesSlug });
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error instanceof Error ? error.message : "重命名 series 失败。");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRenamePart(
+    seriesSlug: string,
+    partSlug: string,
+    title: string
+  ) {
+    setSubmitting(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      await renameAdminComicPart({ seriesSlug, partSlug, title });
+      setSuccessMessage(`已重命名 part：${seriesSlug}/${partSlug}`);
+      await loadTree({ seriesSlug, partSlug });
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error instanceof Error ? error.message : "重命名 part 失败。");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRenameChapter(
+    seriesSlug: string,
+    partSlug: string,
+    chapterSlug: string,
+    customTitle: string
+  ) {
+    setSubmitting(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      await renameAdminComicChapter({
+        seriesSlug,
+        partSlug,
+        chapterSlug,
+        customTitle,
+      });
+
+      setSuccessMessage(`已重命名 chapter：${seriesSlug}/${partSlug}/${chapterSlug}`);
+      await loadTree({ seriesSlug, partSlug });
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "重命名 chapter 失败。"
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleMoveChapter(
     seriesSlug: string,
     partSlug: string,
@@ -922,6 +1241,32 @@ function AdminComicsPage() {
       setErrorMessage(
         error instanceof Error ? error.message : "移动章节失败。"
       );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSetPartOwner(
+    seriesSlug: string,
+    partSlug: string,
+    username: string | null
+  ) {
+    setSubmitting(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      await setAdminComicPartOwner({
+        seriesSlug,
+        partSlug,
+        username,
+      });
+
+      setSuccessMessage(`已更新 owner：${seriesSlug}/${partSlug}`);
+      await loadTree({ seriesSlug, partSlug });
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error instanceof Error ? error.message : "更新 owner 失败。");
     } finally {
       setSubmitting(false);
     }
@@ -987,10 +1332,15 @@ function AdminComicsPage() {
       <ComicTreeView
         tree={tree}
         submitting={submitting}
+        onRenameSeries={handleRenameSeries}
+        onRenamePart={handleRenamePart}
+        onRenameChapter={handleRenameChapter}
         onDeleteSeries={handleDeleteSeries}
         onDeletePart={handleDeletePart}
         onMoveChapter={handleMoveChapter}
         onDeleteChapter={handleDeleteChapter}
+        ownerCandidates={ownerCandidates}
+        onSetPartOwner={handleSetPartOwner}
       />
     </main>
   );

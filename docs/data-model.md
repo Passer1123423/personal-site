@@ -11,8 +11,11 @@ backend/app/models.py
 ## 模型层级
 
 ```txt
+User
+
 ComicSeries
 └── ComicPart
+    ├── ComicPartUserLink -> User
     └── ComicChapter
         └── ComicPage
             └── Asset
@@ -25,6 +28,8 @@ ComicSeries
 - `ComicChapter` 表示分部下的一话、一章或一个短篇。
 - `ComicPage` 表示章节中的单张漫画图片。
 - `Asset` 表示实际上传资源，漫画页通过 `asset_id` 关联图片。
+- `User` 表示注册用户、作者和管理员。
+- `ComicPartUserLink` 表示漫画 part 与用户之间的关系；当前只用于 `role == "owner"`。
 
 ## 通用约定
 
@@ -39,6 +44,8 @@ API 返回给前端时，常见字段会转为 camelCase。
 | `created_at` | `createdAt` |
 | `updated_at` | `updatedAt` |
 | `published_at` | `publishedAt` |
+| `display_name` | `displayName` |
+| `is_active` | `isActive` |
 
 注意：
 
@@ -46,6 +53,7 @@ API 返回给前端时，常见字段会转为 camelCase。
 - 前端路由优先使用 `slug`，不要直接依赖数据库 `id`。
 - 公开 API 只返回 `visibility == "public"` 的内容。
 - Admin tree 当前返回所有 series / part / chapter，不按 `visibility` 过滤。
+- 用户相关 API 返回时使用 `displayName`、`isActive`、`avatarUrl`，当前 `avatarUrl` 固定为 `null`。
 
 ## Asset
 
@@ -126,6 +134,8 @@ status = "ongoing"
 visibility = "public"
 ```
 
+当前后台重命名 series 只修改 `title`，不会修改 `slug`。
+
 ## ComicPart
 
 表名：
@@ -168,6 +178,8 @@ series_id + slug
 status = "ongoing"
 visibility = "public"
 ```
+
+当前后台重命名 part 只修改 `title`，不会修改 `slug`。
 
 ## ComicChapter
 
@@ -220,6 +232,15 @@ chapter_title 有值：第{next_order}话 {chapter_title}
 chapter_title 无值：第{next_order}话
 ```
 
+后台重命名 chapter 使用自定义标题后缀 `customTitle` 重新生成完整标题：
+
+```txt
+customTitle 有值：第{display_order}话 {customTitle}
+customTitle 无值：第{display_order}话
+```
+
+后台移动或删除 chapter 后会重写 `display_order`，并同步更新标题中的 `第N话`。`chapter.slug` 不会因为移动、删除重排或重命名而改变。
+
 ## ComicPage
 
 表名：
@@ -256,3 +277,79 @@ chapter_id + display_order
 阅读顺序由 `ComicPage.display_order` 决定。
 
 `Asset` 不承担漫画页序。
+
+## User
+
+表名：
+
+```txt
+user
+```
+
+模型：
+
+```py
+class User(SQLModel, table=True):
+```
+
+字段：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | `str` | 主键，默认 `new_id()` |
+| `username` | `str` | 登录名，唯一，也用于 `/users/:username` |
+| `display_name` | `str \| None` | 显示名；注册和管理员创建时要求非空，但模型层允许为空 |
+| `password_hash` | `str` | 密码哈希，不保存明文 |
+| `role` | `str` | 角色，默认 `reader` |
+| `is_active` | `bool` | 是否启用，默认 `True` |
+| `avatar_asset_id` | `str \| None` | 头像资源 ID，当前 API 尚未转换为真实 URL |
+| `bio` | `str` | 简介，默认空字符串 |
+| `created_at` | `datetime` | 创建时间 |
+| `updated_at` | `datetime` | 更新时间 |
+
+当前角色约定：
+
+```txt
+reader
+author
+admin
+```
+
+注册接口始终创建 `role="reader"`。管理员用户接口可创建或修改为 `reader` / `author` / `admin`。
+
+## ComicPartUserLink
+
+表名：
+
+```txt
+comic_part_user_link
+```
+
+模型：
+
+```py
+class ComicPartUserLink(SQLModel, table=True):
+```
+
+唯一约束：
+
+```txt
+part_id + user_id
+```
+
+字段：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | `str` | 主键 |
+| `part_id` | `str` | 关联 `comic_part.id` |
+| `user_id` | `str` | 关联 `user.id` |
+| `role` | `str` | 关系角色，当前默认并使用 `owner` |
+| `created_at` | `datetime` | 创建时间 |
+
+当前 owner 规则：
+
+- 一个 part 当前只保留一个 `role == "owner"` 的 link。
+- 设置新 owner 前会删除该 part 现有 owner link。
+- 传空用户名或 `null` 会清空 owner。
+- owner 用户必须存在、启用，且 `User.role` 必须是 `author` 或 `admin`。
