@@ -146,6 +146,8 @@ async def save_upload_image(
     written_size = 0
 
     try:
+        await upload_file.seek(0)
+
         with target_path.open("wb") as f:
             while True:
                 chunk = await upload_file.read(1024 * 1024)
@@ -160,27 +162,32 @@ async def save_upload_image(
 
                 f.write(chunk)
 
+        if written_size <= 0:
+            raise ValueError(f"上传文件为空：{original_filename}")
+
+        image = ComicUploadImage(
+            user_id=user_id,
+            original_filename=original_filename,
+            stored_filename=stored_filename,
+            storage_path=get_user_staging_relative_path(user_id, stored_filename),
+            content_type=upload_file.content_type,
+            size_bytes=written_size,
+            display_order=get_next_display_order(session, user_id),
+        )
+
+        session.add(image)
+        session.commit()
+        session.refresh(image)
+
+        return image
+
     except Exception:
+        session.rollback()
+
         if target_path.exists():
             target_path.unlink()
 
         raise
-
-    image = ComicUploadImage(
-        user_id=user_id,
-        original_filename=original_filename,
-        stored_filename=stored_filename,
-        storage_path=get_user_staging_relative_path(user_id, stored_filename),
-        content_type=upload_file.content_type,
-        size_bytes=written_size,
-        display_order=get_next_display_order(session, user_id),
-    )
-
-    session.add(image)
-    session.commit()
-    session.refresh(image)
-
-    return image
 
 
 async def save_upload_images(

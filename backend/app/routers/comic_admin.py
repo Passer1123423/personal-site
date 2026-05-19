@@ -31,6 +31,10 @@ from app.services.comic_admin import (
     list_owner_candidates,
     get_part_owner,
     set_part_owner,
+    reset_series_summary,
+    reset_part_summary,
+    set_series_cover,
+    set_part_cover,
 )
 
 class MoveChapterRequest(BaseModel):
@@ -43,8 +47,12 @@ class RenameTitleRequest(BaseModel):
 class RenameChapterRequest(BaseModel):
     customTitle: str | None = None
 
+class SummaryRequest(BaseModel):
+    summary: str | None = ""
+
 class SetPartOwnerRequest(BaseModel):
     username: str | None = None
+
 def user_to_owner_item(user: User | None):
     if not user:
         return None
@@ -112,6 +120,10 @@ def get_admin_comics_tree(session: Session = Depends(get_session)):
                     "id": part.id,
                     "slug": part.slug,
                     "title": part.title,
+                    "summary": part.summary,
+                    "coverUrl": session.get(Asset, part.cover_asset_id).url
+                    if part.cover_asset_id and session.get(Asset, part.cover_asset_id)
+                    else None,
                     "visibility": part.visibility,
                     "displayOrder": part.display_order,
                     "owner": user_to_owner_item(owner),
@@ -124,6 +136,10 @@ def get_admin_comics_tree(session: Session = Depends(get_session)):
                 "id": series.id,
                 "slug": series.slug,
                 "title": series.title,
+                "summary": series.summary,
+                "coverUrl": session.get(Asset, series.cover_asset_id).url
+                if series.cover_asset_id and session.get(Asset, series.cover_asset_id)
+                else None,
                 "visibility": series.visibility,
                 "displayOrder": series.display_order,
                 "parts": part_items,
@@ -367,4 +383,143 @@ def set_admin_comic_part_owner(
         "seriesSlug": series_slug,
         "partSlug": part_slug,
         "owner": user_to_owner_item(owner),
+    }
+
+@router.patch("/{series_slug}/summary")
+def update_admin_comic_series_summary(
+    series_slug: str,
+    payload: SummaryRequest,
+    session: Session = Depends(get_session),
+):
+    try:
+        series = reset_series_summary(
+            session=session,
+            series_slug=series_slug,
+            summary=payload.summary,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": series.id,
+        "slug": series.slug,
+        "title": series.title,
+        "summary": series.summary,
+        "visibility": series.visibility,
+        "displayOrder": series.display_order,
+    }
+
+
+@router.patch("/{series_slug}/{part_slug}/summary")
+def update_admin_comic_part_summary(
+    series_slug: str,
+    part_slug: str,
+    payload: SummaryRequest,
+    session: Session = Depends(get_session),
+):
+    try:
+        part = reset_part_summary(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+            summary=payload.summary,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": part.id,
+        "slug": part.slug,
+        "title": part.title,
+        "summary": part.summary,
+        "visibility": part.visibility,
+        "displayOrder": part.display_order,
+    }
+
+
+@router.post("/{series_slug}/cover")
+async def upload_admin_comic_series_cover(
+    series_slug: str,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        original_name = file.filename or "cover"
+        suffix = Path(original_name).suffix.lower()
+
+        if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的文件类型：{original_name}",
+            )
+
+        source_path = temp_path / f"cover{suffix}"
+
+        with source_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        try:
+            series = set_series_cover(
+                session=session,
+                series_slug=series_slug,
+                source_path=source_path,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": series.id,
+        "slug": series.slug,
+        "title": series.title,
+        "summary": series.summary,
+        "coverUrl": session.get(Asset, series.cover_asset_id).url,
+        "visibility": series.visibility,
+        "displayOrder": series.display_order,
+    }
+
+
+@router.post("/{series_slug}/{part_slug}/cover")
+async def upload_admin_comic_part_cover(
+    series_slug: str,
+    part_slug: str,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        original_name = file.filename or "cover"
+        suffix = Path(original_name).suffix.lower()
+
+        if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的文件类型：{original_name}",
+            )
+
+        source_path = temp_path / f"cover{suffix}"
+
+        with source_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        try:
+            part = set_part_cover(
+                session=session,
+                series_slug=series_slug,
+                part_slug=part_slug,
+                source_path=source_path,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": part.id,
+        "slug": part.slug,
+        "title": part.title,
+        "summary": part.summary,
+        "coverUrl": session.get(Asset, part.cover_asset_id).url,
+        "visibility": part.visibility,
+        "displayOrder": part.display_order,
     }

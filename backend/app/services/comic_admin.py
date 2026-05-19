@@ -15,6 +15,7 @@ from app.models import (
     ComicPage,
     User,
     ComicPartUserLink,
+    now_utc,
 )
 
 import re
@@ -835,6 +836,51 @@ def rename_chapter(
 
     return chapter
 
+# ===== 简介 =====
+def reset_series_summary(
+    session: Session,
+    series_slug: str,
+    summary: str | None = None,
+) -> ComicSeries:
+    series = get_series(
+        session=session,
+        series_slug=series_slug,
+    )
+
+    series.summary = (summary or "").strip()
+    series.updated_at = now_utc()
+
+    session.add(series)
+    session.commit()
+    session.refresh(series)
+
+    return series
+
+
+def reset_part_summary(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    summary: str | None = None,
+) -> ComicPart:
+    part = get_part(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+    )
+
+    part.summary = (summary or "").strip()
+    part.updated_at = now_utc()
+
+    session.add(part)
+    session.commit()
+    session.refresh(part)
+
+    return part
+
+# ===== 封面 =====
+
+
 # ===== Part Owner =====
 def list_owner_candidates(session: Session) -> list[User]:
     statement = (
@@ -942,3 +988,234 @@ def set_part_owner(
     session.refresh(user)
 
     return user
+
+# ===== 封面 =====
+def copy_series_cover_to_uploads(
+    source_path: Path,
+    series_slug: str,
+    upload_root: Path,
+) -> tuple[Path, str]:
+    if not source_path.exists():
+        raise FileNotFoundError(f"封面文件不存在：{source_path}")
+
+    if not source_path.is_file():
+        raise ValueError(f"封面路径不是文件：{source_path}")
+
+    if ":Zone.Identifier" in source_path.name:
+        raise ValueError(f"非法文件名：{source_path.name}")
+
+    suffix = source_path.suffix.lower()
+
+    if suffix not in IMAGE_EXTENSIONS:
+        raise ValueError(f"不支持的封面格式：{source_path.name}")
+
+    target_dir = upload_root / series_slug / "cover"
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{uuid4()}{suffix}"
+    target_path = target_dir / filename
+
+    copy2(source_path, target_path)
+
+    asset_url = (
+        f"/uploads/comics/"
+        f"{series_slug}/"
+        f"cover/"
+        f"{filename}"
+    )
+
+    return target_path, asset_url
+
+
+def copy_part_cover_to_uploads(
+    source_path: Path,
+    series_slug: str,
+    part_slug: str,
+    upload_root: Path,
+) -> tuple[Path, str]:
+    if not source_path.exists():
+        raise FileNotFoundError(f"封面文件不存在：{source_path}")
+
+    if not source_path.is_file():
+        raise ValueError(f"封面路径不是文件：{source_path}")
+
+    if ":Zone.Identifier" in source_path.name:
+        raise ValueError(f"非法文件名：{source_path.name}")
+
+    suffix = source_path.suffix.lower()
+
+    if suffix not in IMAGE_EXTENSIONS:
+        raise ValueError(f"不支持的封面格式：{source_path.name}")
+
+    target_dir = upload_root / series_slug / part_slug / "cover"
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{uuid4()}{suffix}"
+    target_path = target_dir / filename
+
+    copy2(source_path, target_path)
+
+    asset_url = (
+        f"/uploads/comics/"
+        f"{series_slug}/"
+        f"{part_slug}/"
+        f"cover/"
+        f"{filename}"
+    )
+
+    return target_path, asset_url
+
+
+def create_cover_asset(
+    session: Session,
+    asset_url: str,
+    source_path: Path,
+) -> Asset:
+    asset = Asset(
+        id=str(uuid4()),
+        filename=Path(asset_url).name,
+        original_name=source_path.name,
+        mime_type=guess_mime_type(source_path),
+        size=source_path.stat().st_size,
+        url=asset_url,
+        usage="comic_cover",
+    )
+
+    session.add(asset)
+    session.commit()
+    session.refresh(asset)
+
+    return asset
+
+
+def get_asset_upload_path(asset: Asset) -> Path | None:
+    prefix = "/uploads/comics/"
+
+    if not asset.url.startswith(prefix):
+        return None
+
+    relative_path = Path(asset.url.removeprefix(prefix))
+
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise ValueError("asset 文件路径非法")
+
+    return UPLOADS_ROOT / relative_path
+
+
+def delete_asset_file(asset: Asset) -> None:
+    file_path = get_asset_upload_path(asset)
+
+    if file_path is None:
+        return
+
+    if file_path.exists():
+        file_path.unlink()
+
+
+def delete_cover_asset(
+    session: Session,
+    asset_id: str | None,
+) -> None:
+    if not asset_id:
+        return
+
+    asset = session.get(Asset, asset_id)
+
+    if not asset:
+        return
+
+    delete_asset_file(asset)
+
+    session.delete(asset)
+    session.commit()
+
+
+def set_series_cover(
+    session: Session,
+    series_slug: str,
+    source_path: Path,
+    uploads_root: Path | None = UPLOADS_ROOT,
+) -> ComicSeries:
+    if uploads_root is None:
+        raise ValueError("uploads_root 不能为空")
+
+    series = get_series(
+        session=session,
+        series_slug=series_slug,
+    )
+
+    old_cover_asset_id = series.cover_asset_id
+
+    _, asset_url = copy_series_cover_to_uploads(
+        source_path=source_path,
+        series_slug=series.slug,
+        upload_root=uploads_root,
+    )
+
+    asset = create_cover_asset(
+        session=session,
+        asset_url=asset_url,
+        source_path=source_path,
+    )
+
+    series.cover_asset_id = asset.id
+    series.updated_at = now_utc()
+
+    session.add(series)
+    session.commit()
+    session.refresh(series)
+
+    if old_cover_asset_id and old_cover_asset_id != asset.id:
+        delete_cover_asset(
+            session=session,
+            asset_id=old_cover_asset_id,
+        )
+
+    return series
+
+
+def set_part_cover(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    source_path: Path,
+    uploads_root: Path | None = UPLOADS_ROOT,
+) -> ComicPart:
+    if uploads_root is None:
+        raise ValueError("uploads_root 不能为空")
+
+    part = get_part(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+    )
+
+    old_cover_asset_id = part.cover_asset_id
+
+    _, asset_url = copy_part_cover_to_uploads(
+        source_path=source_path,
+        series_slug=series_slug,
+        part_slug=part.slug,
+        upload_root=uploads_root,
+    )
+
+    asset = create_cover_asset(
+        session=session,
+        asset_url=asset_url,
+        source_path=source_path,
+    )
+
+    part.cover_asset_id = asset.id
+    part.updated_at = now_utc()
+
+    session.add(part)
+    session.commit()
+    session.refresh(part)
+
+    if old_cover_asset_id and old_cover_asset_id != asset.id:
+        delete_cover_asset(
+            session=session,
+            asset_id=old_cover_asset_id,
+        )
+
+    return part

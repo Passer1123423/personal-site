@@ -466,7 +466,6 @@ class ComicUploadImage(SQLModel, table=True):
     original_filename: str
     stored_filename: str
     storage_path: str
-    url: str
 
     content_type: str | None = None
     size_bytes: int

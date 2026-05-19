@@ -345,16 +345,34 @@ def publish_upload_as_chapter(
     )
 
     try:
+        images = list_user_upload_images(
+            session=session,
+            user_id=current_user.id,
+        )
+
+        if not images:
+            raise ValueError("当前待传区没有图片")
+
+        if payload.ordered_image_ids is None:
+            ordered_image_ids = [image.id for image in images]
+        else:
+            ordered_image_ids = payload.ordered_image_ids
+
+        image_ids = {image.id for image in images}
+
+        if (
+                len(ordered_image_ids) != len(images)
+                or set(ordered_image_ids) != image_ids
+        ):
+            raise ValueError("发布列表必须包含当前待传区全部图片")
+
         source_dir = get_staging_source_dir_for_publish(current_user.id)
 
         ordered_file_names = get_ordered_stored_file_names(
             session=session,
             user_id=current_user.id,
-            ordered_image_ids=payload.ordered_image_ids,
+            ordered_image_ids=ordered_image_ids,
         )
-
-        if not ordered_file_names:
-            raise ValueError("没有选择要发布的图片")
 
         result = import_comic_chapter_from_dir(
             session=session,
@@ -366,17 +384,11 @@ def publish_upload_as_chapter(
             ordered_file_names=ordered_file_names,
         )
 
-        if payload.ordered_image_ids is None:
-            clear_user_upload_images(
-                session=session,
-                user_id=current_user.id,
-            )
-        else:
-            delete_upload_images(
-                session=session,
-                user_id=current_user.id,
-                image_ids=payload.ordered_image_ids,
-            )
+        delete_upload_images(
+            session=session,
+            user_id=current_user.id,
+            image_ids=ordered_image_ids,
+        )
 
     except Exception as exc:
         raise_service_error(exc)
