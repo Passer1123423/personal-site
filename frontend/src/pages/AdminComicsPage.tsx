@@ -43,13 +43,13 @@ function MessageArea({
   return (
     <>
       {errorMessage && (
-        <section className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+        <section className="admin-message-error p-4">
           {errorMessage}
         </section>
       )}
 
       {successMessage && (
-        <section className="rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
+        <section className="admin-message-success p-4">
           {successMessage}
         </section>
       )}
@@ -109,7 +109,7 @@ function EditableTitle({
               cancelEdit();
             }
           }}
-          className={`rounded-lg border border-slate-300 px-2 py-1 text-sm text-slate-900 outline-none focus:border-blue-400 ${inputClassName}`}
+          className={`admin-input px-2 py-1 text-sm ${inputClassName}`}
           autoFocus
         />
 
@@ -117,7 +117,7 @@ function EditableTitle({
           type="button"
           onClick={saveEdit}
           disabled={disabled}
-          className="rounded-md border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 disabled:opacity-50"
+          className="admin-button-secondary px-2 py-1 text-xs disabled:opacity-50"
           title="保存"
         >
           ✓
@@ -127,7 +127,7 @@ function EditableTitle({
           type="button"
           onClick={cancelEdit}
           disabled={disabled}
-          className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+          className="admin-button-danger px-2 py-1 text-xs disabled:opacity-50"
           title="取消"
         >
           ×
@@ -145,7 +145,7 @@ function EditableTitle({
       title="点击重命名"
     >
       <span className="group-hover:underline">{value || ""}</span>
-      <span className="text-xs text-slate-400 transition group-hover:text-slate-600">
+      <span className="text-xs text-soft transition group-hover:text-muted">
         ✎
       </span>
     </button>
@@ -213,8 +213,8 @@ function UploadChapterForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
-      <h2 className="text-xl font-semibold">上传新章节</h2>
+    <section className="admin-section">
+      <h2 className="text-xl font-semibold text-main">上传新章节</h2>
 
       <form onSubmit={onSubmit} className="mt-4 space-y-4">
         <div>
@@ -222,7 +222,7 @@ function UploadChapterForm({
           <select
             value={seriesMode === "new" ? NEW_OPTION : selectedSeriesSlug}
             onChange={(event) => onSeriesChange(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+            className="admin-select mt-1 w-full px-3 py-2"
           >
             {tree.map((series) => (
               <option key={series.id} value={series.slug}>
@@ -239,18 +239,18 @@ function UploadChapterForm({
                   value={newSeriesSlug}
                   onChange={(event) => onNewSeriesSlugChange(event.target.value)}
                   placeholder="新 series slug，例如 new-comic"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className="admin-input px-3 py-2"
                 />
                 <input
                   value={newSeriesTitle}
                   onChange={(event) => onNewSeriesTitleChange(event.target.value)}
                   placeholder="新 series 标题，可留空"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className="admin-input px-3 py-2"
                 />
               </div>
 
               {newSeriesSlugExists && (
-                <p className="mt-2 text-sm text-red-600">
+                <p className="mt-2 text-sm text-soft">
                   这个 series slug 已存在，请切回已有 series 或换一个 slug。
                 </p>
               )}
@@ -263,7 +263,7 @@ function UploadChapterForm({
           <select
             value={partMode === "new" ? NEW_OPTION : selectedPartSlug}
             onChange={(event) => onPartChange(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+            className="admin-select mt-1 w-full px-3 py-2"
           >
             {selectedSeries?.parts.map((part) => (
               <option key={part.id} value={part.slug}>
@@ -274,7 +274,7 @@ function UploadChapterForm({
           </select>
 
           {selectedPart && (
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-soft">
               当前选择：{selectedPart.title} ({selectedPart.slug})
             </p>
           )}
@@ -286,18 +286,18 @@ function UploadChapterForm({
                   value={newPartSlug}
                   onChange={(event) => onNewPartSlugChange(event.target.value)}
                   placeholder="新 part slug，例如 part-01"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className="admin-input px-3 py-2"
                 />
                 <input
                   value={newPartTitle}
                   onChange={(event) => onNewPartTitleChange(event.target.value)}
                   placeholder="新 part 标题，可留空"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className="admin-input px-3 py-2"
                 />
               </div>
 
               {newPartSlugExists && (
-                <p className="mt-2 text-sm text-red-600">
+                <p className="mt-2 text-sm text-soft">
                   这个 part slug 已存在，请切回已有 part 或换一个 slug。
                 </p>
               )}
@@ -311,7 +311,7 @@ function UploadChapterForm({
             value={chapterTitle}
             onChange={(event) => onChapterTitleChange(event.target.value)}
             placeholder="例如：测试章节；可留空"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+            className="admin-input mt-1 w-full px-3 py-2"
           />
         </div>
 
@@ -330,12 +330,12 @@ function UploadChapterForm({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-lg border border-slate-300 px-4 py-2 hover:bg-slate-50"
+              className="admin-button-secondary px-4 py-2"
             >
               选择图片
             </button>
 
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-soft">
               {files.length === 0
                 ? "未选择图片，可按 Ctrl / Shift 多选"
                 : `已选择 ${files.length} 张图片`}
@@ -344,9 +344,9 @@ function UploadChapterForm({
         </div>
 
         {files.length > 0 && (
-          <div className="rounded-xl bg-slate-50 p-4">
+          <div className="admin-muted-panel p-4">
             <p className="font-medium">待上传图片顺序</p>
-            <ol className="mt-2 list-decimal space-y-1 pl-6 text-sm text-slate-700">
+            <ol className="mt-2 list-decimal space-y-1 pl-6 text-sm text-muted">
               {files.map((file, index) => (
                 <li key={`${file.name}-${index}`}>{file.name}</li>
               ))}
@@ -357,7 +357,7 @@ function UploadChapterForm({
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
+          className="admin-button-primary px-4 py-2 disabled:opacity-50"
         >
           {submitting ? "处理中..." : "上传并创建章节"}
         </button>
@@ -414,11 +414,11 @@ function ComicTreeView({
   ) => Promise<void>;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
-      <h2 className="text-xl font-semibold">当前漫画结构</h2>
+    <section className="admin-section">
+      <h2 className="text-xl font-semibold text-main">当前漫画结构</h2>
 
       {tree.length === 0 ? (
-        <p className="mt-4 text-slate-500">暂无漫画数据。</p>
+        <p className="mt-4 text-soft">暂无漫画数据。</p>
       ) : (
         <div className="mt-4 space-y-6">
           {tree.map((series) => (
@@ -491,7 +491,7 @@ function SeriesBlock({
   ) => Promise<void>;
 }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-4">
+    <div className="admin-muted-panel p-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-semibold">
           <EditableTitle
@@ -499,14 +499,14 @@ function SeriesBlock({
             disabled={submitting}
             onSave={(title) => onRenameSeries(series.slug, title)}
           />{" "}
-          <span className="text-slate-500">({series.slug})</span>
+          <span className="text-soft">({series.slug})</span>
         </h3>
 
         <button
           type="button"
           disabled={submitting}
           onClick={() => onDeleteSeries(series.slug)}
-          className="rounded-lg border border-red-400 px-3 py-1 text-sm text-red-700 disabled:opacity-50"
+          className="admin-button-danger px-3 py-1 text-sm disabled:opacity-50"
         >
           删除 series
         </button>
@@ -514,7 +514,7 @@ function SeriesBlock({
 
       <div className="mt-3 space-y-4">
         {series.parts.length === 0 ? (
-          <p className="text-sm text-slate-500">暂无 part。</p>
+          <p className="text-sm text-soft">暂无 part。</p>
         ) : (
           series.parts.map((part) => (
             <PartBlock
@@ -583,7 +583,7 @@ function PartBlock({
   ) => Promise<void>;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <div className="surface-card p-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h4 className="font-medium">
@@ -592,10 +592,10 @@ function PartBlock({
               disabled={submitting}
               onSave={(title) => onRenamePart(seriesSlug, part.slug, title)}
             />{" "}
-            <span className="text-slate-500">({part.slug})</span>
+            <span className="text-soft">({part.slug})</span>
           </h4>
 
-          <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
+          <div className="mt-2 flex items-center gap-2 text-sm text-soft">
             <span>owner</span>
             <select
               value={part.owner?.username ?? ""}
@@ -607,7 +607,7 @@ function PartBlock({
                 )
               }
               disabled={submitting}
-              className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 outline-none focus:border-blue-400 disabled:opacity-60"
+              className="admin-select px-2 py-1 text-sm disabled:opacity-60"
             >
               <option value="">未指定</option>
               {ownerCandidates.map((user) => (
@@ -625,14 +625,14 @@ function PartBlock({
           type="button"
           disabled={submitting}
           onClick={() => onDeletePart(seriesSlug, part.slug)}
-          className="rounded-lg border border-red-300 px-3 py-1 text-sm text-red-600 disabled:opacity-50"
+          className="admin-button-danger px-3 py-1 text-sm disabled:opacity-50"
         >
           删除 part
         </button>
       </div>
 
       {part.chapters.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-500">暂无 chapter。</p>
+        <p className="mt-2 text-sm text-soft">暂无 chapter。</p>
       ) : (
         <div className="mt-2 space-y-2">
           {part.chapters.map((chapter) => (
@@ -685,11 +685,11 @@ function ChapterRow({
   ) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+    <div className="admin-muted-panel flex items-center justify-between gap-3 px-3 py-2">
       <div>
         <p className="font-medium">
-          <span className="mr-2 text-slate-500">{chapter.displayOrder}.</span>
-          <span className="mr-1 text-slate-500">第{chapter.displayOrder}话</span>
+          <span className="mr-2 text-soft">{chapter.displayOrder}.</span>
+          <span className="mr-1 text-soft">第{chapter.displayOrder}话</span>
           <EditableTitle
             value={getChapterCustomTitle(chapter)}
             disabled={submitting}
@@ -699,7 +699,7 @@ function ChapterRow({
             inputClassName="w-40"
           />
         </p>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-soft">
           {chapter.slug} · {chapter.pageCount} 页
         </p>
       </div>
@@ -710,7 +710,7 @@ function ChapterRow({
           disabled={submitting}
           onClick={() => onMoveChapter(seriesSlug, partSlug, chapter.slug, "up")}
           title="上移"
-          className="h-8 w-8 rounded-l-full rounded-r-md border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+          className="admin-button-secondary h-8 w-8 disabled:opacity-50"
         >
           ↿
         </button>
@@ -720,7 +720,7 @@ function ChapterRow({
           disabled={submitting}
           onClick={() => onMoveChapter(seriesSlug, partSlug, chapter.slug, "down")}
           title="下移"
-          className="h-8 w-8 rounded-l-md rounded-r-full border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+          className="admin-button-secondary h-8 w-8 disabled:opacity-50"
         >
           ⇂
         </button>
@@ -729,7 +729,7 @@ function ChapterRow({
           type="button"
           disabled={submitting}
           onClick={() => onDeleteChapter(seriesSlug, partSlug, chapter.slug)}
-          className="rounded-lg border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+          className="admin-button-danger px-3 py-1 text-sm disabled:opacity-50"
         >
           删除
         </button>
@@ -1273,24 +1273,25 @@ function AdminComicsPage() {
   }
 
   if (loading) {
-    return <main className="mx-auto max-w-5xl p-6">正在加载后台数据...</main>;
+    return <main className="admin-page-shell mx-auto max-w-5xl p-6">正在加载后台数据...</main>;
   }
 
   if (!isAuthReady) {
     return (
-      <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
+      <main className="admin-page-shell px-6 py-10">
         <section className="mx-auto max-w-5xl">
-          <p className="text-sm text-slate-400">正在检查登录状态...</p>
+          <p className="text-sm text-soft">正在检查登录状态...</p>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-5xl space-y-8 p-6">
+    <main className="admin-page-shell">
+      <div className="mx-auto max-w-5xl space-y-8 p-6">
       <section>
-        <h1 className="text-2xl font-bold">漫画后台管理</h1>
-        <p className="mt-2 text-slate-600">
+        <h1 className="text-2xl font-bold text-main">漫画后台管理</h1>
+        <p className="mt-2 text-muted">
           当前页面用于本地上传章节、调整章节顺序和删除测试内容。
         </p>
       </section>
@@ -1342,6 +1343,7 @@ function AdminComicsPage() {
         ownerCandidates={ownerCandidates}
         onSetPartOwner={handleSetPartOwner}
       />
+      </div>
     </main>
   );
 }
