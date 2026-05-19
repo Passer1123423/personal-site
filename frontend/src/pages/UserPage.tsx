@@ -87,9 +87,18 @@ export default function UserPage() {
                 {profile.bio || "这个用户还没有填写简介。"}
               </p>
 
-              <div className="badge-accent mt-4 inline-flex px-3 py-1 text-xs">
-                {profile.role}
-              </div>
+              {profile.role === "admin" ? (
+                <Link
+                  to="/admin"
+                  className="badge-accent mt-4 inline-flex px-3 py-1 text-xs"
+                >
+                  {profile.role}
+                </Link>
+              ) : (
+                <div className="badge-accent mt-4 inline-flex px-3 py-1 text-xs">
+                  {profile.role}
+                </div>
+              )}
             </div>
           </div>
         </section>

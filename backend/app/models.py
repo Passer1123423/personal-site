@@ -457,3 +457,21 @@ class ComicPartUserLink(SQLModel, table=True):
     role: str = "owner"
 
     created_at: datetime = Field(default_factory=now_utc)
+
+class ComicUploadImage(SQLModel, table=True):
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    user_id: str = Field(foreign_key="user.id", index=True)
+
+    original_filename: str
+    stored_filename: str
+    storage_path: str
+    url: str
+
+    content_type: str | None = None
+    size_bytes: int
+
+    display_order: int = 0
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)

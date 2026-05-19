@@ -39,11 +39,18 @@ def guess_mime_type(path: Path) -> str:
         return "image/gif"
     return "application/octet-stream"
 
-def list_image_files(source_dir: Path) -> list[Path]:
+from collections.abc import Sequence
+from pathlib import Path
+
+
+def list_image_files(
+    source_dir: Path,
+    ordered_file_names: Sequence[str] | None = None,
+) -> list[Path]:
     if not source_dir.exists():
         raise FileNotFoundError(f"导入目录不存在：{source_dir}")
 
-    files = []
+    files: list[Path] = []
 
     for path in source_dir.iterdir():
         if not path.is_file():
@@ -57,10 +64,31 @@ def list_image_files(source_dir: Path) -> list[Path]:
 
         files.append(path)
 
-    files.sort(key=lambda path: path.stat().st_mtime)
-
     if not files:
         raise ValueError(f"导入目录中没有图片文件：{source_dir}")
+
+    if ordered_file_names is None:
+        files.sort(key=lambda path: path.stat().st_mtime)
+    else:
+        file_map = {path.name: path for path in files}
+
+        ordered_names = list(ordered_file_names)
+
+        if not ordered_names:
+            raise ValueError("没有选择要发布的图片")
+
+        if len(set(ordered_names)) != len(ordered_names):
+            raise ValueError("图片顺序列表中存在重复文件")
+
+        missing_names = [
+            name for name in ordered_names
+            if name not in file_map
+        ]
+
+        if missing_names:
+            raise ValueError(f"以下图片不存在或不是合法图片：{missing_names}")
+
+        files = [file_map[name] for name in ordered_names]
 
     print("将导入以下图片：")
     for index, path in enumerate(files, start=1):
@@ -404,8 +432,9 @@ def import_comic_chapter_from_dir(
     uploads_root: Path | None = UPLOADS_ROOT,
     series_display_order: int | None = None,
     part_display_order: int | None=None,
+    ordered_file_names: Sequence[str] | None = None,
 ):
-    image_files = list_image_files(source_dir)
+    image_files = list_image_files(source_dir=source_dir,ordered_file_names=ordered_file_names,)
 
     series = get_or_create_series(
         session,
@@ -834,6 +863,32 @@ def get_part_owner(
         return None
 
     return session.get(User, link.user_id)
+
+def get_owner_parts(
+    session: Session,
+    user: User,
+) -> list[ComicPart]:
+    existing_links = session.exec(
+        select(ComicPartUserLink)
+        .where(ComicPartUserLink.user_id == user.id)
+        .where(ComicPartUserLink.role == "owner")
+    ).all()
+
+    if not existing_links:
+        return []
+
+    part_list = []
+
+    for link in existing_links:
+        statement = select(ComicPart).where(ComicPart.id == link.part_id)
+        part = session.exec(statement).first()
+
+        if not part:
+            raise ValueError(f"ComicPartUserLink表中用户id{user.id}存在非法part_id")
+
+        part_list.append(part)
+
+    return part_list
 
 
 def set_part_owner(

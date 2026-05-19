@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from .database import create_db_and_tables
 from app.routers.users import router as users_router
 from .routers.comics import router as comics_router
+from app.routers.comic_upload import router as comic_upload_router
 from .routers.comic_admin import router as comic_admin_router
 from app.routers.auth import router as auth_router
 from app.routers.user_admin import router as user_admin_router
@@ -106,6 +107,7 @@ app.mount(
 #   GET /api/comics
 app.include_router(users_router)
 app.include_router(comics_router)
+app.include_router(comic_upload_router)
 app.include_router(auth_router)
 app.include_router(comic_admin_router)
 app.include_router(user_admin_router)
