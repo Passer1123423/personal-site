@@ -32,7 +32,7 @@ function Hero() {
 
           <Link
             to="/works"
-            className="rounded-xl bg-white px-6 py-3 font-semibold text-slate-900 hover:bg-slate-100"
+            className="rounded-xl bg-white px-6 py-3 font-semibold text-main hover:bg-slate-100"
           >
             小说 / 漫画
           </Link>

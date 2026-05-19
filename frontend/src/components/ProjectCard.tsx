@@ -6,14 +6,14 @@ type ProjectCardProps = {
 
 function ProjectCard({ project }: ProjectCardProps) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+    <article className="surface-card surface-card-link p-6">
       <div
         className={`mb-5 h-36 rounded-xl bg-gradient-to-br ${project.coverClass}`}
       />
 
-      <h3 className="text-xl font-bold text-slate-900">{project.title}</h3>
+      <h3 className="text-xl font-bold text-main">{project.title}</h3>
 
-      <p className="mt-3 text-sm leading-6 text-slate-600">
+      <p className="mt-3 text-sm leading-6 text-muted">
         {project.description}
       </p>
     </article>

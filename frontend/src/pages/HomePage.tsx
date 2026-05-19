@@ -30,20 +30,20 @@ function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-8 px-6 py-16 md:grid-cols-2">
           <Link
             to="/works"
-            className="rounded-2xl bg-slate-100 p-8 transition hover:-translate-y-1 hover:shadow-md"
+            className="surface-card surface-card-link p-8"
           >
-            <h2 className="text-2xl font-bold text-slate-900">小说存档</h2>
-            <p className="mt-4 leading-7 text-slate-600">
+            <h2 className="text-2xl font-bold text-main">小说存档</h2>
+            <p className="mt-4 leading-7 text-muted">
               上传章节、整理目录、展示更新记录，并支持后续下载。
             </p>
           </Link>
 
           <Link
             to="/works"
-            className="rounded-2xl bg-slate-100 p-8 transition hover:-translate-y-1 hover:shadow-md"
+            className="surface-card surface-card-link p-8"
           >
-            <h2 className="text-2xl font-bold text-slate-900">漫画存档</h2>
-            <p className="mt-4 leading-7 text-slate-600">
+            <h2 className="text-2xl font-bold text-main">漫画存档</h2>
+            <p className="mt-4 leading-7 text-muted">
               上传图片、分卷管理、预览阅读，并支持朋友协作更新。
             </p>
           </Link>
