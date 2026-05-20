@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router'
+import { matchPath, Route, Routes, useLocation } from "react-router-dom";
 import Footer from './components/Footer'
 import Navbar from './components/Navbar'
 import AboutPage from './pages/AboutPage'
@@ -19,9 +19,18 @@ import AdminComicsPage from "./pages/AdminComicsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 
 function App() {
+  const location = useLocation();
+
+  const isComicReaderPage = Boolean(
+    matchPath(
+      "/works/comics/:seriesSlug/:partSlug/:chapterSlug",
+      location.pathname,
+    ),
+  );
+
   return (
     <main className="min-h-screen bg-slate-50">
-      <Navbar />
+      {!isComicReaderPage && <Navbar />}
       
       <Routes>
         <Route path="/" element={<HomePage />} />
