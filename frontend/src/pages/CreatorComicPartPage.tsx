@@ -772,7 +772,7 @@ export default function CreatorComicPartPage() {
                               setIsPartTitleEditing(true);
                             }}
                           >
-                            <h2 className="text-2xl font-bold text-main group-hover:underline group-hover:decoration-[var(--color-accent)] group-hover:underline-offset-4">
+                            <h2 className="text-2xl font-bold text-main group-hover:underline group-hover:underline-offset-4">
                               {partDetail?.part.title ?? partSlug}
                             </h2>
 

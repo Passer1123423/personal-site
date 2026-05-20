@@ -99,6 +99,7 @@ export default function UserPage() {
                   {profile.role}
                 </div>
               )}
+
             </div>
           </div>
         </section>

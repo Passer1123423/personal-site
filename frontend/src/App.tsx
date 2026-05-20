@@ -10,6 +10,8 @@ import UserPage from "./pages/UserPage";
 import ComicReaderPage from './pages/ComicReaderPage'
 import ComicsPage from './pages/ComicsPage'
 import ComicSeriesPage from './pages/ComicSeriesPage'
+import CreatorComicsPage from "./pages/CreatorComicsPage";
+import CreatorComicSeriesPage from "./pages/CreatorComicSeriesPage";
 import CreatorComicPartPage from "./pages/CreatorComicPartPage";
 import AdminHomePage from "./pages/AdminHomePage";
 import AdminLoginPage from "./pages/AdminLoginPage";
@@ -32,6 +34,11 @@ function App() {
         <Route
           path="/works/comics/:seriesSlug/:partSlug/:chapterSlug"
           element={<ComicReaderPage />}
+        />
+        <Route path="/creator/comics" element={<CreatorComicsPage />} />
+        <Route
+          path="/creator/comics/:seriesSlug"
+          element={<CreatorComicSeriesPage />}
         />
         <Route
           path="/creator/comics/:seriesSlug/:partSlug"
