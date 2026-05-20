@@ -47,7 +47,7 @@ export default function AdminLoginPage() {
         <p className="text-sm link-accent">Personal Site</p>
         <h1 className="mt-2 text-3xl font-semibold text-main">登录账号</h1>
         <p className="mt-3 text-sm leading-6 text-soft">
-          登录后会进入你的用户主页。管理员后台可手动访问。
+          登录后会进入你的用户主页。
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">

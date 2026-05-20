@@ -63,25 +63,25 @@ export default function RegisterPage() {
           </label>
 
           <label className="block">
-            <span className="text-sm text-muted">显示名</span>
+            <span className="text-sm text-muted">昵称</span>
             <input
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
               className="auth-input mt-2 w-full px-4 py-3 transition"
-              placeholder="可以以后修改"
+              placeholder="可以以后改"
               required
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-muted">密码</span>
+            <span className="text-sm text-muted">设置密码</span>
             <input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               type="password"
               className="auth-input mt-2 w-full px-4 py-3 transition"
               autoComplete="new-password"
-              placeholder="至少 6 位"
+              placeholder="我也不知道为什么要至少 6 位"
               required
             />
           </label>

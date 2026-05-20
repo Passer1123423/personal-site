@@ -10,27 +10,46 @@ function WorksPage() {
       <h1 className="mt-2 text-3xl font-bold text-main">小说与漫画</h1>
 
       <p className="mt-5 max-w-3xl leading-7 text-muted">
-        这里后续会作为个人作品区，用于上传小说章节、漫画图片、设定资料和可下载文件。当前先保留静态入口，后面再接入后端上传系统。
+        SaBa帮历史的小窝
       </p>
 
       <div className="mt-10 grid gap-8 md:grid-cols-2">
         <article className="surface-card p-8">
-          <div className="mb-6 h-48 rounded-xl bg-gradient-to-br from-slate-900 to-blue-700" />
+          <div
+            className="h-48 bg-cover bg-center"
+            style={{
+              backgroundImage: "url('/public/images/novel-cover.webp')",
+            }}
+          />
           <h2 className="text-2xl font-bold text-main">小说存档</h2>
           <p className="mt-4 leading-7 text-muted">
-            后续用于章节列表、更新时间、文件下载、版本管理。
+            还没做。。
           </p>
         </article>
 
         <Link
           to="/works/comics"
-          className="surface-card surface-card-link p-8"
+          className="surface-card surface-card-link relative min-h-[340px] overflow-hidden p-8"
         >
-          <div className="mb-6 h-48 rounded-xl bg-gradient-to-br from-slate-900 to-cyan-700" />
-          <h2 className="text-2xl font-bold text-main">漫画存档</h2>
-          <p className="mt-4 leading-7 text-muted">
-            后续用于图片上传、分卷管理、在线预览和朋友协作更新。
-          </p>
+          <div
+            className="pointer-events-none absolute inset-0 bg-white"
+            style={{
+              backgroundImage: "url('/images/chickenGOD-cover.webp')",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "64% auto",
+              backgroundPosition: "right 48px center",
+            }}
+          />
+
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white via-white/85 to-white/20" />
+
+          <div className="relative z-10 flex min-h-[260px] max-w-md flex-col justify-end">
+            <h2 className="text-2xl font-bold text-main">漫画存档</h2>
+
+            <p className="mt-4 leading-7 text-muted">
+              用于图片上传、分卷管理、在线预览和朋友协作更新。
+            </p>
+          </div>
         </Link>
       </div>
     </section>

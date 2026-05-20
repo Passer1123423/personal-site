@@ -4,38 +4,49 @@ function Hero() {
   return (
     <section
       id="home"
-      className="relative flex min-h-[520px] items-center overflow-hidden bg-slate-950"
+      className="relative flex min-h-[450px] items-center justify-center overflow-hidden bg-slate-950"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(37,99,235,0.45),transparent_35%),radial-gradient(circle_at_80%_40%,rgba(14,165,233,0.25),transparent_30%)]" />
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-60"
+        style={{
+          backgroundImage: "url('/images/hero-bg.webp')",
+        }}
+      />
       <div className="absolute inset-0 bg-slate-950/40" />
 
-      <div className="relative mx-auto max-w-6xl px-6 text-white">
-        <p className="mb-4 text-sm font-semibold uppercase tracking-[0.35em] text-blue-200">
-          Personal Website
-        </p>
+      <div className="relative max-w-6xl px-6 text-white" style={{ right: '320px' }}>
+        <img
+          src="/images/avatar.webp"
+          alt="头像"
+          className="rounded-xl w-15 h-15 font-semibold mb-2 border-2 border-white"
+        />
 
-        <h1 className="max-w-3xl text-5xl font-bold leading-tight md:text-7xl">
+        <h1 className="max-w-3xl text-4xl leading-tight md:text-6xl">
           你好，世界！
         </h1>
 
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200">
-          愿鸡神照耀过去一切。
+        <p className="mt-4 max-w-2xl mb-12 text-lg leading-7 text-slate-200">
+          “只干，别多想。”
         </p>
 
-        <div className="mt-10 flex flex-wrap gap-4">
-          <Link
-            to="/projects"
-            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
+        <div className="mt-6 flex flex-wrap gap-4">
+          <a
+            href="https://github.com/samlee1020"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 hover:brightness-110"
           >
-            查看项目
-          </Link>
+            Github
+          </a>
 
-          <Link
-            to="/works"
-            className="rounded-xl bg-white px-6 py-3 font-semibold text-main hover:bg-slate-100"
+          <a
+            href="https://space.bilibili.com/401742377?spm_id_from=333.337.0.0"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-xl bg-white px-6 py-3 font-semibold text-main transition hover:bg-slate-100 hover:!text-[var(--color-accent)] hover:underline hover:underline-offset-4"
           >
-            小说 / 漫画
-          </Link>
+            Bilibili
+          </a>
         </div>
       </div>
     </section>
