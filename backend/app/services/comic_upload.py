@@ -6,9 +6,9 @@ from sqlmodel import Session, func, select
 
 from app.models import ComicUploadImage, new_id, now_utc
 
-
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-STAGING_LIMIT_BYTES = 500 * 1024 * 1024
+STAGING_LIMIT_BYTES = 100 * 1024 * 1024
+UPLOAD_FILE_LIMIT_BYTES = 20 * 1024 * 1024
 
 # 当前文件位置：
 # backend/app/services/comic_upload.py
@@ -157,8 +157,11 @@ async def save_upload_image(
 
                 written_size += len(chunk)
 
+                if written_size > UPLOAD_FILE_LIMIT_BYTES:
+                    raise ValueError("单张图片不能超过 20MB")
+
                 if current_size + written_size > STAGING_LIMIT_BYTES:
-                    raise ValueError("待传区容量超过 500MB")
+                    raise ValueError("待传区容量超过 100MB")
 
                 f.write(chunk)
 
