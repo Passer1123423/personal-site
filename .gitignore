@@ -1,24 +1,36 @@
-<<<<<<< HEAD
-node_modules
-dist
-.env
-.env.local
-=======
 # frontend
-frontend/node_modules
-frontend/dist
+frontend/node_modules/
+frontend/dist/
 
-# backend
-backend/.venv
-backend/__pycache__
-backend/.env
-backend/import
-backend/upload
+# backend virtual environment
+backend/.venv/
 
-# uploaded files
-uploads
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
 
-# common
+# local database and backups
+backend/data/*.db
+backend/data/*.sqlite
+backend/data/*.sqlite3
+
+# uploaded and imported local files
+backend/uploads/
+backend/import_data/
+
+# environment files
 .env
->>>>>>> bb8e3cf (init personal site project)
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# OS / editor files
 .DS_Store
+Thumbs.db
+*.Zone.Identifier
+
+# logs
+*.log
