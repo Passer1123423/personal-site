@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from shutil import copy2
 from uuid import uuid4
@@ -22,7 +23,9 @@ import re
 
 # ===== 文件识别 =====
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-UPLOADS_ROOT = Path("uploads/comics")
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", BACKEND_DIR / "uploads")).resolve()
+UPLOADS_ROOT = UPLOADS_DIR / "comics"
 
 def guess_mime_type(path: Path) -> str:
     suffix = path.suffix.lower()

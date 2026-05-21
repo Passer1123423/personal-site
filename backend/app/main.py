@@ -1,3 +1,4 @@
+import os
 from fastapi.middleware.cors import CORSMiddleware
 """
 main.py
@@ -67,23 +68,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+cors_allow_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOW_ORIGINS",
+        "http://127.0.0.1:18000,http://localhost:18000",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:18000",
-        "http://localhost:18000",
-    ],
+    allow_origins=cors_allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# backend 目录
 BASE_DIR = Path(__file__).resolve().parents[1]
-
-# backend/uploads 目录
-UPLOADS_DIR = BASE_DIR / "uploads"
-UPLOADS_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", BASE_DIR / "uploads")).resolve()
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # 挂载静态文件目录。
