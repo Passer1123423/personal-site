@@ -26,6 +26,8 @@ import {
   type MoveDirection,
 } from "../api/authorComics";
 
+import { API_BASE_URL } from "../api/config";
+
 type Message = {
   type: "success" | "error";
   text: string;
@@ -694,7 +696,7 @@ export default function CreatorComicPartPage() {
                     <label className="group relative flex h-60 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] text-sm text-soft">
                       {partDetail?.part.coverUrl ? (
                         <img
-                          src={`http://127.0.0.1:18001${partDetail.part.coverUrl}`}
+                          src={`${API_BASE_URL}${partDetail.part.coverUrl}`}
                           alt={partDetail.part.title}
                           className="h-full w-full object-cover"
                         />

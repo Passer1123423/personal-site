@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:18001";
+import { API_BASE_URL } from "./config";
 
 const TOKEN_KEY = "personal_site_access_token";
 
