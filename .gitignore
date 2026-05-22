@@ -30,7 +30,7 @@ frontend/.env.*
 # OS / editor files
 .DS_Store
 Thumbs.db
-*.Zone.Identifier
+*.Identifier
 
 # logs
 *.log
