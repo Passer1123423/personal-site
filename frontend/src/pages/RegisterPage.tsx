@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [humanCheck, setHumanCheck] = useState("")
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,6 +30,7 @@ export default function RegisterPage() {
         username: username.trim(),
         displayName: displayName.trim(),
         password,
+        humanCheck,
       });
 
       saveAccessToken(result.accessToken);
@@ -96,6 +98,16 @@ export default function RegisterPage() {
               autoComplete="new-password"
               placeholder="再次输入密码"
               required
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm text-muted">以防万一还是问一嘴：你是人类吗？请输入“是”</span>
+            <input
+              value={humanCheck}
+              onChange={(event) => setHumanCheck(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-main outline-none focus:border-cyan-300"
+              placeholder="是"
             />
           </label>
 

@@ -243,6 +243,23 @@ PATCH /api/admin/users/settings/registration
 - 打开 `/admin/users`，确认用户列表加载。
 - 如果保留创作者上传，测试待传区上传、预览、删除。
 
+## Token 存储策略
+
+当前前端使用 localStorage 保存 access token，并在 API 请求中通过 Authorization header 发送。
+
+该方案对个人小站和朋友使用场景暂时可接受，原因是：
+
+1. 当前没有富文本评论、公开 HTML 注入等高风险入口。
+2. 注册入口已有开关和简单人类验证。
+3. 网站主要用于朋友间使用，不按高强度公网系统设计。
+
+注意事项：
+
+1. 不要渲染未经净化的用户 HTML。
+2. 不要把 token、生产 SECRET_KEY 或生产数据库内容贴到公开位置。
+3. 如果后续加入评论、富文本、用户投稿说明等内容，再考虑迁移到 HttpOnly Secure Cookie。
+4. Cookie 改造应作为单独阶段处理，不和部署前小修混在一起。
+
 ## 当前不应做的事
 
 - 不要新增第二套认证系统。

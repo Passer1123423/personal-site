@@ -158,6 +158,13 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
 
+class SiteSetting(SQLModel, table=True):
+    __tablename__ = "site_setting"
+
+    key: str = Field(primary_key=True)
+    value: str
+    updated_at: datetime = Field(default_factory=now_utc)
+
 class ComicSeries(SQLModel, table=True):
     """
     漫画系列表。

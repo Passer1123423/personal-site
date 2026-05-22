@@ -23,6 +23,7 @@ export type RegisterParams = {
   username: string;
   displayName: string;
   password: string;
+  humanCheck: string
 };
 
 export async function login(username: string, password: string): Promise<LoginResponse> {
@@ -87,6 +88,7 @@ export async function register(params: RegisterParams): Promise<LoginResponse> {
       username: params.username,
       displayName: params.displayName,
       password: params.password,
+      humanCheck: params.humanCheck,
     }),
   });
 

@@ -6,6 +6,8 @@ import {
   fetchAdminUsers,
   resetAdminUserPassword,
   updateAdminUser,
+  getRegistrationSetting,
+  updateRegistrationSetting,
   type AdminUser,
 } from "../api/adminUsers";
 import { clearAccessToken, getMe } from "../api/auth";
@@ -33,6 +35,9 @@ export default function AdminUsersPage() {
   const [newRole, setNewRole] = useState<UserRole>("reader");
   const [newBio, setNewBio] = useState("");
 
+  const [registrationEnabled, setRegistrationEnabled] = useState(true)
+  const [registrationSettingLoading, setRegistrationSettingLoading] = useState(false)
+
   useEffect(() => {
     async function checkLogin() {
       try {
@@ -55,12 +60,36 @@ export default function AdminUsersPage() {
   }, [navigate]);
 
   useEffect(() => {
+    getRegistrationSetting()
+      .then((data) => setRegistrationEnabled(data.enabled))
+      .catch((error) => {
+        console.error(error)
+      })
+  }, [])
+
+  useEffect(() => {
     if (!isAuthReady) {
       return;
     }
 
     loadUsers();
   }, [isAuthReady]);
+
+  async function handleToggleRegistration() {
+    const nextEnabled = !registrationEnabled
+
+    setRegistrationSettingLoading(true)
+
+    try {
+      const data = await updateRegistrationSetting(nextEnabled)
+      setRegistrationEnabled(data.enabled)
+    } catch (error) {
+      console.error(error)
+      alert("更新注册开关失败")
+    } finally {
+      setRegistrationSettingLoading(false)
+    }
+  }
 
   async function loadUsers() {
     setIsLoading(true);
@@ -268,6 +297,7 @@ export default function AdminUsersPage() {
           >
             刷新列表
           </button>
+
         </div>
 
         {message && (
@@ -283,7 +313,22 @@ export default function AdminUsersPage() {
         )}
 
         <section className="admin-section mt-8">
-          <h2 className="text-xl font-semibold text-main">创建用户</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-main">创建用户</h2>
+
+            <button
+              type="button"
+              onClick={handleToggleRegistration}
+              disabled={registrationSettingLoading}
+              className={
+                registrationEnabled
+                  ? "message-success px-3 py-1 text-xs"
+                  : "admin-button-danger px-3 py-1 text-xs text-soft"
+              }
+            >
+              {registrationEnabled ? "已开放" : "已关闭"}
+            </button>
+          </div>
 
           <form
             onSubmit={handleCreateUser}

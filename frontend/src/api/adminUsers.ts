@@ -126,3 +126,32 @@ export async function deleteAdminUser(
     },
   );
 }
+
+export async function getRegistrationSetting(): Promise<{ enabled: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/settings/registration`, {
+    headers: getAdminHeaders(),
+  })
+
+  if (!response.ok) {
+    throw new Error("读取注册设置失败")
+  }
+
+  return response.json()
+}
+
+export async function updateRegistrationSetting(enabled: boolean): Promise<{ enabled: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/settings/registration`, {
+    method: "PATCH",
+    headers: {
+      ...getAdminHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ enabled }),
+  })
+
+  if (!response.ok) {
+    throw new Error("更新注册设置失败")
+  }
+
+  return response.json()
+}

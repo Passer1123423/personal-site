@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import time
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 
 from app.database import get_session
-from app.models import User
+from app.models import SiteSetting, User
 from app.core.security import (
     verify_password,
     create_access_token,
@@ -25,6 +26,38 @@ class RegisterRequest(BaseModel):
     displayName: str
     password: str
     bio: str = ""
+    humanCheck: str = ""
+
+REGISTER_WINDOW_SECONDS = 60
+REGISTER_MAX_ATTEMPTS = 100
+register_attempts: dict[str, list[float]] = {}
+
+
+def check_register_rate_limit(client_key: str) -> None:
+    now = time.time()
+    attempts = [
+        attempt_time
+        for attempt_time in register_attempts.get(client_key, [])
+        if now - attempt_time < REGISTER_WINDOW_SECONDS
+    ]
+
+    if len(attempts) >= REGISTER_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="注册太频繁，请稍后再试",
+        )
+
+    attempts.append(now)
+    register_attempts[client_key] = attempts
+
+
+def is_registration_enabled(session: Session) -> bool:
+    setting = session.get(SiteSetting, "registration_enabled")
+
+    if setting is None:
+        return True
+
+    return setting.value == "true"
 
 def user_to_public(user: User) -> dict:
     return {
@@ -41,11 +74,27 @@ def user_to_public(user: User) -> dict:
 @router.post("/register")
 def register(
     payload: RegisterRequest,
+    request: Request,
     session: Session = Depends(get_session),
 ):
     username = payload.username.strip()
     display_name = payload.displayName.strip()
     password = payload.password
+
+    client_host = request.client.host if request.client else "unknown"
+    check_register_rate_limit(client_host)
+
+    if not is_registration_enabled(session):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="当前未开放注册",
+        )
+
+    if payload.humanCheck.strip() != "是":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请在人类验证中输入“是”",
+        )
 
     if not username:
         raise HTTPException(

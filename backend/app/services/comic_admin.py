@@ -1,4 +1,5 @@
 import os
+import logging
 from pathlib import Path
 from shutil import copy2
 from uuid import uuid4
@@ -20,6 +21,8 @@ from app.models import (
 )
 
 import re
+
+logger = logging.getLogger(__name__)
 
 # ===== 文件识别 =====
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -94,9 +97,9 @@ def list_image_files(
 
         files = [file_map[name] for name in ordered_names]
 
-    print("将导入以下图片：")
+    logger.info("将导入以下图片：")
     for index, path in enumerate(files, start=1):
-        print(f"{index}. {path.name}")
+        logger.info(f"{index}. {path.name}")
 
     return files
 
@@ -507,9 +510,9 @@ def delete_chapter_files(
 
     if chapter_dir.exists():
         rmtree(chapter_dir)
-        print(f"已删除目录：{chapter_dir}")
+        logger.info(f"已删除目录：{chapter_dir}")
     else:
-        print(f"目录不存在：{chapter_dir}")
+        logger.warning(f"目录不存在：{chapter_dir}")
 
 def reorder_chapters(session: Session, part_id: str):#重排part下的chapter display order
     statement = (
@@ -541,7 +544,7 @@ def delete_chapter(
         chapter_slug=chapter_slug,
     )
 
-    print(f"准备删除：{chapter.title} ({chapter.slug})")
+    logger.info(f"准备删除：{chapter.title} ({chapter.slug})")
 
     page_statement = (
         select(ComicPage)
@@ -563,7 +566,7 @@ def delete_chapter(
 
     session.commit()
 
-    print(f"已删除 {len(pages)} 个 comic_page")
+    logger.info(f"已删除 {len(pages)} 个 comic_page")
 
     for asset_id in asset_ids:
         asset = session.get(Asset, asset_id)
@@ -571,17 +574,17 @@ def delete_chapter(
             session.delete(asset)
     session.commit()
 
-    print(f"已删除 {len(asset_ids)} 个 asset")
+    logger.info(f"已删除 {len(asset_ids)} 个 asset")
 
     part_id = chapter.part_id
     session.delete(chapter)
     session.commit()
 
-    print("已删除 chapter")
+    logger.info("已删除 chapter")
 
     reorder_chapters(session, part_id)
 
-    print("删除完成")
+    logger.info("删除完成")
 
 def delete_part(
     session: Session,
@@ -611,14 +614,14 @@ def delete_part(
         asset = session.get(Asset, part.cover_asset_id)
 
         if asset:
-            print("检测到part封面")
+            logger.info("检测到part封面")
             session.delete(asset)
-            print("part封面已删除")
+            logger.info("part封面已删除")
 
     part_title = part.title
     session.delete(part)
     session.commit()
-    print(f"已删除part{part_title}")
+    logger.info(f"已删除part{part_title}")
 
 def delete_series(
     session: Session,
@@ -645,14 +648,14 @@ def delete_series(
         asset = session.get(Asset, series.cover_asset_id)
 
         if asset:
-            print("检测到series封面")
+            logger.info("检测到series封面")
             session.delete(asset)
-            print("series封面已删除")
+            logger.info("series封面已删除")
 
     series_title = series.title
     session.delete(series)
     session.commit()
-    print(f"已删除series{series_title}")
+    logger.info(f"已删除series{series_title}")
 
 # ===== 顺序 =====
 def update_chapter_order_title(title: str, new_order: int) -> str:
