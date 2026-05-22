@@ -104,6 +104,63 @@ GET /api/users/{username}
 frontend/src/api/users.ts
 ```
 
+## 注册相关接口补充
+
+### 公开注册
+
+```txt
+POST /api/auth/register
+```
+请求体：
+```
+{
+  "username": "string",
+  "displayName": "string",
+  "password": "string",
+  "bio": "string",
+  "humanCheck": "是"
+}
+```
+说明：
+
+humanCheck 必须填写为 是。
+如果公开注册已关闭，该接口返回 403。
+注册成功后返回 access token 和用户信息。
+### 获取注册开关
+```
+GET /api/admin/users/settings/registration
+```
+权限：管理员。
+
+返回：
+```
+{
+  "enabled": true
+}
+```
+修改注册开关
+```
+PATCH /api/admin/users/settings/registration
+```
+权限：管理员。
+
+请求体：
+```
+{
+  "enabled": false
+}
+```
+返回：
+```
+{
+  "enabled": false
+}
+```
+说明：
+
+关闭公开注册后，普通注册入口不能创建新账号。
+管理员后台创建用户不受该开关影响。
+
 ## Public Comics
 
 Router：`backend/app/routers/comics.py`

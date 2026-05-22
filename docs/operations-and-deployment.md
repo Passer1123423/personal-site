@@ -154,6 +154,31 @@ STAGING_LIMIT_BYTES = 500 * 1024 * 1024
 - Nginx `client_max_body_size` 与后端限制保持一致。
 - 后续考虑图片压缩和尺寸检查。
 
+## 数据备份
+
+当前项目使用 SQLite 数据库和本地上传目录保存主要数据。
+
+需要备份的核心内容：
+
+```txt
+backend/data/site.db
+backend/uploads/
+```
+已提供手动备份脚本：
+```
+cd backend
+python scripts/backup_site_data.py
+```
+脚本会在以下目录生成带时间戳的备份：
+```
+backend/backups/backup-YYYYMMDD-HHMMSS/
+```
+其中包含：
+```
+site.db
+uploads/
+```
+
 ## SQLite 运营边界
 
 当前 SQLite 可以支撑个人站低并发，但要明确边界：
@@ -174,6 +199,35 @@ backend/uploads/
 ```txt
 backend/import_data/
 ```
+
+## 注册限制
+
+公开注册已增加轻量限制，目标是防止误操作和低强度滥用，不追求复杂验证码系统。
+
+当前规则：
+
+管理员可以在用户管理页面打开或关闭注册。
+注册页有人类验证问题：你是人类吗？
+用户需要输入：是
+后端有轻量内存频率限制，防止短时间内连续提交注册请求。
+管理员后台创建用户不受公开注册开关影响。
+
+注册开关存储在数据库的 site_setting 表中：
+```
+key = registration_enabled
+value = true / false
+```
+相关接口：
+```
+GET   /api/admin/users/settings/registration
+PATCH /api/admin/users/settings/registration
+```
+说明：
+
+该机制适合个人小站和朋友使用场景。
+不接入第三方验证码。
+服务重启后，内存频率限制会清空。
+如果需要临时关闭公开注册，可直接在 admin users 页面关闭。
 
 ## Smoke Test 清单
 
