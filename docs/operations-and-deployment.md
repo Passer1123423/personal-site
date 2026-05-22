@@ -56,67 +56,6 @@ backend/uploads/comics/{series_slug}/{part_slug}/{chapter_slug}/001.jpg
 backend/import_data/users/{user_id}/comic-staging/
 ```
 
-## 部署前必须修
-
-### `.gitignore`
-
-当前 `.gitignore` 有合并冲突标记。先修这个，再谈部署。
-
-至少忽略：
-
-```txt
-frontend/node_modules/
-frontend/dist/
-backend/.venv/
-__pycache__/
-*.pyc
-backend/data/*.db
-backend/uploads/
-backend/import_data/
-.env
-.env.*
-```
-
-注意：如果需要保留 `.env.example`，忽略规则要排除它。
-
-### 后端依赖
-
-当前缺少后端依赖声明。建议先补最小依赖：
-
-```txt
-fastapi
-uvicorn
-sqlmodel
-python-multipart
-passlib[bcrypt]
-python-jose
-```
-
-实际版本应以当前虚拟环境可运行为准。
-
-### SECRET_KEY
-
-当前 `backend/app/core/security.py` 仍硬编码开发密钥。生产必须从环境变量读取，并在缺失时启动失败。
-
-### CORS
-
-当前 `backend/app/main.py` 只允许本地前端。生产要么：
-
-- 前后端同源，由 Nginx 反代 `/api`，尽量避免跨域。
-- 或从环境变量读取真实 HTTPS 域名列表。
-
-### API Base URL
-
-当前前端多个文件硬编码 `http://127.0.0.1:18001`。生产构建前必须统一。
-
-推荐：
-
-```txt
-VITE_API_BASE_URL=
-```
-
-同源部署时可以为空字符串，然后请求 `/api/...` 和 `/uploads/...`。
-
 ### 上传目录
 
 `backend/app/services/comic_admin.py` 当前使用相对路径：
@@ -154,6 +93,50 @@ uvicorn app.main:app --host 127.0.0.1 --port 18001 --workers 1
 - 服务器不要保留 `frontend/node_modules`。
 - 图片静态服务交给 Nginx，不让 FastAPI 扛漫画页图片流量。
 
+## 生产静态资源服务
+
+生产环境建议由 Nginx 直接服务前端构建文件和漫画图片，FastAPI 只处理 API 请求。
+
+推荐请求分工：
+
+```txt
+/             -> frontend/dist
+/assets/      -> frontend/dist/assets
+/uploads/     -> UPLOADS_DIR
+/api/         -> FastAPI 127.0.0.1:18001
+```
+示例 Nginx 结构：
+```
+server {
+    listen 80;
+    server_name example.com;
+
+    root /var/www/personal-site/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri /index.html;
+    }
+
+    location /uploads/ {
+        alias /var/www/personal-site/uploads/;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:18001/api/;
+    }
+}
+```
+注意：
+
+location /uploads/ 的 alias 必须对应后端 UPLOADS_DIR。
+如果 UPLOADS_DIR=/var/www/personal-site/uploads，则 Nginx alias 也应指向这个目录。
+前端生产构建如果采用同源部署，建议设置：
+```
+export VITE_API_BASE_URL=""
+npm run build
+```
+
 ## 上传限制建议
 
 当前创作者待传区上限是 500MB：
@@ -164,9 +147,10 @@ STAGING_LIMIT_BYTES = 500 * 1024 * 1024
 
 对 2GB 内存的小服务器偏高。建议上线前：
 
-- 单用户待传区降到 50MB 到 100MB。
-- 增加单文件大小上限。
-- 增加一次上传文件数量上限。
+- ~~单用户待传区降到 50MB 到 100MB。~~
+- ~~增加单文件大小上限。~~
+- ~~增加一次上传文件数量上限。~~
+- 以上已修改
 - Nginx `client_max_body_size` 与后端限制保持一致。
 - 后续考虑图片压缩和尺寸检查。
 
