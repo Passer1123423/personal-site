@@ -297,7 +297,7 @@ def get_or_create_part(
         return part
 
     if display_order is None:
-        statement = select(func.max(ComicPart.display_order)).where(ComicPart.series_id==series)
+        statement = select(func.max(ComicPart.display_order)).where(ComicPart.series_id==series.id)
         max_order = session.exec(statement).one()
 
         if max_order is None:

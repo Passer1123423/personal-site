@@ -35,6 +35,8 @@ from app.services.comic_admin import (
     reset_part_summary,
     set_series_cover,
     set_part_cover,
+    get_or_create_series,
+    get_or_create_part
 )
 
 class MoveChapterRequest(BaseModel):
@@ -64,6 +66,17 @@ def user_to_owner_item(user: User | None):
         "role": user.role,
         "avatarUrl": None,
     }
+
+class CreateComicSeriesRequest(BaseModel):
+    slug: str
+    title: str | None = None
+    summary: str | None = None
+
+
+class CreateComicPartRequest(BaseModel):
+    slug: str
+    title: str | None = None
+    summary: str | None = None
 
 router = APIRouter(
     prefix="/api/admin/comics",
@@ -522,4 +535,117 @@ async def upload_admin_comic_part_cover(
         "coverUrl": session.get(Asset, part.cover_asset_id).url,
         "visibility": part.visibility,
         "displayOrder": part.display_order,
+    }
+
+@router.post("/series/create")
+def create_comic_series(
+    payload: CreateComicSeriesRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
+):
+    series_slug = payload.slug.strip()
+
+    if not series_slug:
+        raise HTTPException(
+            status_code=400,
+            detail="series slug 不能为空",
+        )
+
+    existing_series = session.exec(
+        select(ComicSeries).where(ComicSeries.slug == series_slug)
+    ).first()
+
+    if existing_series:
+        raise HTTPException(
+            status_code=409,
+            detail="这个 series slug 已存在，slug 是不可更改的唯一识别码，请换一个",
+        )
+
+    series = get_or_create_series(
+        session=session,
+        series_slug=series_slug,
+        series_title=payload.title,
+        series_summary=payload.summary,
+    )
+
+    return {
+        "id": series.id,
+        "slug": series.slug,
+        "title": series.title,
+        "summary": series.summary,
+        "visibility": series.visibility,
+        "displayOrder": series.display_order,
+    }
+
+@router.post("/{series_slug}/part/create")
+def create_comic_part(
+    series_slug: str,
+    payload: CreateComicPartRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
+):
+    clean_series_slug = series_slug.strip()
+    part_slug = payload.slug.strip()
+
+    if not part_slug:
+        raise HTTPException(
+            status_code=400,
+            detail="part slug 不能为空",
+        )
+
+    series = session.exec(
+        select(ComicSeries).where(ComicSeries.slug == clean_series_slug)
+    ).first()
+
+    if not series:
+        raise HTTPException(
+            status_code=404,
+            detail="series 不存在，不能在不存在的 series 下新建 part",
+        )
+
+    existing_part = session.exec(
+        select(ComicPart)
+        .where(ComicPart.series_id == series.id)
+        .where(ComicPart.slug == part_slug)
+    ).first()
+
+    if existing_part:
+        raise HTTPException(
+            status_code=409,
+            detail="这个 part slug 已存在，slug 是不可更改的唯一识别码，请换一个",
+        )
+
+    part = get_or_create_part(
+        session=session,
+        series=series,
+        part_slug=part_slug,
+        part_title=payload.title,
+        part_summary=payload.summary,
+    )
+
+    existing_link = session.exec(
+        select(ComicPartUserLink)
+        .where(ComicPartUserLink.part_id == part.id)
+        .where(ComicPartUserLink.user_id == current_user.id)
+    ).first()
+
+    if not existing_link:
+        link = ComicPartUserLink(
+            part_id=part.id,
+            user_id=current_user.id,
+            role="owner",
+        )
+        session.add(link)
+        session.commit()
+
+    session.refresh(part)
+
+    return {
+        "id": part.id,
+        "slug": part.slug,
+        "title": part.title,
+        "summary": part.summary,
+        "visibility": part.visibility,
+        "displayOrder": part.display_order,
+        "owner": user_to_owner_item(current_user),
     }
