@@ -56,6 +56,25 @@ export type AuthorComicPartDetail = {
 
 export type MoveDirection = "up" | "down";
 
+export type CreateAuthorComicSeriesResult = {
+  id: string;
+  slug: string;
+  title: string;
+  summary?: string | null;
+  visibility: string;
+  displayOrder: number;
+};
+
+export type CreateAuthorComicPartResult = {
+  id: string;
+  slug: string;
+  title: string;
+  summary?: string | null;
+  visibility: string;
+  displayOrder: number;
+  owner: AuthorComicOwner | null;
+};
+
 function getAuthorHeaders(extraHeaders?: HeadersInit): HeadersInit {
   const token = getAccessToken();
 
@@ -297,6 +316,49 @@ export async function renameAuthorComicPart(params: {
       }),
       body: JSON.stringify({
         title: params.title,
+      }),
+    },
+  );
+}
+
+export async function createAuthorComicSeries(params: {
+  slug: string;
+  title?: string;
+  summary?: string;
+}) {
+  return fetchJson<AuthorComicSeries>(
+    `${API_BASE_URL}/api/admin/comics/series/create`,
+    {
+      method: "POST",
+      headers: getAuthorHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        slug: params.slug,
+        title: params.title?.trim() || null,
+        summary: params.summary?.trim() || null,
+      }),
+    },
+  );
+}
+
+export async function createAuthorComicPart(params: {
+  seriesSlug: string;
+  slug: string;
+  title?: string;
+  summary?: string;
+}) {
+  return fetchJson<CreateAuthorComicPartResult>(
+    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/part/create`,
+    {
+      method: "POST",
+      headers: getAuthorHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        slug: params.slug,
+        title: params.title?.trim() || null,
+        summary: params.summary?.trim() || null,
       }),
     },
   );

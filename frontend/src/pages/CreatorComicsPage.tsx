@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { getMe } from "../api/auth";
 import {
+  createAuthorComicSeries,
   fetchAuthorComicsTree,
   type AuthorComicSeries,
 } from "../api/authorComics";
@@ -22,6 +23,13 @@ export default function CreatorComicsPage() {
   const [seriesList, setSeriesList] = useState<AuthorComicSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<Message | null>(null);
+
+  const [createSeriesOpen, setCreateSeriesOpen] = useState(false);
+  const [newSeriesSlug, setNewSeriesSlug] = useState("");
+  const [newSeriesTitle, setNewSeriesTitle] = useState("");
+  const [newSeriesSummary, setNewSeriesSummary] = useState("");
+  const [createSeriesError, setCreateSeriesError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   async function loadPageData() {
     setLoading(true);
@@ -57,11 +65,59 @@ export default function CreatorComicsPage() {
     loadPageData();
   }, []);
 
+  useEffect(() => {
+    if (!createSeriesError) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCreateSeriesError(null);
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [createSeriesError]);
+
   function handleCreateSeries() {
-    setMessage({
-      type: "error",
-      text: "新建 series 弹窗还没有接入。下一步处理。",
-    });
+    setNewSeriesSlug("");
+    setNewSeriesTitle("");
+    setNewSeriesSummary("");
+    setCreateSeriesError(null);
+    setCreateSeriesOpen(true);
+  }
+
+  async function handleSubmitCreateSeries() {
+    const slug = newSeriesSlug.trim();
+
+    if (!slug) {
+      setCreateSeriesError("Series slug 不能为空。");
+      return;
+    }
+
+    setSubmitting(true);
+    setCreateSeriesError(null);
+
+    try {
+      const createdSeries = await createAuthorComicSeries({
+        slug,
+        title: newSeriesTitle,
+        summary: newSeriesSummary,
+      });
+
+      setCreateSeriesOpen(false);
+      setNewSeriesSlug("");
+      setNewSeriesTitle("");
+      setNewSeriesSummary("");
+      setCreateSeriesError(null);
+
+      navigate(`/creator/comics/${createdSeries.slug}`);
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : "新建 series 失败";
+      setCreateSeriesError(text);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -149,6 +205,121 @@ export default function CreatorComicsPage() {
           </section>
         )}
       </section>
+
+      {createSeriesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <section className="admin-section w-full max-w-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-main">
+                  新建 series
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  创建一个新的漫画 series。比如：SaBa帮的历史第一季。
+                </p>
+
+                {createSeriesError && (
+                  <div className="admin-message-error mt-4 px-4 py-3 text-sm leading-6">
+                    {createSeriesError}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="admin-button-secondary px-3 py-2 text-sm"
+                disabled={submitting}
+                onClick={() => {
+                  setCreateSeriesError(null);
+                  setCreateSeriesOpen(false);
+                }}
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-main">
+                  Series slug
+                </label>
+
+                <input
+                  className="admin-input mt-2 w-full px-4 py-3"
+                  value={newSeriesSlug}
+                  disabled={submitting}
+                  onChange={(event) => {
+                    setNewSeriesSlug(event.target.value);
+                    setCreateSeriesError(null);
+                  }}
+                  placeholder="必填，例如：my-comic-series"
+                  autoFocus
+                />
+
+                <p className="mt-2 text-xs leading-5 text-soft">
+                  slug 是不可更改的唯一识别码，不能和已有 series 重复。
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-main">
+                  Series 标题
+                </label>
+
+                <input
+                  className="admin-input mt-2 w-full px-4 py-3"
+                  value={newSeriesTitle}
+                  disabled={submitting}
+                  onChange={(event) => setNewSeriesTitle(event.target.value)}
+                  placeholder="选填，例如：鸡神漫画集"
+                />
+
+                <p className="mt-2 text-xs leading-5 text-soft">
+                  可留空。留空时后端会使用默认标题。
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-main">
+                  Series 简介
+                </label>
+
+                <textarea
+                  className="admin-textarea mt-2 min-h-28 w-full px-4 py-3 text-sm leading-7"
+                  value={newSeriesSummary}
+                  disabled={submitting}
+                  onChange={(event) => setNewSeriesSummary(event.target.value)}
+                  placeholder="选填。之后也可以在 series 页面修改。"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                className="admin-button-secondary px-4 py-2 text-sm font-semibold"
+                disabled={submitting}
+                onClick={() => {
+                  setCreateSeriesError(null);
+                  setCreateSeriesOpen(false);
+                }}
+              >
+                取消
+              </button>
+
+              <button
+                type="button"
+                className="admin-button-primary px-4 py-2 text-sm font-semibold"
+                disabled={submitting}
+                onClick={handleSubmitCreateSeries}
+              >
+                {submitting ? "创建中..." : "创建 series"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

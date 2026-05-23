@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { getMe } from "../api/auth";
 import {
+  createAuthorComicPart,
   fetchAuthorComicsTree,
   renameAuthorComicSeries,
   updateAuthorSeriesSummary,
@@ -46,6 +47,13 @@ export default function CreatorComicSeriesPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
+
+  const [createPartOpen, setCreatePartOpen] = useState(false);
+  const [newPartSlug, setNewPartSlug] = useState("");
+  const [newPartTitle, setNewPartTitle] = useState("");
+  const [newPartSummary, setNewPartSummary] = useState("");
+
+  const [createPartError, setCreatePartError] = useState<string | null>(null);
 
   async function loadPageData() {
     if (!seriesSlug) {
@@ -101,6 +109,20 @@ export default function CreatorComicSeriesPage() {
   useEffect(() => {
     loadPageData();
   }, [seriesSlug]);
+
+  useEffect(() => {
+    if (!createPartError) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCreatePartError(null);
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [createPartError]);
 
   async function handleSaveSeriesTitle() {
     if (!seriesSlug) {
@@ -198,10 +220,58 @@ export default function CreatorComicSeriesPage() {
   }
 
   function handleCreatePart() {
-    setMessage({
-      type: "error",
-      text: "新建 part 弹窗还没有接入。下一步处理。",
-    });
+    setNewPartSlug("");
+    setNewPartTitle("");
+    setNewPartSummary("");
+    setCreatePartError(null);
+    setCreatePartOpen(true);
+  }
+
+  async function handleSubmitCreatePart() {
+    if (!seriesSlug) {
+      setCreatePartError(" 当前路由缺少 seriesSlug。");
+      return;
+    }
+
+    const slug = newPartSlug.trim();
+
+    if (!slug) {
+      setCreatePartError(" Part slug 不能为空。");
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage(null);
+    setCreatePartError(null);
+
+    try {
+      const createdPart = await createAuthorComicPart({
+        seriesSlug,
+        slug,
+        title: newPartTitle,
+        summary: newPartSummary,
+      });
+
+      await loadPageData();
+
+      setCreatePartError(null);
+      setCreatePartOpen(false);
+      setNewPartSlug("");
+      setNewPartTitle("");
+      setNewPartSummary("");
+
+      setMessage({
+        type: "success",
+        text: "Part 已新建。",
+      });
+
+      navigate(`/creator/comics/${seriesSlug}/${createdPart.slug}`);
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : " 新建 part 失败";
+      setCreatePartError(text);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const resolvedCoverUrl = resolveCoverUrl(series?.coverUrl);
@@ -406,6 +476,116 @@ export default function CreatorComicSeriesPage() {
           </>
         )}
       </section>
+
+      {createPartOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <section className="admin-section w-full max-w-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-main">
+                  新建 part
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  在当前 series 下创建新的 part。创建后会自动把当前登录用户设为作者。
+                </p>
+
+                {createPartError && (
+                  <div className="admin-message-error mt-4 px-4 py-3 text-sm leading-6">
+                    {createPartError}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="admin-button-secondary px-3 py-2 text-sm"
+                disabled={submitting}
+                onClick={() => {
+                  setCreatePartError(null);
+                  setCreatePartOpen(false);
+                }}
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-main">
+                  Part slug
+                </label>
+
+                <input
+                  className="admin-input mt-2 w-full px-4 py-3"
+                  value={newPartSlug}
+                  disabled={submitting}
+                  onChange={(event) => setNewPartSlug(event.target.value)}
+                  placeholder="必填，例如：part-1"
+                  autoFocus
+                />
+
+                <p className="mt-2 text-xs leading-5 text-soft">
+                  slug 是不可更改的唯一识别码。同一 series 下不能重复。
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-main">
+                  Part 标题
+                </label>
+
+                <input
+                  className="admin-input mt-2 w-full px-4 py-3"
+                  value={newPartTitle}
+                  disabled={submitting}
+                  onChange={(event) => setNewPartTitle(event.target.value)}
+                  placeholder="选填，例如：序章"
+                />
+
+                <p className="mt-2 text-xs leading-5 text-soft">
+                  可留空。后端会按顺序生成“第N章”，这里填写的是标题后缀。
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-main">
+                  Part 简介
+                </label>
+
+                <textarea
+                  className="admin-textarea mt-2 min-h-28 w-full px-4 py-3 text-sm leading-7"
+                  value={newPartSummary}
+                  disabled={submitting}
+                  onChange={(event) => setNewPartSummary(event.target.value)}
+                  placeholder="选填。之后也可以在 part 页面修改。"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                className="admin-button-secondary px-4 py-2 text-sm font-semibold"
+                disabled={submitting}
+                onClick={() => setCreatePartOpen(false)}
+              >
+                取消
+              </button>
+
+              <button
+                type="button"
+                className="admin-button-primary px-4 py-2 text-sm font-semibold"
+                disabled={submitting}
+                onClick={handleSubmitCreatePart}
+              >
+                {submitting ? "创建中..." : "创建 part"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
     </main>
   );
 }

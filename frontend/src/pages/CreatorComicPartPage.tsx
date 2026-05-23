@@ -647,8 +647,11 @@ export default function CreatorComicPartPage() {
           <div className="mx-auto max-w-6xl">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
               <div>
-                <Link to="/creator/comics" className="link-accent text-sm">
-                  返回创作者作品
+                <Link
+                  to={seriesSlug ? `/creator/comics/${seriesSlug}` : "/creator/comics"}
+                  className="link-accent text-sm"
+                >
+                  返回 《 {seriesSlug ?? "创作者"} 》
                 </Link>
 
                 <p className="mt-3 text-sm font-semibold uppercase tracking-[0.25em] link-accent">
