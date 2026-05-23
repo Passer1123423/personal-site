@@ -18,7 +18,7 @@ function WorksPage() {
           <div
             className="h-48 bg-cover bg-center"
             style={{
-              backgroundImage: "url('/public/images/novel-cover.webp')",
+              backgroundImage: "url('/images/novel-cover.webp')",
             }}
           />
           <h2 className="text-2xl font-bold text-main">小说存档</h2>

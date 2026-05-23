@@ -33,7 +33,7 @@ function Hero() {
             href="https://github.com/samlee1020"
             target="_blank"
             rel="noreferrer"
-            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 hover:brightness-110"
+            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 hover:brightness-110 hover:underline hover:underline-offset-4"
           >
             Github
           </a>

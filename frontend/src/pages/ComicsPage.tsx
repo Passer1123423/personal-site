@@ -177,7 +177,7 @@ function ComicsPage() {
   const canUploadComics =
     currentUser?.role === "author" || currentUser?.role === "admin";
 
-  const heroBgUrl = "/public/images/ComicsPageHero.webp";
+  const heroBgUrl = "/images/ComicsPageHero.webp";
   const heroBgPosition = "0% 55%";
   const heroBgSize = "100% auto";
 
