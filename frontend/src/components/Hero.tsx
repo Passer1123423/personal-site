@@ -30,7 +30,7 @@ function Hero() {
 
         <div className="mt-6 flex flex-wrap gap-4">
           <a
-            href="https://github.com/samlee1020"
+            href="https://ys.mihoyo.com"
             target="_blank"
             rel="noreferrer"
             className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 hover:brightness-110 hover:underline hover:underline-offset-4"
