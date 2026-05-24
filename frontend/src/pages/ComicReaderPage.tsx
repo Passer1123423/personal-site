@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   getComicReaderData,
@@ -211,51 +211,27 @@ function ComicReaderPage() {
       ? (readerData.chapter as { summary?: string | null }).summary
       : null;
 
-  const hasRestoredScroll = useRef(false)
-
-  const scrollStorageKey =
-    seriesSlug && partSlug && chapterSlug
-      ? `comic-scroll:${seriesSlug}:${partSlug}:${chapterSlug}`
-      : null
-
   useEffect(() => {
-    hasRestoredScroll.current = false
-  }, [scrollStorageKey])
-
-  useEffect(() => {
-    if (isLoading || !readerData || !scrollStorageKey || hasRestoredScroll.current) {
+    if (isLoading || !readerData) {
       return
     }
 
-    hasRestoredScroll.current = true
+    const html = document.documentElement
+    const body = document.body
 
-    const savedY = Number(sessionStorage.getItem(scrollStorageKey) ?? 0)
+    const previousHtmlScrollBehavior = html.style.scrollBehavior
+    const previousBodyScrollBehavior = body.style.scrollBehavior
 
-    window.scrollTo({
-      top: Number.isFinite(savedY) ? savedY : 0,
-      left: 0,
-      behavior: "auto",
+    html.style.scrollBehavior = "auto"
+    body.style.scrollBehavior = "auto"
+
+    window.scrollTo(0, 0)
+
+    window.requestAnimationFrame(() => {
+      html.style.scrollBehavior = previousHtmlScrollBehavior
+      body.style.scrollBehavior = previousBodyScrollBehavior
     })
-  }, [isLoading, readerData, scrollStorageKey])
-
-  useEffect(() => {
-    if (!scrollStorageKey) {
-      return
-    }
-
-    const key = scrollStorageKey
-
-    function saveScrollPosition() {
-      sessionStorage.setItem(key, String(window.scrollY))
-    }
-
-    window.addEventListener("scroll", saveScrollPosition, { passive: true })
-
-    return () => {
-      saveScrollPosition()
-      window.removeEventListener("scroll", saveScrollPosition)
-    }
-  }, [scrollStorageKey])
+  }, [isLoading, readerData, seriesSlug, partSlug, chapterSlug])
 
   function scrollToTop() {
     window.scrollTo({
