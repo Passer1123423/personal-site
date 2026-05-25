@@ -19,18 +19,19 @@ function NovelCover({ novel }: { novel: NovelDetail }) {
       <img
         src={coverUrl}
         alt={novel.title}
-        className="h-full w-full rounded-2xl object-cover shadow-md"
+        className="h-full w-full object-cover"
       />
     );
   }
 
   return (
-    <div className="flex h-full w-full flex-col justify-between rounded-2xl border border-[var(--color-border-soft)] bg-gradient-to-br from-[var(--color-accent-soft)] to-white p-6 shadow-md">
+    <div className="flex h-full w-full flex-col justify-between bg-gradient-to-br from-[var(--color-accent-soft)] to-white p-5">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.22em] link-accent">
           Novel
         </p>
-        <h2 className="mt-4 line-clamp-4 text-2xl font-bold leading-tight text-main">
+
+        <h2 className="mt-4 text-xl font-bold leading-tight text-main">
           {novel.title}
         </h2>
       </div>
@@ -87,20 +88,16 @@ function NovelDetailPage() {
 
   return (
     <main className="page-shell min-h-[100dvh] pb-16">
-      <section className="border-b border-[var(--color-border-soft)] bg-[var(--color-panel-bg)]">
-        <div className="mx-auto max-w-7xl px-6 py-10 md:px-10">
-          <Link
-            to="/works/novels"
-            className="text-sm font-semibold link-accent"
-          >
-            ← 返回小说存档
-          </Link>
-        </div>
-      </section>
+      <section className="mx-auto max-w-[1250px] px-6 py-8 md:px-8">
+        <Link
+          to="/works/novels"
+          className="mb-4 inline-block text-sm font-semibold link-accent"
+        >
+          ← 返回小说存档
+        </Link>
 
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10">
         {isLoading && (
-          <section className="surface-card px-6 py-10">
+          <section className="surface-card px-6 py-8">
             <p className="text-sm text-soft">正在加载小说详情...</p>
           </section>
         )}
@@ -112,56 +109,53 @@ function NovelDetailPage() {
         )}
 
         {!isLoading && !errorMessage && novel && (
-          <>
-            <section className="surface-card overflow-hidden">
-              <div className="grid gap-8 p-6 md:grid-cols-[260px_minmax(0,1fr)] md:p-8 lg:grid-cols-[300px_minmax(0,1fr)]">
-                <div className="mx-auto h-[380px] w-[240px] md:mx-0">
-                  <NovelCover novel={novel} />
-                </div>
+          <section className="novel-detail-frame surface-card">
+            <header className="novel-detail-header">
+              <div className="novel-detail-cover">
+                <NovelCover novel={novel} />
+              </div>
 
-                <div className="flex flex-col justify-between">
+              <div className="novel-detail-main">
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] link-accent">
+                  Novel Detail
+                </p>
+
+                <h1 className="mt-3 text-3xl font-bold leading-tight text-main md:text-4xl">
+                  {novel.title}
+                </h1>
+
+                <p className="mt-4 max-w-3xl whitespace-pre-line text-sm leading-7 text-muted md:text-base">
+                  {novel.summary || "暂无小说简介。"}
+                </p>
+
+                <div className="novel-detail-meta">
                   <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
-                      Novel Detail
-                    </p>
-
-                    <h1 className="mt-4 text-4xl font-bold leading-tight text-main md:text-5xl">
-                      {novel.title}
-                    </h1>
-
-                    <p className="mt-5 max-w-3xl whitespace-pre-line text-base leading-8 text-muted">
-                      {novel.summary || "暂无小说简介。"}
-                    </p>
+                    <p className="font-semibold text-main">章节数</p>
+                    <p className="mt-1">{chapters.length} 章</p>
                   </div>
 
-                  <div className="mt-8 grid gap-3 border-t border-[var(--color-border-soft)] pt-5 text-sm text-soft sm:grid-cols-3">
-                    <div>
-                      <p className="font-semibold text-main">章节数</p>
-                      <p className="mt-1">{chapters.length} 章</p>
-                    </div>
+                  <div>
+                    <p className="font-semibold text-main">最近更新</p>
+                    <p className="mt-1">{formatDate(novel.updatedAt)}</p>
+                  </div>
 
-                    <div>
-                      <p className="font-semibold text-main">最近更新</p>
-                      <p className="mt-1">{formatDate(novel.updatedAt)}</p>
-                    </div>
-
-                    <div>
-                      <p className="font-semibold text-main">作品标识</p>
-                      <p className="mt-1 break-all">{novel.slug}</p>
-                    </div>
+                  <div>
+                    <p className="font-semibold text-main">作品标识</p>
+                    <p className="mt-1 break-all">{novel.slug}</p>
                   </div>
                 </div>
               </div>
-            </section>
+            </header>
 
-            <section className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-              <section className="surface-card p-6 md:p-8">
-                <div className="mb-6 flex items-end justify-between gap-4 border-b border-[var(--color-border-soft)] pb-4">
+            <div className="novel-detail-body">
+              <section className="novel-detail-chapters">
+                <div className="novel-detail-section-heading">
                   <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
+                    <p className="text-sm font-semibold uppercase tracking-[0.22em] link-accent">
                       Chapters
                     </p>
-                    <h2 className="mt-2 text-2xl font-bold text-main">
+
+                    <h2 className="mt-2 text-xl font-bold text-main">
                       章节目录
                     </h2>
                   </div>
@@ -174,18 +168,19 @@ function NovelDetailPage() {
                 {chapters.length === 0 ? (
                   <p className="text-sm text-soft">暂无章节。</p>
                 ) : (
-                  <div className="divide-y divide-[var(--color-border-soft)]">
+                  <div className="novel-detail-chapter-list">
                     {chapters.map((chapter) => (
                       <Link
                         key={chapter.id}
                         to={`/works/novels/${novel.slug}/${chapter.slug}`}
-                        className="group flex items-center justify-between gap-4 py-4"
+                        className="novel-detail-chapter-link group"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-base font-semibold text-main group-hover:text-[var(--color-accent)]">
+                          <p className="truncate text-sm font-semibold text-main group-hover:text-[var(--color-accent)]">
                             {chapter.title}
                           </p>
-                          <p className="mt-1 text-sm text-soft">
+
+                          <p className="mt-1 text-xs text-soft">
                             更新于 {formatDate(chapter.updatedAt)}
                           </p>
                         </div>
@@ -199,8 +194,8 @@ function NovelDetailPage() {
                 )}
               </section>
 
-              <aside className="surface-card h-fit p-6 md:p-8">
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
+              <aside className="novel-detail-discussion">
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] link-accent">
                   Reader Area
                 </p>
 
@@ -212,8 +207,8 @@ function NovelDetailPage() {
                   这里暂时作为读者讨论区、作者说明或更新记录的预留位置。后续可以接评论、点赞、阅读记录等功能。
                 </p>
               </aside>
-            </section>
-          </>
+            </div>
+          </section>
         )}
       </section>
     </main>

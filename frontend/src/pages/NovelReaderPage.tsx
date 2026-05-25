@@ -129,11 +129,10 @@ function NovelReaderPage() {
 
   return (
     <main className="page-shell min-h-[100dvh] pb-14">
-      <section className="border-b border-[var(--color-border-soft)] bg-[var(--color-panel-bg)]">
-        <div className="mx-auto flex max-w-[1320px] flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-8">
-          <div className="flex flex-wrap items-center gap-3 text-sm">
+      <section className="mx-auto max-w-[1250px] px-6 py-8 md:px-8">
+          <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
             <Link to="/works/novels" className="font-semibold link-accent">
-              小说存档
+              ← 小说存档
             </Link>
 
             {readerData && (
@@ -149,15 +148,6 @@ function NovelReaderPage() {
             )}
           </div>
 
-          {readerData && (
-            <span className="text-sm text-soft">
-              更新于 {formatDate(readerData.chapter.updatedAt)}
-            </span>
-          )}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-[1320px] px-5 py-8 md:px-8">
         {isLoading && (
           <section className="surface-card px-6 py-8">
             <p className="text-sm text-soft">正在加载章节内容...</p>

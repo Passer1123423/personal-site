@@ -99,6 +99,115 @@
   background: var(--color-panel-soft-bg);
 }
 
+.novel-detail-frame {
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+
+.novel-detail-header {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 1.75rem;
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 1.75rem 2rem;
+}
+
+.novel-detail-cover {
+  height: 250px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 0.65rem;
+  background: var(--color-panel-soft-bg);
+}
+
+.novel-detail-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.novel-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--color-border-soft);
+  padding-top: 1rem;
+  color: var(--color-text-soft);
+  font-size: 0.875rem;
+}
+
+.novel-detail-body {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+}
+
+.novel-detail-chapters {
+  border-right: 1px solid var(--color-border-soft);
+  padding: 1.5rem 1.5rem 1.75rem;
+}
+
+.novel-detail-discussion {
+  padding: 1.5rem 1.75rem 1.75rem;
+}
+
+.novel-detail-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-border-soft);
+  padding-bottom: 1rem;
+}
+
+.novel-detail-chapter-list {
+  divide: none;
+}
+
+.novel-detail-chapter-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.875rem;
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 0.875rem 0;
+}
+
+.novel-detail-chapter-link:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 1023px) {
+  .novel-detail-header {
+    grid-template-columns: 1fr;
+    padding: 1.5rem 1.25rem;
+  }
+
+  .novel-detail-cover {
+    width: 180px;
+    height: 250px;
+  }
+
+  .novel-detail-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .novel-detail-body {
+    grid-template-columns: 1fr;
+  }
+
+  .novel-detail-chapters {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-soft);
+    padding: 1.25rem;
+  }
+
+  .novel-detail-discussion {
+    padding: 1.25rem;
+  }
+}
+
 .novel-reader-frame {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 220px;
