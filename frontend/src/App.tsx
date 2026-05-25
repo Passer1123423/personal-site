@@ -23,6 +23,7 @@ import AdminUsersPage from "./pages/AdminUsersPage";
 
 import NovelsPage from './pages/NovelsPage'
 import NovelDetailPage from './pages/NovelDetailPage'
+import NovelReaderPage from './pages/NovelReaderPage'
 
 function App() {
   const location = useLocation();
@@ -54,6 +55,7 @@ function App() {
 
         <Route path="/works/novels" element={<NovelsPage />} />
         <Route path="/works/novels/:novelSlug" element={<NovelDetailPage />} />
+        <Route path="/works/novels/:novelSlug/:chapterSlug" element={<NovelReaderPage />} />
 
         <Route path="/creator/comics" element={<CreatorComicsPage />} />
         <Route

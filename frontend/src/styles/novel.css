@@ -1,0 +1,227 @@
+/* src/styles/novel.css */
+
+.novel-markdown {
+  color: var(--color-text-main);
+  font-size: 1rem;
+  line-height: 2;
+}
+
+.novel-markdown > * + * {
+  margin-top: 1rem;
+}
+
+.novel-markdown h1,
+.novel-markdown h2,
+.novel-markdown h3 {
+  color: var(--color-text-strong);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.novel-markdown h1 {
+  margin-top: 0;
+  font-size: 2rem;
+}
+
+.novel-markdown h2 {
+  margin-top: 2.25rem;
+  font-size: 1.5rem;
+}
+
+.novel-markdown h3 {
+  margin-top: 1.75rem;
+  font-size: 1.2rem;
+}
+
+.novel-markdown p {
+  color: var(--color-text-muted);
+}
+
+.novel-markdown a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.novel-markdown blockquote {
+  border-left: 3px solid var(--color-accent-border-strong);
+  background: var(--color-panel-soft-bg);
+  padding: 0.75rem 1rem;
+  color: var(--color-text-muted);
+}
+
+.novel-markdown ul,
+.novel-markdown ol {
+  padding-left: 1.5rem;
+  color: var(--color-text-muted);
+}
+
+.novel-markdown ul {
+  list-style: disc;
+}
+
+.novel-markdown ol {
+  list-style: decimal;
+}
+
+.novel-markdown code {
+  border-radius: 0.35rem;
+  background: var(--color-panel-muted-bg);
+  padding: 0.15rem 0.35rem;
+  font-size: 0.92em;
+}
+
+.novel-markdown pre {
+  overflow-x: auto;
+  border-radius: var(--radius-card);
+  background: var(--color-panel-muted-bg);
+  padding: 1rem;
+}
+
+.novel-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.novel-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.novel-markdown th,
+.novel-markdown td {
+  border: 1px solid var(--color-border-soft);
+  padding: 0.5rem 0.75rem;
+}
+
+.novel-markdown th {
+  background: var(--color-panel-soft-bg);
+}
+
+.novel-reader-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  overflow: visible;
+  border-radius: 0.75rem;
+}
+
+.novel-reader-header {
+  grid-column: 1 / -1;
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 1.75rem 2.25rem 1.5rem;
+}
+
+.novel-reader-content {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.novel-reader-markdown {
+  max-width: none;
+  padding: 2rem 2.25rem 2.5rem;
+}
+
+.novel-reader-sidebar {
+  position: sticky;
+  top: 4.75rem;
+  align-self: start;
+
+  max-height: calc(100dvh - 5.75rem);
+  overflow: hidden;
+
+  border-left: 1px solid var(--color-border-soft);
+  background: var(--color-panel-bg);
+}
+
+.novel-reader-toc {
+  box-sizing: border-box;
+  padding: 1.5rem 1rem 1rem;
+}
+
+.novel-reader-toc-list {
+  max-height: calc(100dvh - 14rem);
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.novel-reader-toc-footer {
+  margin-top: 1rem;
+  border-top: 1px solid var(--color-border-soft);
+  padding-top: 1rem;
+}
+
+.novel-reader-footer {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  border-top: 1px solid var(--color-border-soft);
+  background: var(--color-panel-soft-bg);
+  padding: 0.55rem 0.75rem;
+  border-radius: 0 0 0.75rem 0.75rem;
+}
+
+.novel-reader-nav-card {
+  border: 1px solid var(--color-border-soft);
+  border-radius: 0.45rem;
+  background: var(--color-panel-bg);
+  padding: 0.35rem 0.65rem;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.novel-reader-nav-card:hover {
+  border-color: var(--color-accent-border-strong);
+  background: var(--color-panel-bg);
+}
+
+.novel-toc-link {
+  display: block;
+  border-left: 2px solid transparent;
+  padding: 0.32rem 0.25rem 0.32rem 0.65rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+
+.novel-toc-link:hover {
+  color: var(--color-text-main);
+  background: var(--color-panel-soft-bg);
+}
+
+.novel-toc-link-active {
+  border-left-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: 600;
+  background: transparent;
+}
+
+.novel-reader-toc button:hover {
+  color: var(--color-accent);
+}
+
+@media (max-width: 1023px) {
+  .novel-reader-frame {
+    grid-template-columns: 1fr;
+    overflow: hidden;
+  }
+
+  .novel-reader-header {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .novel-reader-sidebar {
+    display: none;
+  }
+
+  .novel-reader-markdown {
+    max-width: none;
+    padding: 1.75rem 1.25rem 2.25rem;
+  }
+
+  .novel-reader-footer {
+    grid-template-columns: 1fr;
+    padding: 0.75rem;
+  }
+}

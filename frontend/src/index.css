@@ -3,6 +3,7 @@
 @import "./styles/page.css";
 @import "./styles/auth.css";
 @import "./styles/admin.css";
+@import "./styles/novel.css";
 
 * {
   box-sizing: border-box;
