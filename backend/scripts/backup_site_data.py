@@ -148,30 +148,50 @@ def run_command(args: list[str]) -> None:
     subprocess.run(args, check=True)
 
 
-def copy_to_remote(
-    archive_path: Path,
-    remote_dest: str,
-    remote_port: int | None,
-    remote_latest_name: str,
-) -> None:
-    """
-    remote_dest examples:
-      user@example.com:/home/user/backups
-      user@127.0.0.1:/home/user/backups
-
-    The script uploads to a temporary timestamped file first, then renames it
-    to remote_latest_name. This keeps only one stable remote backup file.
-    """
+def parse_remote_dest(remote_dest: str) -> tuple[str, str]:
     if ":" not in remote_dest:
-        raise ValueError("remote_dest must look like user@host:/absolute/path")
+        raise ValueError(
+            "remote_dest must look like user@host:/absolute/path "
+            "or user@host:/O:/path for Windows OpenSSH"
+        )
 
     remote_host, remote_dir = remote_dest.split(":", 1)
-    if not remote_dir.startswith("/"):
-        raise ValueError("remote path must be absolute, e.g. user@host:/home/user/backups")
+    if not remote_host:
+        raise ValueError("remote host is empty")
+    if not remote_dir:
+        raise ValueError("remote path is empty")
 
-    remote_tmp = f"{remote_dir.rstrip('/')}/.{archive_path.name}.tmp"
-    remote_latest = f"{remote_dir.rstrip('/')}/{remote_latest_name}"
+    return remote_host, remote_dir.rstrip("/\\")
 
+
+def windows_path_from_scp_path(path: str) -> str:
+    r"""
+    Convert scp-style Windows OpenSSH paths to a Windows path.
+
+    Supported examples:
+      /O:/personal-site -> O:\personal-site
+      O:/personal-site  -> O:\personal-site
+      C:/Users/name     -> C:\Users\name
+    """
+    normalized = path.strip()
+
+    if len(normalized) >= 4 and normalized[0] == "/" and normalized[2] == ":":
+        normalized = normalized[1:]
+
+    if len(normalized) >= 3 and normalized[1] == ":":
+        return normalized.replace("/", "\\")
+
+    return normalized.replace("/", "\\")
+
+
+def powershell_single_quote(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def build_ssh_scp_commands(
+    remote_port: int | None,
+    remote_identity_file: str,
+) -> tuple[list[str], list[str]]:
     ssh_cmd = ["ssh"]
     scp_cmd = ["scp"]
 
@@ -179,9 +199,91 @@ def copy_to_remote(
         ssh_cmd += ["-p", str(remote_port)]
         scp_cmd += ["-P", str(remote_port)]
 
-    run_command(ssh_cmd + [remote_host, f"mkdir -p {remote_dir!r}"])
-    run_command(scp_cmd + [str(archive_path), f"{remote_host}:{remote_tmp}"])
-    run_command(ssh_cmd + [remote_host, f"mv {remote_tmp!r} {remote_latest!r}"])
+    if remote_identity_file:
+        expanded_key = str(Path(remote_identity_file).expanduser())
+        ssh_cmd += ["-i", expanded_key]
+        scp_cmd += ["-i", expanded_key]
+
+    return ssh_cmd, scp_cmd
+
+
+def copy_to_remote(
+    archive_path: Path,
+    remote_dest: str,
+    remote_port: int | None,
+    remote_latest_name: str,
+    remote_identity_file: str = "",
+    remote_platform: str = "posix",
+    remote_skip_mkdir: bool = False,
+) -> None:
+    """
+    Copy the backup archive to a remote host.
+
+    remote_dest examples:
+      POSIX:
+        user@example.com:/home/user/backups
+      Windows OpenSSH:
+        23747@127.0.0.1:/O:/personal-site
+
+    The script uploads to a temporary file first, then renames it to
+    remote_latest_name. This keeps only one stable remote backup file.
+    """
+    remote_host, remote_dir = parse_remote_dest(remote_dest)
+
+    if remote_platform == "posix" and not remote_dir.startswith("/"):
+        raise ValueError("POSIX remote path must be absolute, e.g. user@host:/home/user/backups")
+
+    remote_tmp_for_scp = f"{remote_dir.rstrip('/')}/.{archive_path.name}.tmp"
+    remote_latest_for_scp = f"{remote_dir.rstrip('/')}/{remote_latest_name}"
+
+    ssh_cmd, scp_cmd = build_ssh_scp_commands(remote_port, remote_identity_file)
+
+    if remote_platform == "windows":
+        remote_dir_for_command = windows_path_from_scp_path(remote_dir)
+        remote_tmp_for_command = windows_path_from_scp_path(remote_tmp_for_scp)
+        remote_latest_for_command = windows_path_from_scp_path(remote_latest_for_scp)
+
+        if not remote_skip_mkdir:
+            mkdir_script = (
+                "New-Item -ItemType Directory -Force -LiteralPath "
+                f"{powershell_single_quote(remote_dir_for_command)} | Out-Null"
+            )
+            run_command(
+                ssh_cmd
+                + [
+                    remote_host,
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    mkdir_script,
+                ]
+            )
+
+        run_command(scp_cmd + [str(archive_path), f"{remote_host}:{remote_tmp_for_scp}"])
+
+        move_script = (
+            "Move-Item -Force -LiteralPath "
+            f"{powershell_single_quote(remote_tmp_for_command)} "
+            "-Destination "
+            f"{powershell_single_quote(remote_latest_for_command)}"
+        )
+        run_command(
+            ssh_cmd
+            + [
+                remote_host,
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                move_script,
+            ]
+        )
+        return
+
+    if not remote_skip_mkdir:
+        run_command(ssh_cmd + [remote_host, f"mkdir -p {remote_dir!r}"])
+
+    run_command(scp_cmd + [str(archive_path), f"{remote_host}:{remote_tmp_for_scp}"])
+    run_command(ssh_cmd + [remote_host, f"mv {remote_tmp_for_scp!r} {remote_latest_for_scp!r}"])
 
 
 def parse_args() -> argparse.Namespace:
@@ -224,6 +326,22 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=int(os.getenv("BACKUP_REMOTE_PORT", "0")),
         help="Optional SSH port for remote copy. Use 0 to omit.",
+    )
+    parser.add_argument(
+        "--remote-identity-file",
+        default=os.getenv("BACKUP_REMOTE_IDENTITY_FILE", ""),
+        help="Optional SSH private key file for remote copy, e.g. ~/.ssh/personal_site_backup.",
+    )
+    parser.add_argument(
+        "--remote-platform",
+        default=os.getenv("BACKUP_REMOTE_PLATFORM", "posix"),
+        choices=["posix", "windows"],
+        help="Remote SSH platform. Use windows for Windows OpenSSH targets.",
+    )
+    parser.add_argument(
+        "--remote-skip-mkdir",
+        action="store_true",
+        help="Do not create the remote directory before uploading.",
     )
     parser.add_argument(
         "--remote-latest-name",
@@ -283,6 +401,9 @@ def main() -> None:
                 remote_dest=args.remote_dest,
                 remote_port=remote_port,
                 remote_latest_name=args.remote_latest_name,
+                remote_identity_file=args.remote_identity_file,
+                remote_platform=args.remote_platform,
+                remote_skip_mkdir=args.remote_skip_mkdir,
             )
             print("Remote copy complete.")
 
