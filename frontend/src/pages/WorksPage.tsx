@@ -14,18 +14,30 @@ function WorksPage() {
       </p>
 
       <div className="mt-10 grid gap-8 md:grid-cols-2">
-        <article className="surface-card p-8">
+        <Link
+          to="/works/novels"
+          className="surface-card surface-card-link relative min-h-[340px] overflow-hidden p-8"
+        >
           <div
-            className="h-48 bg-cover bg-center"
+            className="pointer-events-none absolute inset-0 bg-white"
             style={{
               backgroundImage: "url('/images/novel-cover.webp')",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "58% auto",
+              backgroundPosition: "right 48px center",
             }}
           />
-          <h2 className="text-2xl font-bold text-main">小说存档</h2>
-          <p className="mt-4 leading-7 text-muted">
-            还没做。。
-          </p>
-        </article>
+
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white via-white/88 to-white/25" />
+
+          <div className="relative z-10 flex min-h-[260px] max-w-md flex-col justify-end">
+            <h2 className="text-2xl font-bold text-main">小说存档</h2>
+
+            <p className="mt-4 leading-7 text-muted">
+              用于整理小说正文、章节目录和后续阅读评论入口。
+            </p>
+          </div>
+        </Link>
 
         <Link
           to="/works/comics"

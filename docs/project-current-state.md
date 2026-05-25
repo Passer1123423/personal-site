@@ -10,7 +10,7 @@
 
 - 前端：Vite、React、React Router、Tailwind CSS。
 - 后端：FastAPI、SQLModel、SQLite。
-- 上传资源：本地文件系统，FastAPI 挂载 `/uploads`。
+- 上传资源：本地文件系统，FastAPI 挂载 `/uploads`，实际根目录由 `UPLOADS_DIR` 控制。
 
 ## 顶层结构
 
@@ -51,8 +51,8 @@ docs/
 
 - 创建 FastAPI app。
 - 启动时调用 `create_db_and_tables()`。
-- 注册 CORS。
-- 挂载 `/uploads` 到 `backend/uploads`。
+- 注册 CORS，允许来源从 `CORS_ALLOW_ORIGINS` 读取，默认本地前端地址。
+- 挂载 `/uploads` 到 `UPLOADS_DIR`，未设置时默认 `backend/uploads`。
 - 注册所有 routers。
 - 提供 `GET /` 和 `GET /health`。
 
@@ -183,6 +183,7 @@ frontend/src/styles/admin.css
 - 列出公开漫画系列。
 - 查看某个公开系列下的公开 part 和 chapter。
 - 阅读某个公开章节的漫画页。
+- 阅读页会按 `seriesSlug/partSlug/chapterSlug` 用 `sessionStorage` 记录滚动位置，重新进入同一章节时恢复阅读进度。
 - 图片 URL 存在 `Asset.url`，前端通过 API base URL 拼成完整地址。
 
 认证与用户：
@@ -196,6 +197,8 @@ frontend/src/styles/admin.css
 漫画管理：
 
 - 管理员查看全站漫画树。
+- 管理员创建 series。
+- 管理员在已有 series 下创建 part，创建时把当前管理员设为该 part owner。
 - 管理员上传章节图片并创建 series/part/chapter。
 - 管理员删除 series/part/chapter。
 - 管理员移动 chapter 顺序。
@@ -206,37 +209,47 @@ frontend/src/styles/admin.css
 
 创作者上传：
 
+- 创作者漫画首页以书架形式显示全站 series，并提供新建 series 卡片。
+- 创作者 series 页只显示当前用户 owner 的 part，并提供新建 part 卡片。
+- 创作者可以在页面中编辑 series/part 标题、简介和封面。
+- 创作者 part 页默认展示章节目录，上传入口是右侧待传缓存区抽屉。
 - 登录用户可以把图片上传到自己的待传区。
-- 可以预览待传图片。
+- 可以预览待传图片，预览接口需要登录并只允许访问自己的缓存图片。
 - 可以删除单张、批量删除、清空待传区。
 - 可以按顺序发布为某个已有 part 的新 chapter。
 - 发布前会检查当前用户是否是该 part 的 owner。
 
 ## 重要现状和坑
 
-### API Base URL 仍硬编码
+### API Base URL 已统一入口
 
-多个前端文件仍写着：
+前端 API base URL 目前统一在：
 
 ```ts
-const API_BASE_URL = "http://127.0.0.1:18001";
+frontend/src/api/config.ts
 ```
 
-上线前必须统一成环境变量或同源相对路径。
+读取规则：
 
-### 后端 SECRET_KEY 仍是开发值
-
-`backend/app/core/security.py` 中仍有：
-
-```py
-SECRET_KEY = "dev-secret-key-change-me"
+```ts
+import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:18001"
 ```
 
-公网部署前必须改成环境变量。
+生产同源部署时，构建前设置：
 
-### CORS 仍是开发配置
+```txt
+VITE_API_BASE_URL=""
+```
 
-`backend/app/main.py` 当前只允许：
+这样前端会请求 `/api/...`。
+
+### 后端 SECRET_KEY 必须由环境变量提供
+
+`backend/app/core/security.py` 已经从环境变量读取 `SECRET_KEY`。如果未设置，或仍是 `dev-secret-key-change-me`，后端会启动失败。
+
+### CORS 已支持环境变量
+
+`backend/app/main.py` 从 `CORS_ALLOW_ORIGINS` 读取逗号分隔来源。默认值仍是本地开发：
 
 ```txt
 http://127.0.0.1:18000
@@ -244,6 +257,16 @@ http://localhost:18000
 ```
 
 上线前要配置真实域名，或使用同源反代避免跨域。
+
+### 上传目录已支持环境变量
+
+正式漫画上传根目录来自：
+
+```txt
+UPLOADS_DIR/comics
+```
+
+未设置 `UPLOADS_DIR` 时默认使用 `backend/uploads`。生产环境必须让 `UPLOADS_DIR` 和 Nginx `/uploads/` alias 指向同一个目录。
 
 ### author 页面目前复用 admin API
 
@@ -259,23 +282,16 @@ http://localhost:18000
 - 新增专门的 `/api/author/comics` router。
 - 后端按 `ComicPartUserLink(role="owner")` 限制 author 只能操作自己的 part。
 
-### 上传路径有相对目录风险
+### 创作者新建能力目前也复用 admin API
 
-`backend/app/services/comic_admin.py` 当前：
+创作者页面新增的“新建 series”和“新建 part”调用：
 
-```py
-UPLOADS_ROOT = Path("uploads/comics")
+```txt
+POST /api/admin/comics/series/create
+POST /api/admin/comics/{series_slug}/part/create
 ```
 
-这依赖进程工作目录。生产用 systemd、supervisor 或 Docker 启动时，可能写到错误位置。应统一成绝对路径配置。
-
-### 后端依赖声明缺失
-
-当前没有看到后端 `requirements.txt` 或 `pyproject.toml`。部署前必须补。
-
-### `.gitignore` 有冲突标记
-
-当前 `.gitignore` 仍存在合并冲突标记。部署、提交或清理生成物前应先修。
+这两个接口当前也要求 admin。真正开放给 author 前，应迁到专门的 author router，并按 owner 关系和角色边界重新校验。
 
 ## 常见任务入口
 

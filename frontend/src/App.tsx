@@ -5,18 +5,24 @@ import AboutPage from './pages/AboutPage'
 import HomePage from './pages/HomePage'
 import ProjectsPage from './pages/ProjectsPage'
 import WorksPage from './pages/WorksPage'
+
 import RegisterPage from "./pages/RegisterPage";
 import UserPage from "./pages/UserPage";
+
 import ComicReaderPage from './pages/ComicReaderPage'
 import ComicsPage from './pages/ComicsPage'
 import ComicSeriesPage from './pages/ComicSeriesPage'
 import CreatorComicsPage from "./pages/CreatorComicsPage";
 import CreatorComicSeriesPage from "./pages/CreatorComicSeriesPage";
 import CreatorComicPartPage from "./pages/CreatorComicPartPage";
+
 import AdminHomePage from "./pages/AdminHomePage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminComicsPage from "./pages/AdminComicsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
+
+import NovelsPage from './pages/NovelsPage'
+import NovelDetailPage from './pages/NovelDetailPage'
 
 function App() {
   const location = useLocation();
@@ -38,12 +44,17 @@ function App() {
         <Route path="/works" element={<WorksPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/users/:username" element={<UserPage />} />
+
         <Route path="/works/comics" element={<ComicsPage />} />
         <Route path="/works/comics/:seriesSlug" element={<ComicSeriesPage />} />
         <Route
           path="/works/comics/:seriesSlug/:partSlug/:chapterSlug"
           element={<ComicReaderPage />}
         />
+
+        <Route path="/works/novels" element={<NovelsPage />} />
+        <Route path="/works/novels/:novelSlug" element={<NovelDetailPage />} />
+
         <Route path="/creator/comics" element={<CreatorComicsPage />} />
         <Route
           path="/creator/comics/:seriesSlug"

@@ -20,11 +20,23 @@
    - 低配服务器部署建议。
    - 数据库、上传目录、备份边界。
 
-4. `visual-style-guide.md`
+4. `envirment-variables.md`
+   - 当前后端和前端实际读取的环境变量。
+   - 本地 WSL 和生产同源部署示例。
+
+5. `production-deployment-record-20260524.md`
+   - 2026-05-24 首次生产服务器部署记录。
+   - systemd、Nginx、目录、权限、smoke test 和当前服务器状态。
+
+6. `production-deployment-followup-20260524.md`
+   - 首次部署记录之后的本地项目变化补充。
+   - 下一次服务器同步时需要复查的上传目录、创作者页面和备份缺口。
+
+7. `visual-style-guide.md`
    - 当前颜色、圆角、阴影和页面族风格。
    - 新增 UI 时如何复用现有 token。
 
-5. `deployment-readiness-audit.md`
+8. `deployment-readiness-audit.md`
    - 2026-05-21 的详细部署审计记录。
    - 更长，适合做上线前问题清单。
 
@@ -34,11 +46,14 @@
 - 已有认证依赖：`require_current_user`、`require_admin_user`。
 - 已有公开漫画 API：列表、系列详情、章节阅读。
 - 已有管理端漫画 API：树、上传章节、删除、移动、重命名、简介、封面、owner。
+- 已有管理端新建 API：创建 series、在已有 series 下创建 part。
 - 已有管理端用户 API：列表、创建、更新、重置密码、删除。
 - 已有创作者待传区 API：上传图片、预览、删除、清空、发布为章节。
+- 创作者漫画页面已有书架式入口：新建 series、新建 part、编辑简介/封面/标题、右侧待传缓存区发布 chapter。
 - 数据模型都在 `backend/app/models.py`，当前没有 `backend/app/models/` 目录。
 - 数据库当前是 SQLite：`backend/data/site.db`。
-- 上传静态资源当前挂载在 `/uploads`，实际目录是 `backend/uploads`。
+- 上传静态资源当前挂载在 `/uploads`，实际目录由 `UPLOADS_DIR` 控制，默认是 `backend/uploads`。
+- 前端 API 地址统一从 `frontend/src/api/config.ts` 读取 `VITE_API_BASE_URL`，默认本地后端 `http://127.0.0.1:18001`。
 - 颜色和视觉风格已有统一入口：`frontend/src/styles/tokens.css`，细则见 `visual-style-guide.md`。
 
 ## 文档维护规则

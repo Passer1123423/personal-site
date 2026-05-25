@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Column, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -481,3 +481,58 @@ class ComicUploadImage(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
+
+class Novel(SQLModel, table=True):
+    __tablename__ = "novel"
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    slug: str = Field(index=True, unique=True)
+    title: str
+    summary: str = ""
+
+    cover_asset_id: Optional[str] = Field(default=None, foreign_key="asset.id")
+
+    display_order: int = Field(default=0, index=True)
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+
+class NovelChapter(SQLModel, table=True):
+    __tablename__ = "novel_chapter"
+
+    __table_args__ = (
+        UniqueConstraint("novel_id", "slug", name="uq_novel_chapter_novel_slug"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    novel_id: str = Field(foreign_key="novel.id", index=True)
+
+    slug: str = Field(index=True)
+    title: str
+
+    content: str = Field(default="", sa_column=Column(Text, nullable=False))
+
+    display_order: int = Field(default=0, index=True)
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+
+class NovelUserLink(SQLModel, table=True):
+    __tablename__ = "novel_user_link"
+
+    __table_args__ = (
+        UniqueConstraint("novel_id", "user_id", name="uq_novel_user"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    novel_id: str = Field(index=True, foreign_key="novel.id")
+    user_id: str = Field(index=True, foreign_key="user.id")
+
+    role: str = "owner"
+
+    created_at: datetime = Field(default_factory=now_utc)

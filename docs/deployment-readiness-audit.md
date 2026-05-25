@@ -1,5 +1,7 @@
 # Deployment Readiness Audit
 
+> 历史审计记录：本文最初写于 2026-05-21。2026-05-24 之后，部分问题已经修复并记录在 `project-current-state.md`、`operations-and-deployment.md` 和 `production-deployment-record-20260524.md`。继续部署前以当前状态文档和代码为准。
+
 本次审计目标：在服务器资源较紧张的前提下，检查项目上线前需要补足、优化和调整的地方。
 
 约束：除新增本文档外，本次没有修改项目文件；没有运行构建、测试、服务启动或会写入项目目录的命令。
@@ -369,4 +371,3 @@ uvicorn app.main:app --host 127.0.0.1 --port 18001 --workers 1
 - 上传大小限制符合服务器资源。
 - 数据库和 uploads 有备份脚本或明确手工流程。
 - 至少完成一次 smoke test。
-

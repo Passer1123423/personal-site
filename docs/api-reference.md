@@ -4,11 +4,19 @@
 
 后端入口：`backend/app/main.py`。
 
-默认开发 API 地址目前在前端硬编码为：
+默认开发 API 地址目前统一在前端配置文件：
+
+```txt
+frontend/src/api/config.ts
+```
+
+默认值：
 
 ```txt
 http://127.0.0.1:18001
 ```
+
+生产同源构建时设置 `VITE_API_BASE_URL=""`，前端会请求 `/api/...`。
 
 ## Health
 
@@ -244,6 +252,8 @@ PATCH  /api/admin/comics/{series_slug}/summary
 PATCH  /api/admin/comics/{series_slug}/{part_slug}/summary
 POST   /api/admin/comics/{series_slug}/cover
 POST   /api/admin/comics/{series_slug}/{part_slug}/cover
+POST   /api/admin/comics/series/create
+POST   /api/admin/comics/{series_slug}/part/create
 ```
 
 主要能力：
@@ -256,6 +266,8 @@ POST   /api/admin/comics/{series_slug}/{part_slug}/cover
 - 设置 part owner。
 - 修改 series、part 简介。
 - 上传 series、part 封面。
+- 创建新的 series。
+- 在已有 series 下创建 part，并把当前管理员设为该 part owner。
 
 后端核心 service：
 
@@ -299,6 +311,8 @@ POST   /api/admin/users
 PATCH  /api/admin/users/{username}
 PATCH  /api/admin/users/{username}/password
 DELETE /api/admin/users/{username}
+GET    /api/admin/users/settings/registration
+PATCH  /api/admin/users/settings/registration
 ```
 
 主要能力：
@@ -308,6 +322,7 @@ DELETE /api/admin/users/{username}
 - 更新显示名、角色、启用状态、bio。
 - 重置密码。
 - 删除用户，删除时要求确认用户名和当前管理员密码。
+- 读取和修改公开注册开关。
 
 前端封装：
 
@@ -357,6 +372,9 @@ POST   /api/author/comic-upload/publish
 - 批量删除图片。
 - 清空待传区。
 - 发布待传区图片为某个已有 part 下的新 chapter。
+- 单用户待传区上限 100MB。
+- 单张图片上限 20MB。
+- 支持 `jpg`、`jpeg`、`png`、`webp`，拒绝 `:Zone.Identifier` 附加文件。
 
 后端核心 service：
 
@@ -392,9 +410,39 @@ frontend/src/api/authorComicUpload.ts
 
 注意：
 
-- 多个文件重复硬编码 `API_BASE_URL`。
-- 新功能不要继续复制这个常量；应先统一配置。
+- `API_BASE_URL` 已统一从 `frontend/src/api/config.ts` 导出。
+- 新功能不要在业务文件里重新定义 API 地址。
 - `authorComics.ts` 目前复用 admin API，这是现状问题，不是推荐架构。
+
+## Creator Pages API Usage
+
+当前创作者漫画页面使用的接口分两类：
+
+```txt
+frontend/src/api/authorComics.ts
+frontend/src/api/authorComicUpload.ts
+```
+
+`authorComicUpload.ts` 调用专门的 `/api/author/comic-upload`，使用 `require_current_user`，发布时检查 part owner。
+
+`authorComics.ts` 目前仍调用 `/api/admin/comics/...`，包括：
+
+```txt
+GET   /api/admin/comics/tree
+POST  /api/admin/comics/series/create
+POST  /api/admin/comics/{series_slug}/part/create
+PATCH /api/admin/comics/{series_slug}/rename
+PATCH /api/admin/comics/{series_slug}/{part_slug}/rename
+PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/rename
+PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/move
+DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
+PATCH /api/admin/comics/{series_slug}/summary
+PATCH /api/admin/comics/{series_slug}/{part_slug}/summary
+POST  /api/admin/comics/{series_slug}/cover
+POST  /api/admin/comics/{series_slug}/{part_slug}/cover
+```
+
+这些接口当前要求 admin。不要误判为普通 author 已具备完整后端权限。
 
 ## Auth Header Pattern
 
@@ -435,4 +483,3 @@ current_user: User = Depends(require_current_user)
 ```py
 current_user: User = Depends(require_admin_user)
 ```
-

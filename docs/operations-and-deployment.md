@@ -27,7 +27,13 @@ strictPort: true
 backend/app/main.py
 ```
 
-当前文档中没有可靠的后端依赖声明文件。部署前必须补 `requirements.txt` 或 `pyproject.toml`。
+后端依赖文件：
+
+```txt
+backend/requirements.txt
+```
+
+后端启动前必须设置 `SECRET_KEY`，否则应用会主动启动失败。
 
 ## 当前数据和文件位置
 
@@ -41,13 +47,13 @@ FastAPI 静态挂载：
 
 ```txt
 URL: /uploads
-dir: backend/uploads
+dir: UPLOADS_DIR，未设置时默认 backend/uploads
 ```
 
 漫画正式上传目录：
 
 ```txt
-backend/uploads/comics/{series_slug}/{part_slug}/{chapter_slug}/001.jpg
+UPLOADS_DIR/comics/{series_slug}/{part_slug}/{chapter_slug}/001.jpg
 ```
 
 创作者待传区：
@@ -58,13 +64,14 @@ backend/import_data/users/{user_id}/comic-staging/
 
 ### 上传目录
 
-`backend/app/services/comic_admin.py` 当前使用相对路径：
+`backend/app/services/comic_admin.py` 当前使用：
 
 ```py
-UPLOADS_ROOT = Path("uploads/comics")
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", BACKEND_DIR / "uploads")).resolve()
+UPLOADS_ROOT = UPLOADS_DIR / "comics"
 ```
 
-生产必须改成绝对路径或统一配置，否则 systemd/Docker 工作目录变化会导致图片写到错误目录。
+生产应显式设置 `UPLOADS_DIR`，并让 Nginx `/uploads/` alias 指向同一目录。
 
 ## 低配服务器建议
 
@@ -139,19 +146,20 @@ npm run build
 
 ## 上传限制建议
 
-当前创作者待传区上限是 500MB：
+当前创作者待传区限制：
 
 ```txt
-STAGING_LIMIT_BYTES = 500 * 1024 * 1024
+STAGING_LIMIT_BYTES = 100 * 1024 * 1024
+UPLOAD_FILE_LIMIT_BYTES = 20 * 1024 * 1024
 ```
 
-对 2GB 内存的小服务器偏高。建议上线前：
+当前规则：
 
-- ~~单用户待传区降到 50MB 到 100MB。~~
-- ~~增加单文件大小上限。~~
-- ~~增加一次上传文件数量上限。~~
-- 以上已修改
-- Nginx `client_max_body_size` 与后端限制保持一致。
+- 单用户待传区上限 100MB。
+- 单张图片上限 20MB。
+- 支持 `jpg`、`jpeg`、`png`、`webp`。
+- 后端会拒绝 `:Zone.Identifier` 附加文件。
+- Nginx `client_max_body_size` 当前生产记录为 25M，应高于单文件 20MB。
 - 后续考虑图片压缩和尺寸检查。
 
 ## 数据备份
@@ -241,7 +249,9 @@ PATCH /api/admin/users/settings/registration
 - 打开一个章节阅读页，确认图片加载。
 - 打开 `/admin/comics`，确认漫画树加载。
 - 打开 `/admin/users`，确认用户列表加载。
-- 如果保留创作者上传，测试待传区上传、预览、删除。
+- 打开 `/creator/comics`，确认 series 书架加载。
+- 在创作者页测试新建 series、新建 part。
+- 在 part 页测试右侧待传缓存区上传、预览、删除、清空和发布 chapter。
 
 ## Token 存储策略
 
@@ -267,4 +277,3 @@ PATCH /api/admin/users/settings/registration
 - 不要绕过 `backend/app/services/comic_admin.py` 直接散写漫画导入/删除逻辑。
 - 不要把生产数据库、上传文件、虚拟环境或 `node_modules` 放进 Git。
 - 不要直接放宽 admin router 给 author 使用，应做专门 author router。
-

@@ -1,6 +1,6 @@
 # Smoke Test
 
-本文档用于记录个人网站每次部署前的最小功能检查。  
+本文档用于记录个人网站每次部署前的最小功能检查。
 目标不是完整自动化测试，而是快速确认核心功能没有被改坏。
 
 ## 测试前准备
@@ -9,6 +9,7 @@
 
 ```bash
 cd backend
+export SECRET_KEY="dev-local-secret-change-before-public-deploy"
 uvicorn app.main:app --host 127.0.0.1 --port 18001
 ```
 
@@ -103,6 +104,7 @@ http://127.0.0.1:18000/works/comics
 2. series / part / chapter 可以进入
 3. 阅读页图片可以加载
 4. 图片路径 `/uploads/...` 可访问
+5. 阅读页滚动后离开并返回同一章节，应恢复到之前的阅读位置
 
 ## 6. Admin 用户管理页
 
@@ -199,24 +201,33 @@ http://127.0.0.1:18000/admin/comics
 3. chapter 重命名、移动、删除等既有功能不报错
 4. 不应出现明显布局异常
 
-## 10. 创作者上传待传区
+## 10. 创作者漫画书架与上传待传区
 
-浏览器检查创作者章节页面。
+浏览器检查：
+
+```txt
+http://127.0.0.1:18000/creator/comics
+```
 
 预期：
 
-1. 页面可以显示 chapter 目录
-2. 可以打开右侧待传区
-3. 图片上传成功
-4. 图片预览正常
-5. 删除待传图片后顺序正常重排
-6. 清空待传区可用
-7. 发布章节后正式章节可见
+1. 创作者漫画书架可以加载 series
+2. 新建 series 弹窗可打开，slug 为空时有错误提示
+3. 进入 series 后只显示当前用户 owner 的 part
+4. 新建 part 成功后进入 part 页面
+5. part 页面可以显示 chapter 目录
+6. 可以打开右侧待传区
+7. 图片上传成功
+8. 图片预览正常
+9. 删除待传图片后顺序正常重排
+10. 清空待传区可用
+11. 发布章节后正式章节可见
 
 注意：
 
-当前单用户待传区限制为 100MB。  
+当前单用户待传区限制为 100MB。
 单张图片限制为 20MB。
+当前创作者管理功能仍复用 admin comics API，因此测试账号需要 admin 权限。
 
 ## 11. 静态上传资源
 
@@ -242,8 +253,12 @@ python scripts/backup_site_data.py
 
 1. 生成 `backend/backups/backup-YYYYMMDD-HHMMSS/`
 2. 备份目录内包含 `site.db`
-3. 备份目录内包含 `uploads/`
+3. 如果当前 `backend/uploads/` 存在，备份目录内包含 `uploads/`
 4. `backend/backups/` 不应被 Git 跟踪
+
+注意：
+
+当前脚本读取的是 `backend/uploads`，还没有读取生产环境的 `UPLOADS_DIR`。生产真实上传目录如果在项目外，例如 `/var/www/personal-site/uploads`，需要先修脚本或用额外命令备份该目录。
 
 检查：
 
