@@ -149,11 +149,11 @@ export default function NavbarUserMenu() {
 
             {canUploadComics && (
               <Link
-                to="/creator/comics"
+                to="/creator"
                 className="block rounded-xl px-3 py-2 text-sm text-main transition hover:bg-[var(--color-panel-soft-bg)] hover:pl-4"
                 onClick={() => setOpen(false)}
               >
-                漫画上传
+                作品上传
               </Link>
             )}
 

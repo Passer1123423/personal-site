@@ -151,7 +151,7 @@ function NovelsPage() {
 
               {canManageNovels && (
                 <Link
-                  to="/admin/novels"
+                  to="/creator/novels"
                   className="rounded-full border border-[var(--color-accent-border)] bg-[var(--color-accent-soft)] px-3 py-1 font-semibold link-accent transition hover:border-[var(--color-accent-border-strong)]"
                 >
                   进入小说管理

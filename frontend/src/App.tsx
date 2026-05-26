@@ -26,6 +26,11 @@ import NovelsPage from './pages/NovelsPage'
 import NovelDetailPage from './pages/NovelDetailPage'
 import NovelReaderPage from './pages/NovelReaderPage'
 
+import CreatorPage from "./pages/CreatorPage";
+import CreatorNovelsPage from "./pages/CreatorNovelsPage";
+import CreatorNovelPage from "./pages/CreatorNovelPage";
+import CreatorNovelChapterEditorPage from "./pages/CreatorNovelChapterEditorPage";
+
 function App() {
   const location = useLocation();
 
@@ -67,6 +72,30 @@ function App() {
           path="/creator/comics/:seriesSlug/:partSlug"
           element={<CreatorComicPartPage />}
         />
+
+        <Route path="/creator" element={<CreatorPage />} />
+
+        <Route path="/creator/comics" element={<CreatorComicsPage />} />
+        <Route
+          path="/creator/comics/:seriesSlug"
+          element={<CreatorComicSeriesPage />}
+        />
+        <Route
+          path="/creator/comics/:seriesSlug/:partSlug"
+          element={<CreatorComicPartPage />}
+        />
+
+        <Route path="/creator/novels" element={<CreatorNovelsPage />} />
+        <Route path="/creator/novels/:novelSlug" element={<CreatorNovelPage />} />
+        <Route
+          path="/creator/novels/:novelSlug/new-chapter"
+          element={<CreatorNovelChapterEditorPage />}
+        />
+        <Route
+          path="/creator/novels/:novelSlug/:chapterSlug/edit"
+          element={<CreatorNovelChapterEditorPage />}
+        />
+
         <Route path="/about" element={<AboutPage />} />
         <Route path="/admin" element={<AdminHomePage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />

@@ -521,65 +521,6 @@ def move_author_novel_chapter(
 
     return result
 
-
-@router.delete("/{novel_slug}/{chapter_slug}")
-def delete_author_novel_chapter(
-    novel_slug: str,
-    chapter_slug: str,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(require_author_user),
-):
-    try:
-        require_owned_chapter(
-            session=session,
-            novel_slug=novel_slug,
-            chapter_slug=chapter_slug,
-            current_user=current_user,
-        )
-
-        delete_chapter(
-            session=session,
-            novel_slug=novel_slug,
-            chapter_slug=chapter_slug,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-
-    return {
-        "deleted": True,
-        "type": "chapter",
-        "novelSlug": novel_slug,
-        "chapterSlug": chapter_slug,
-    }
-
-
-@router.delete("/{novel_slug}")
-def delete_author_novel(
-    novel_slug: str,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(require_author_user),
-):
-    try:
-        require_owned_novel(
-            session=session,
-            novel_slug=novel_slug,
-            current_user=current_user,
-        )
-
-        delete_novel(
-            session=session,
-            novel_slug=novel_slug,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-
-    return {
-        "deleted": True,
-        "type": "novel",
-        "novelSlug": novel_slug,
-    }
-
-
 # ===== 文字缓冲区 =====
 
 @router.get("/{novel_slug}/text-buffers")
@@ -788,4 +729,61 @@ def delete_author_text_buffer(
     return {
         "deleted": True,
         "bufferId": buffer_id,
+    }
+
+@router.delete("/{novel_slug}/{chapter_slug}")
+def delete_author_novel_chapter(
+    novel_slug: str,
+    chapter_slug: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_author_user),
+):
+    try:
+        require_owned_chapter(
+            session=session,
+            novel_slug=novel_slug,
+            chapter_slug=chapter_slug,
+            current_user=current_user,
+        )
+
+        delete_chapter(
+            session=session,
+            novel_slug=novel_slug,
+            chapter_slug=chapter_slug,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    return {
+        "deleted": True,
+        "type": "chapter",
+        "novelSlug": novel_slug,
+        "chapterSlug": chapter_slug,
+    }
+
+
+@router.delete("/{novel_slug}")
+def delete_author_novel(
+    novel_slug: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_author_user),
+):
+    try:
+        require_owned_novel(
+            session=session,
+            novel_slug=novel_slug,
+            current_user=current_user,
+        )
+
+        delete_novel(
+            session=session,
+            novel_slug=novel_slug,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    return {
+        "deleted": True,
+        "type": "novel",
+        "novelSlug": novel_slug,
     }
