@@ -14,9 +14,11 @@ frontend/src/index.css
 
 ```txt
 frontend/src/styles/tokens.css
+frontend/src/styles/typography.css
 frontend/src/styles/page.css
 frontend/src/styles/auth.css
 frontend/src/styles/admin.css
+frontend/src/styles/novel.css
 ```
 
 核心原则：
@@ -36,17 +38,30 @@ frontend/src/styles/tokens.css
 当前主色体系：
 
 ```txt
-页面背景     --color-page-bg
-柔和背景     --color-page-bg-soft
-面板背景     --color-panel-bg
-弱面板背景   --color-panel-soft-bg
-主文本       --color-text-main
-正文弱文本   --color-text-muted
-辅助文本     --color-text-soft
-主强调色     --color-accent
-强调 hover   --color-accent-hover
-危险色       --color-danger
-成功色       --color-success
+页面背景             --color-page-bg
+柔和页面背景         --color-page-bg-soft
+面板背景             --color-panel-bg
+弱面板背景           --color-panel-muted-bg
+柔和面板背景         --color-panel-soft-bg
+主文本               --color-text-main
+强文本               --color-text-strong
+正文弱文本           --color-text-muted
+辅助文本             --color-text-soft
+反色文本             --color-text-inverse
+柔和边框             --color-border-soft
+表单/控件边框        --color-border-control
+主强调色             --color-accent
+强调 hover           --color-accent-hover
+强调浅底             --color-accent-soft
+强调浅边框           --color-accent-border
+强调强边框/focus     --color-accent-border-strong
+危险色               --color-danger
+危险 hover           --color-danger-hover
+危险浅底             --color-danger-bg
+危险边框             --color-danger-border
+成功色               --color-success
+成功浅底             --color-success-bg
+成功边框             --color-success-border
 ```
 
 当前基调是冷静、干净、偏工作台的浅色界面：
@@ -55,6 +70,35 @@ frontend/src/styles/tokens.css
 - 文字以 slate 系灰阶为主。
 - 强调色使用蓝色。
 - 危险和成功只用于状态反馈，不作为大面积装饰色。
+
+## 字体事实源
+
+字体 token 在：
+
+```txt
+frontend/src/styles/typography.css
+```
+
+当前字体：
+
+```txt
+--font-sans
+--font-reading
+```
+
+两者目前都使用系统中文无衬线字体栈：
+
+```txt
+"Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI",
+"Microsoft YaHei", "Noto Sans CJK SC", sans-serif
+```
+
+要求：
+
+- 普通页面、后台、认证页使用 `--font-sans`。
+- 小说正文使用 `--font-reading`。
+- `frontend/src/index.css` 的 `body` 规则当前在 imports 之后再次设置了 `Inter, ui-sans-serif, system-ui, ...`，因此 page/admin/auth 容器需要继续显式依赖对应 class 上的 font token。
+- 不要在单个组件里临时换一套字体，除非同时调整 token 和本文档。
 
 ## 页面族风格
 
@@ -122,6 +166,50 @@ frontend/src/styles/tokens.css
 - 表单控件使用统一边框、圆角和 focus 色。
 - 删除、重置密码、清空等危险操作必须使用 danger 样式。
 
+### 小说详情和阅读
+
+小说样式位于：
+
+```txt
+frontend/src/styles/novel.css
+```
+
+主要 class：
+
+```txt
+.novel-markdown
+.novel-detail-frame
+.novel-detail-header
+.novel-detail-cover
+.novel-detail-main
+.novel-detail-meta
+.novel-detail-body
+.novel-detail-chapters
+.novel-detail-discussion
+.novel-detail-section-heading
+.novel-detail-chapter-link
+.novel-reader-frame
+.novel-reader-header
+.novel-reader-content
+.novel-reader-markdown
+.novel-reader-sidebar
+.novel-reader-toc
+.novel-reader-toc-list
+.novel-reader-toc-footer
+.novel-reader-footer
+.novel-reader-nav-card
+.novel-toc-link
+.novel-toc-link-active
+```
+
+风格要求：
+
+- 小说详情页是白色内容框架，顶部为封面 + 信息，下面两栏为章节列表和讨论/辅助区域。
+- 小说阅读页桌面端是正文 + 右侧目录；移动端隐藏右侧目录。
+- Markdown 正文行高为 `2`，段落颜色用 `--color-text-muted`，标题用 `--color-text-strong`。
+- Markdown blockquote、table、code、pre 都已在 `.novel-markdown` 中定义，新增小说内容渲染不要另写一套 Markdown CSS。
+- 阅读导航卡片使用浅色面板和柔和边框，不使用深色 reader token。
+
 ### 漫画阅读器
 
 阅读器有独立深色 token：
@@ -142,6 +230,15 @@ frontend/src/styles/tokens.css
 - 阅读器可以保持沉浸式深色背景。
 - 不要把阅读器深色样式扩散到普通公开页面或后台。
 - 阅读器按钮、面板和文字应继续使用 reader token。
+
+### 创作者漫画页面
+
+当前创作者页面以书架、系列页、分部页和右侧待传缓存区为主，视觉上混合使用公开页面 token 和后台控件语义：
+
+- 书架和作品卡片应继续复用 `surface-card`、`surface-card-link`、`text-*`、`link-accent`。
+- 新建 series/part、编辑标题、简介、封面等操作应使用 admin 表单和按钮语义。
+- 待传区属于工作流面板，按钮按 primary/secondary/danger 语义区分上传、删除、清空、发布。
+- 不要把创作者页面做成新的品牌页或营销页，它应更接近轻量内容工作台。
 
 ## 圆角与阴影
 
@@ -206,9 +303,11 @@ backend/uploads/
 
 ```txt
 frontend/src/styles/tokens.css
+frontend/src/styles/typography.css
 frontend/src/styles/page.css
 frontend/src/styles/auth.css
 frontend/src/styles/admin.css
+frontend/src/styles/novel.css
 ```
 
 改完后检查：
@@ -218,4 +317,3 @@ frontend/src/styles/admin.css
 - 表单控件 focus 状态是否一致。
 - 阅读器深色样式是否没有污染其它页面。
 - 是否新增了不必要的硬编码颜色。
-

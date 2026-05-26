@@ -53,7 +53,10 @@ GET  /api/auth/me
 请求与行为：
 
 - `register`
-  - body：`username`、`displayName`、`password`、可选 `bio`。
+  - body：`username`、`displayName`、`password`、可选 `bio`、`humanCheck`。
+  - `humanCheck` 必须为 `是`。
+  - 如果公开注册开关关闭，返回 403。
+  - 内存级限流：同一 client host 60 秒内最多 100 次尝试，服务重启后清空。
   - 创建 `reader` 用户。
   - 返回 access token 和 user。
 
@@ -216,6 +219,58 @@ frontend/src/pages/ComicSeriesPage.tsx
 frontend/src/pages/ComicReaderPage.tsx
 ```
 
+## Public Novels
+
+Router：`backend/app/routers/novels.py`
+
+Prefix：
+
+```txt
+/api/novels
+```
+
+已存在接口：
+
+```txt
+GET /api/novels
+GET /api/novels/{novel_slug}
+GET /api/novels/{novel_slug}/{chapter_slug}
+```
+
+行为：
+
+- `GET /api/novels`
+  - 返回所有 novel。
+  - 按 `display_order` 排序。
+  - 返回 `id`、`slug`、`title`、`summary`、`coverUrl`、`displayOrder`、时间字段。
+
+- `GET /api/novels/{novel_slug}`
+  - 返回 novel 详情和 chapter 列表。
+  - chapters 按 `display_order` 排序。
+
+- `GET /api/novels/{novel_slug}/{chapter_slug}`
+  - 返回小说阅读页所需数据。
+  - `chapter.content` 是 Markdown 文本，前端用 `react-markdown` 和 `remark-gfm` 渲染。
+
+注意：
+
+- 小说模型当前没有 `visibility` / `status` 字段，公开接口不会过滤私有内容。
+- 如果要支持草稿或私密小说，先补模型字段和迁移计划。
+
+前端封装：
+
+```txt
+frontend/src/api/novels.ts
+```
+
+使用页面：
+
+```txt
+frontend/src/pages/NovelsPage.tsx
+frontend/src/pages/NovelDetailPage.tsx
+frontend/src/pages/NovelReaderPage.tsx
+```
+
 ## Admin Comics
 
 Router：`backend/app/routers/comic_admin.py`
@@ -285,6 +340,93 @@ frontend/src/api/adminComics.ts
 
 ```txt
 frontend/src/pages/AdminComicsPage.tsx
+```
+
+## Admin Novels
+
+Router：`backend/app/routers/novel_admin.py`
+
+Prefix：
+
+```txt
+/api/admin/novels
+```
+
+权限：
+
+```py
+dependencies=[Depends(require_admin_user)]
+```
+
+已存在接口：
+
+```txt
+GET    /api/admin/novels/tree
+GET    /api/admin/novels/owner-candidates
+POST   /api/admin/novels/create
+POST   /api/admin/novels/{novel_slug}/chapter/create
+DELETE /api/admin/novels/{novel_slug}/{chapter_slug}
+DELETE /api/admin/novels/{novel_slug}
+PATCH  /api/admin/novels/{novel_slug}/rename
+PATCH  /api/admin/novels/{novel_slug}/{chapter_slug}/rename
+PATCH  /api/admin/novels/{novel_slug}/{chapter_slug}/content
+PATCH  /api/admin/novels/{novel_slug}/{chapter_slug}/move
+PATCH  /api/admin/novels/{novel_slug}/owner
+```
+
+主要能力：
+
+- 获取全站小说树。
+- 获取 owner 候选用户。
+- 创建 novel，创建后把当前管理员设为 owner。
+- 创建 chapter。
+- 删除 chapter、novel。
+- 重命名 novel、chapter。
+- 编辑 chapter Markdown 正文。
+- 移动 chapter 顺序。
+- 设置 novel owner。
+
+请求体摘要：
+
+```txt
+POST /create
+{ "slug": "novel-slug", "title": "标题" }
+
+POST /{novel_slug}/chapter/create
+{ "slug": "chapter-001", "customTitle": "自定义标题", "content": "Markdown" }
+
+PATCH /{novel_slug}/rename
+{ "title": "新标题" }
+
+PATCH /{novel_slug}/{chapter_slug}/rename
+{ "customTitle": "新章节名" }
+
+PATCH /{novel_slug}/{chapter_slug}/content
+{ "content": "Markdown" }
+
+PATCH /{novel_slug}/{chapter_slug}/move
+{ "direction": "up" | "down" }
+
+PATCH /{novel_slug}/owner
+{ "username": "passer" | null }
+```
+
+后端核心 service：
+
+```txt
+backend/app/services/novel_admin.py
+```
+
+前端封装：
+
+```txt
+frontend/src/api/adminNovels.ts
+```
+
+使用页面：
+
+```txt
+frontend/src/pages/AdminNovelsPage.tsx
 ```
 
 ## Admin Users
@@ -401,8 +543,10 @@ frontend/src/pages/CreatorComicPartPage.tsx
 ```txt
 frontend/src/api/auth.ts
 frontend/src/api/comics.ts
+frontend/src/api/novels.ts
 frontend/src/api/users.ts
 frontend/src/api/adminComics.ts
+frontend/src/api/adminNovels.ts
 frontend/src/api/adminUsers.ts
 frontend/src/api/authorComics.ts
 frontend/src/api/authorComicUpload.ts

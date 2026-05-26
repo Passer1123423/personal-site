@@ -201,7 +201,68 @@ http://127.0.0.1:18000/admin/comics
 3. chapter 重命名、移动、删除等既有功能不报错
 4. 不应出现明显布局异常
 
-## 10. 创作者漫画书架与上传待传区
+## 10. 公开小说页面
+
+浏览器检查：
+
+```txt
+http://127.0.0.1:18000/works/novels
+```
+
+预期：
+
+1. 小说列表正常显示
+2. 可以进入小说详情页
+3. 章节列表正常显示
+4. 可以进入章节阅读页
+5. Markdown 正文、标题、列表、引用、表格等基础样式正常
+6. 桌面端右侧目录不遮挡正文，移动端布局不溢出
+
+接口检查：
+
+```bash
+curl --noproxy "*" http://127.0.0.1:18001/api/novels
+```
+
+预期：
+
+1. 返回 novel 列表
+2. 不需要登录
+
+## 11. Admin 小说后台
+
+浏览器检查：
+
+```txt
+http://127.0.0.1:18000/admin/novels
+```
+
+预期：
+
+1. 未登录时不能作为管理员使用
+2. 管理员登录后可以进入
+3. 小说树正常显示
+4. 新建 novel 可用
+5. 新建 chapter 可用
+6. chapter 正文编辑保存可用
+7. chapter 重命名、移动、删除可用
+8. novel owner 设置可用
+9. 不应出现明显布局异常
+
+接口检查：
+
+```bash
+curl --noproxy "*" \
+  -H "Authorization: Bearer $TOKEN" \
+  http://127.0.0.1:18001/api/admin/novels/tree
+```
+
+预期：
+
+1. 返回 novel 树
+2. 每个 novel 可包含 chapters
+
+## 12. 创作者漫画书架与上传待传区
 
 浏览器检查：
 
@@ -229,7 +290,7 @@ http://127.0.0.1:18000/creator/comics
 单张图片限制为 20MB。
 当前创作者管理功能仍复用 admin comics API，因此测试账号需要 admin 权限。
 
-## 11. 静态上传资源
+## 13. 静态上传资源
 
 任选一张已有图片，检查：
 
@@ -242,7 +303,7 @@ http://127.0.0.1:18001/uploads/...
 1. 本地开发环境下 FastAPI 可以访问图片
 2. 生产环境后续由 Nginx 接管 `/uploads/`
 
-## 12. 备份脚本
+## 14. 备份脚本
 
 ```bash
 cd backend
@@ -252,13 +313,22 @@ python scripts/backup_site_data.py
 预期：
 
 1. 生成 `backend/backups/backup-YYYYMMDD-HHMMSS/`
-2. 备份目录内包含 `site.db`
-3. 如果当前 `backend/uploads/` 存在，备份目录内包含 `uploads/`
-4. `backend/backups/` 不应被 Git 跟踪
+2. 生成 `backend/backups/backup-YYYYMMDD-HHMMSS.tar.gz`
+3. 备份目录内包含 `site.db`
+4. 备份目录内包含 `manifest.json`
+5. 如果当前 `UPLOADS_DIR` 或 `backend/uploads/` 存在，备份目录内包含 `uploads/`
+6. `backend/backups/` 不应被 Git 跟踪
 
 注意：
 
-当前脚本读取的是 `backend/uploads`，还没有读取生产环境的 `UPLOADS_DIR`。生产真实上传目录如果在项目外，例如 `/var/www/personal-site/uploads`，需要先修脚本或用额外命令备份该目录。
+当前脚本会读取 `UPLOADS_DIR` 环境变量，也可以用 `--uploads-dir` 显式指定生产真实上传目录。
+
+生产示例：
+
+```bash
+cd backend
+UPLOADS_DIR=/var/www/personal-site/uploads python scripts/backup_site_data.py
+```
 
 检查：
 
@@ -272,7 +342,7 @@ git status --short
 1. 不应出现 `backend/backups/` 中的真实备份文件
 2. 如果 `.gitignore` 正确，备份目录不会进入 Git
 
-## 13. 前端构建
+## 15. 前端构建
 
 ```bash
 cd frontend
@@ -285,7 +355,7 @@ npm run build
 2. Vite build 通过
 3. 不应出现未使用 import 报错
 
-## 14. Git 检查
+## 16. Git 检查
 
 ```bash
 git status --short
@@ -315,6 +385,8 @@ git ls-files | grep -E "(__pycache__|\.pyc$|backend/data/.*\.db$|backend/uploads
 5. 阅读页图片正常
 6. admin users 正常
 7. admin comics 正常
-8. 注册开关正常
-9. 前端 `npm run build` 通过
-10. 备份脚本可运行
+8. 公开 novels 正常
+9. admin novels 正常
+10. 注册开关正常
+11. 前端 `npm run build` 通过
+12. 备份脚本可运行

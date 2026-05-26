@@ -2,6 +2,18 @@
 
 > 历史审计记录：本文最初写于 2026-05-21。2026-05-24 之后，部分问题已经修复并记录在 `project-current-state.md`、`operations-and-deployment.md` 和 `production-deployment-record-20260524.md`。继续部署前以当前状态文档和代码为准。
 
+当前复核补充：
+
+- `backend/requirements.txt` 已存在。
+- `SECRET_KEY`、`ACCESS_TOKEN_EXPIRE_MINUTES`、`CORS_ALLOW_ORIGINS`、`UPLOADS_DIR` 已改为环境变量配置。
+- 前端 API base URL 已集中到 `frontend/src/api/config.ts`。
+- 正式上传目录已由 `UPLOADS_DIR` 控制。
+- 创作者待传区限制已降为单用户 100MB、单文件 20MB。
+- 公开注册已有开关、人类验证和轻量内存限流。
+- 备份脚本已支持 `DB_PATH`、`UPLOADS_DIR`、`BACKUPS_DIR`、tar.gz 归档、manifest 和远程复制。
+- author 页面复用 admin API 的权限边界仍然存在，后续仍应拆 `/api/author/comics`。
+- SQLite 迁移、仓库生成物清理、生产 HTTPS 和更完整的上传校验仍属于后续治理事项。
+
 本次审计目标：在服务器资源较紧张的前提下，检查项目上线前需要补足、优化和调整的地方。
 
 约束：除新增本文档外，本次没有修改项目文件；没有运行构建、测试、服务启动或会写入项目目录的命令。

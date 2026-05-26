@@ -12,6 +12,10 @@
 - 创作者 part 页面上传入口是右侧待传缓存区抽屉。
 - 创作者待传区限制为单用户 100MB、单文件 20MB。
 - 阅读页会用 `sessionStorage` 按 `seriesSlug/partSlug/chapterSlug` 恢复同一章节的滚动位置。
+- 新增小说前台页面和 API：`/works/novels`、小说详情、小说章节阅读。
+- 新增小说后台页面和 API：`/admin/novels`，支持 novel/chapter 创建、删除、重命名、排序、正文编辑和 owner。
+- 视觉样式入口已扩展到 `typography.css` 和 `novel.css`。
+- 备份脚本已支持 `UPLOADS_DIR`、`DB_PATH`、`BACKUPS_DIR`、tar.gz 归档、manifest、远程复制和本地归档保留。
 
 ## 服务器同步时要复查
 
@@ -21,13 +25,13 @@
 - 后端服务仍建议 1 worker，监听 `127.0.0.1:18001`。
 - 前端 dist 应本地构建后上传，服务器不需要 `frontend/node_modules`。
 
-## 当前备份缺口
+## 备份脚本现状
 
-`backend/scripts/backup_site_data.py` 当前仍只备份：
+`backend/scripts/backup_site_data.py` 当前默认备份：
 
 ```txt
 backend/data/site.db
-backend/uploads/
+UPLOADS_DIR 或 backend/uploads/
 ```
 
 生产真实上传目录记录为：
@@ -36,7 +40,17 @@ backend/uploads/
 /var/www/personal-site/uploads
 ```
 
-因此生产正式上传漫画后，必须先修备份脚本读取 `UPLOADS_DIR`，或用额外运维命令单独备份 `/var/www/personal-site/uploads`。
+因此生产运行备份脚本时要确保 systemd/env 或 shell 中有：
+
+```txt
+UPLOADS_DIR=/var/www/personal-site/uploads
+```
+
+或显式使用：
+
+```bash
+python scripts/backup_site_data.py --uploads-dir /var/www/personal-site/uploads
+```
 
 ## 追加 Smoke Test
 
@@ -49,3 +63,6 @@ backend/uploads/
 - 上传、预览、删除、清空待传图片。
 - 发布 chapter 后确认章节目录和公开阅读页可见。
 - 阅读页滚动后离开再返回同一章节，确认恢复之前的阅读位置。
+- 打开 `/works/novels`，确认小说列表加载。
+- 打开一个小说详情和章节阅读页，确认 Markdown 渲染和右侧目录正常。
+- 打开 `/admin/novels`，确认小说树、章节创建、正文编辑、移动和删除流程正常。

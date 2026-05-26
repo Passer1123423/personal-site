@@ -177,14 +177,38 @@ backend/uploads/
 cd backend
 python scripts/backup_site_data.py
 ```
-脚本会在以下目录生成带时间戳的备份：
+脚本会在以下目录生成带时间戳的展开备份和 `.tar.gz` 归档：
 ```
 backend/backups/backup-YYYYMMDD-HHMMSS/
+backend/backups/backup-YYYYMMDD-HHMMSS.tar.gz
 ```
 其中包含：
 ```
 site.db
 uploads/
+manifest.json
+```
+
+脚本当前支持环境变量和命令行参数：
+
+```txt
+DB_PATH / --db-path
+UPLOADS_DIR / --uploads-dir
+BACKUPS_DIR / --backups-dir
+BACKUP_KEEP_LOCAL / --keep-local
+BACKUP_REMOTE_DEST / --remote-dest
+BACKUP_REMOTE_PORT / --remote-port
+BACKUP_REMOTE_IDENTITY_FILE / --remote-identity-file
+BACKUP_REMOTE_PLATFORM / --remote-platform
+BACKUP_REMOTE_LATEST_NAME / --remote-latest-name
+--remove-expanded
+--remote-skip-mkdir
+```
+
+生产环境如果 `UPLOADS_DIR=/var/www/personal-site/uploads`，脚本会默认读取该环境变量；也可以显式传：
+
+```bash
+python scripts/backup_site_data.py --uploads-dir /var/www/personal-site/uploads
 ```
 
 ## SQLite 运营边界
@@ -245,9 +269,11 @@ PATCH /api/admin/users/settings/registration
 - 登录管理员。
 - `GET /api/auth/me`
 - 打开 `/works/comics`
+- 打开 `/works/novels`
 - 打开一个漫画系列详情页。
 - 打开一个章节阅读页，确认图片加载。
 - 打开 `/admin/comics`，确认漫画树加载。
+- 打开 `/admin/novels`，确认小说树加载。
 - 打开 `/admin/users`，确认用户列表加载。
 - 打开 `/creator/comics`，确认 series 书架加载。
 - 在创作者页测试新建 series、新建 part。
@@ -275,5 +301,6 @@ PATCH /api/admin/users/settings/registration
 - 不要新增第二套认证系统。
 - 不要新增重复的当前用户接口，已有 `GET /api/auth/me`。
 - 不要绕过 `backend/app/services/comic_admin.py` 直接散写漫画导入/删除逻辑。
+- 不要绕过 `backend/app/services/novel_admin.py` 直接散写小说排序、重命名、正文更新逻辑。
 - 不要把生产数据库、上传文件、虚拟环境或 `node_modules` 放进 Git。
 - 不要直接放宽 admin router 给 author 使用，应做专门 author router。

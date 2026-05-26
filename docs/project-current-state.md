@@ -4,11 +4,11 @@
 
 ## 项目定位
 
-这是一个个人站点，当前核心闭环是漫画内容展示和后台/创作者上传管理。
+这是一个个人站点，当前核心闭环是作品内容展示、后台管理和创作者漫画上传。作品类型目前包括漫画和小说。
 
 当前技术栈：
 
-- 前端：Vite、React、React Router、Tailwind CSS。
+- 前端：Vite、React、React Router、Tailwind CSS、React Markdown。
 - 后端：FastAPI、SQLModel、SQLite。
 - 上传资源：本地文件系统，FastAPI 挂载 `/uploads`，实际根目录由 `UPLOADS_DIR` 控制。
 
@@ -60,11 +60,13 @@ docs/
 
 ```py
 users_router
+auth_router
+user_admin_router
 comics_router
 comic_upload_router
-auth_router
 comic_admin_router
-user_admin_router
+novels_router
+novel_admin_router
 ```
 
 ## 已有数据模型
@@ -81,6 +83,10 @@ user_admin_router
 - `ComicPage`：章节下的页面，关联 `Asset`。
 - `ComicPartUserLink`：part 和用户的关系，目前用于 owner。
 - `ComicUploadImage`：创作者待传区图片。
+- `Novel`：小说条目。
+- `NovelChapter`：小说章节，正文为 Markdown 文本。
+- `NovelUserLink`：novel 和用户的关系，目前用于 owner。
+- `SiteSetting`：站点设置，目前用于公开注册开关。
 
 核心关系：
 
@@ -94,6 +100,13 @@ ComicSeries
 User
 └── ComicPartUserLink(role="owner")
     └── ComicPart
+
+User
+└── NovelUserLink(role="owner")
+    └── Novel
+
+Novel
+└── NovelChapter
 ```
 
 ## 已有认证能力
@@ -142,6 +155,9 @@ User
 - `/works/comics`
 - `/works/comics/:seriesSlug`
 - `/works/comics/:seriesSlug/:partSlug/:chapterSlug`
+- `/works/novels`
+- `/works/novels/:novelSlug`
+- `/works/novels/:novelSlug/:chapterSlug`
 - `/about`
 
 创作者页面：
@@ -156,6 +172,7 @@ User
 - `/admin/login`
 - `/admin/comics`
 - `/admin/users`
+- `/admin/novels`
 
 ## 已有视觉风格
 
@@ -169,9 +186,11 @@ docs/visual-style-guide.md
 
 ```txt
 frontend/src/styles/tokens.css
+frontend/src/styles/typography.css
 frontend/src/styles/page.css
 frontend/src/styles/auth.css
 frontend/src/styles/admin.css
+frontend/src/styles/novel.css
 ```
 
 不要在新页面里重新发明一套颜色。新增 UI 时优先复用 token 和通用 class。
@@ -186,9 +205,19 @@ frontend/src/styles/admin.css
 - 阅读页会按 `seriesSlug/partSlug/chapterSlug` 用 `sessionStorage` 记录滚动位置，重新进入同一章节时恢复阅读进度。
 - 图片 URL 存在 `Asset.url`，前端通过 API base URL 拼成完整地址。
 
+公开小说：
+
+- 列出小说。
+- 查看小说详情和章节目录。
+- 阅读小说章节正文。
+- 小说正文用 `react-markdown` + `remark-gfm` 渲染 Markdown。
+- 小说详情页和阅读页复用 `novel.css` 中的布局、目录和 Markdown 样式。
+
 认证与用户：
 
 - 注册 reader。
+- 注册接口要求 `humanCheck` 为 `是`。
+- 管理员可打开/关闭公开注册。
 - 登录。
 - 获取当前登录用户。
 - 用户主页。
@@ -206,6 +235,17 @@ frontend/src/styles/admin.css
 - 管理员设置 series/part 简介。
 - 管理员上传 series/part 封面。
 - 管理员设置 part owner。
+
+小说管理：
+
+- 管理员查看小说树。
+- 管理员创建 novel，并把当前管理员设为 owner。
+- 管理员创建 chapter。
+- 管理员删除 novel/chapter。
+- 管理员移动 chapter 顺序。
+- 管理员重命名 novel/chapter。
+- 管理员编辑 chapter content。
+- 管理员设置 novel owner。
 
 创作者上传：
 
@@ -282,6 +322,12 @@ UPLOADS_DIR/comics
 - 新增专门的 `/api/author/comics` router。
 - 后端按 `ComicPartUserLink(role="owner")` 限制 author 只能操作自己的 part。
 
+### 小说目前没有 visibility/status 字段
+
+漫画 series/part/chapter 有 `visibility` 和 `status`。小说模型当前只有 `Novel`、`NovelChapter`、owner 关系，没有公开/私有可见性字段；公开小说接口会返回所有小说和章节。
+
+如果后续要做草稿、私密章节或作者投稿，需要先设计小说 visibility/status 字段和 SQLite 迁移。
+
 ### 创作者新建能力目前也复用 admin API
 
 创作者页面新增的“新建 series”和“新建 part”调用：
@@ -324,3 +370,21 @@ POST /api/admin/comics/{series_slug}/part/create
 - 后端 router：`backend/app/routers/comic_upload.py`
 - 后端 service：`backend/app/services/comic_upload.py`
 - 前端 API：`frontend/src/api/authorComicUpload.ts`
+
+修改小说：
+
+- 公开 API：`backend/app/routers/novels.py`
+- 后台 API：`backend/app/routers/novel_admin.py`
+- 后台 service：`backend/app/services/novel_admin.py`
+- 前端公开封装：`frontend/src/api/novels.ts`
+- 前端后台封装：`frontend/src/api/adminNovels.ts`
+- 页面：`frontend/src/pages/NovelsPage.tsx`、`NovelDetailPage.tsx`、`NovelReaderPage.tsx`、`AdminNovelsPage.tsx`
+
+修改视觉系统：
+
+- token：`frontend/src/styles/tokens.css`
+- 字体：`frontend/src/styles/typography.css`
+- 通用页面：`frontend/src/styles/page.css`
+- 认证：`frontend/src/styles/auth.css`
+- 后台：`frontend/src/styles/admin.css`
+- 小说详情/阅读：`frontend/src/styles/novel.css`

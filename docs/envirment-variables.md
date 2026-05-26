@@ -79,6 +79,73 @@ export UPLOADS_DIR="/var/www/personal-site/uploads"
 
 注意：`UPLOADS_DIR` 必须和 Nginx `/uploads/` alias 指向同一个目录。
 
+### DB_PATH
+
+用途：备份脚本读取的 SQLite 数据库路径。
+
+代码中的后端运行时数据库路径仍由 `backend/app/database.py` 固定为 `backend/data/site.db`；`DB_PATH` 目前用于 `backend/scripts/backup_site_data.py`。
+
+默认值：
+
+```txt
+backend/data/site.db
+```
+
+示例：
+
+```bash
+export DB_PATH="$HOME/personal-site/backend/data/site.db"
+```
+
+### BACKUPS_DIR
+
+用途：备份脚本输出目录。
+
+默认值：
+
+```txt
+backend/backups
+```
+
+示例：
+
+```bash
+export BACKUPS_DIR="$HOME/personal-site/backend/backups"
+```
+
+### BACKUP_KEEP_LOCAL
+
+用途：备份脚本保留本地 `.tar.gz` 归档数量。
+
+默认值：
+
+```txt
+7
+```
+
+### Remote Backup Variables
+
+用途：让 `backend/scripts/backup_site_data.py` 备份后把归档复制到远程主机。
+
+当前支持：
+
+```txt
+BACKUP_REMOTE_DEST
+BACKUP_REMOTE_PORT
+BACKUP_REMOTE_IDENTITY_FILE
+BACKUP_REMOTE_PLATFORM
+BACKUP_REMOTE_LATEST_NAME
+```
+
+示例：
+
+```bash
+export BACKUP_REMOTE_DEST="user@example.com:/home/user/personal-site-backups"
+export BACKUP_REMOTE_PORT="22"
+export BACKUP_REMOTE_PLATFORM="posix"
+export BACKUP_REMOTE_LATEST_NAME="personal-site-latest.tar.gz"
+```
+
 ## Frontend
 
 前端构建目录通常为：
@@ -132,6 +199,8 @@ export SECRET_KEY="dev-local-secret-change-before-public-deploy"
 export ACCESS_TOKEN_EXPIRE_MINUTES="10080"
 export CORS_ALLOW_ORIGINS="http://127.0.0.1:18000,http://localhost:18000"
 export UPLOADS_DIR="$HOME/personal-site/backend/uploads"
+export DB_PATH="$HOME/personal-site/backend/data/site.db"
+export BACKUPS_DIR="$HOME/personal-site/backend/backups"
 
 # personal-site frontend dev env
 export VITE_API_BASE_URL="http://127.0.0.1:18001"

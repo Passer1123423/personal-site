@@ -631,8 +631,15 @@ backup_site_data.py 目前仍查找 backend/uploads。
 但生产真实上传目录是 /var/www/personal-site/uploads。
 ```
 
-当前空库阶段没有上传图片，所以备份有效。  
-但后续开始上传漫画后，必须修 `backup_site_data.py`，使其读取 `UPLOADS_DIR`，否则漫画图片不会被备份。
+当前空库阶段没有上传图片，所以当时备份有效。
+
+后续状态更新：
+
+```txt
+backup_site_data.py 现在已支持 UPLOADS_DIR / --uploads-dir。
+生产备份时应确保 UPLOADS_DIR=/var/www/personal-site/uploads，
+或显式传 --uploads-dir /var/www/personal-site/uploads。
+```
 
 ## 16. 当前待处理事项
 
@@ -640,7 +647,7 @@ backup_site_data.py 目前仍查找 backend/uploads。
 
 ```txt
 1. 将 passer 的临时密码 123456 改成强密码。
-2. 修 backup_site_data.py，使其备份 UPLOADS_DIR=/var/www/personal-site/uploads。
+2. 生产备份命令确认带上 UPLOADS_DIR=/var/www/personal-site/uploads。
 3. 之后如需正式开放注册，再确认注册开关状态。
 4. 后续如绑定域名，再配置 HTTPS。
 ```
