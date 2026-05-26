@@ -536,3 +536,25 @@ class NovelUserLink(SQLModel, table=True):
     role: str = "owner"
 
     created_at: datetime = Field(default_factory=now_utc)
+
+class NovelTextBuffer(SQLModel, table=True):
+    __tablename__ = "novel_text_buffer"
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    user_id: str = Field(foreign_key="user.id", index=True)
+
+    novel_id: str = Field(foreign_key="novel.id", index=True)
+
+    # 编辑已有章节时有 chapter_id
+    # 新建章节正文缓冲时可以为空
+    chapter_id: str | None = Field(default=None, foreign_key="novel_chapter.id", index=True)
+
+    # markdown / plain_text
+    content_type: str = Field(default="markdown", index=True)
+
+    # 缓冲区正文
+    content: str = Field(default="", sa_column=Column(Text, nullable=False))
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)

@@ -33,6 +33,7 @@ from app.routers.comic_admin import router as comic_admin_router
 
 from app.routers.novels import router as novels_router
 from app.routers.novel_admin import router as novel_admin_router
+from app.routers.novel_author import router as novel_author_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -121,6 +122,7 @@ app.include_router(comic_upload_router)
 app.include_router(comic_admin_router)
 app.include_router(novels_router)
 app.include_router(novel_admin_router)
+app.include_router(novel_author_router)
 
 @app.get("/")
 def root():
