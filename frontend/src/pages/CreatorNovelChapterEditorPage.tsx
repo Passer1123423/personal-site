@@ -158,10 +158,6 @@ export default function CreatorNovelChapterEditorPage() {
     };
   }, [message]);
 
-  const currentNovelChapters = useMemo(() => {
-    return sortChapters(currentNovel?.chapters ?? []);
-  }, [currentNovel]);
-
   const filteredNovels = useMemo(() => {
     const keyword = novelSearchKeyword.trim().toLowerCase();
 
@@ -360,22 +356,6 @@ export default function CreatorNovelChapterEditorPage() {
     setDirty(false);
 
     return saved;
-  }
-
-  async function discardBuffer() {
-    if (!buffer) {
-      setDirty(false);
-      return;
-    }
-
-    const bufferId = buffer.id;
-
-    setDirty(false);
-
-    await deleteAuthorNovelBuffer(bufferId);
-
-    setBuffer(null);
-    setContent("");
   }
 
   async function prepareLeave() {
