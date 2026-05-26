@@ -5,48 +5,63 @@ import CreatorBookCard from "../components/creator/CreatorBookCard";
 import { getMe, type AuthUser } from "../api/auth";
 import { getNovelList, type NovelListItem } from "../api/novels";
 
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString();
+}
+
+function NovelCoverOnly({ novel }: { novel: NovelListItem }) {
+  if (novel.coverUrl) {
+    return (
+      <img
+        src={novel.coverUrl}
+        alt={novel.title}
+        className="h-full w-full object-cover"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-950 to-blue-700 px-4 text-center">
+      <span className="text-sm font-bold text-white">
+        {novel.title}
+      </span>
+    </div>
+  );
+}
+
 function FeaturedNovelCard({ novel }: { novel: NovelListItem }) {
   return (
     <Link
       to={`/works/novels/${novel.slug}`}
-      className="group block overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      className="group block overflow-hidden rounded-xl border border-[var(--color-border-soft)] bg-[var(--color-panel-bg)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
     >
-      <div className="grid gap-0 md:grid-cols-[220px_minmax(0,1fr)]">
-        <div className="flex min-h-[280px] items-center justify-center border-b border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] px-8 md:border-b-0 md:border-r">
-          <CreatorBookCard
-            title={novel.title}
-            summary={novel.summary}
-            coverUrl={novel.coverUrl}
-            href={`/works/novels/${novel.slug}`}
-            meta="最近更新"
-          />
+      <div className="grid min-h-[220px] gap-0 md:grid-cols-[150px_minmax(0,1fr)]">
+        <div className="flex items-center justify-center border-b border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] px-5 py-6 md:border-b-0 md:border-r">
+          <div className="h-[160px] w-[100px] overflow-hidden rounded-sm shadow-lg">
+            <NovelCoverOnly novel={novel} />
+          </div>
         </div>
 
-        <div className="flex flex-col justify-between p-7 md:p-9">
+        <div className="flex min-w-0 flex-col justify-between p-5 md:p-6">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
-              Featured Novel
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] link-accent">
+              Recently Updated
             </p>
 
-            <h2 className="mt-4 text-3xl font-bold leading-tight text-main md:text-4xl group-hover:underline group-hover:underline-offset-4">
+            <h2 className="mt-3 text-2xl font-bold leading-tight text-main md:text-3xl">
               {novel.title}
             </h2>
 
-            {novel.summary ? (
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-muted md:text-base">
-                {novel.summary}
-              </p>
-            ) : (
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-soft md:text-base">
-                暂无小说简介。
-              </p>
-            )}
+            <p className="mt-4 line-clamp-3 text-sm leading-7 text-muted">
+              {novel.summary || "暂无小说简介。"}
+            </p>
           </div>
 
-          <div className="mt-8 flex items-center justify-between border-t border-[var(--color-border-soft)] pt-4">
-            <span className="text-sm text-soft">
-              更新于 {new Date(novel.updatedAt).toLocaleDateString()}
+          <div className="mt-5 flex items-center justify-between border-t border-[var(--color-border-soft)] pt-3">
+            <span className="text-xs text-soft">
+              更新于 {formatDate(novel.updatedAt)}
             </span>
+
             <span className="text-sm font-semibold link-accent">
               进入目录 →
             </span>
@@ -113,124 +128,109 @@ function NovelsPage() {
     currentUser?.role === "author" || currentUser?.role === "admin";
 
   return (
-    <main className="page-shell min-h-[100dvh] pb-16">
-      <section className="border-b border-[var(--color-border-soft)] bg-[var(--color-panel-bg)]">
-        <div className="mx-auto max-w-7xl px-6 py-14 md:px-10">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] link-accent">
-                Novels
-              </p>
+    <main className="page-shell min-h-[100dvh] pb-14">
+      <section className="mx-auto max-w-[1250px] px-6 py-8 md:px-8">
+        <header className="grid gap-6 md:grid-cols-[minmax(0,0.8fr)_minmax(420px,1.2fr)] md:items-end">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] link-accent">
+              Novels
+            </p>
 
-              <h1 className="mt-4 text-4xl font-bold leading-tight text-main md:text-5xl">
-                小说存档
-              </h1>
+            <h1 className="mt-3 text-3xl font-bold leading-tight text-main md:text-4xl">
+              小说存档
+            </h1>
 
-              <p className="mt-5 max-w-2xl text-base leading-8 text-muted">
-                收录小说正文、章节目录和后续评论入口。这里采用书架式陈列，点击封面进入小说详情页。
-              </p>
-            </div>
+            <p className="mt-4 max-w-xl text-sm leading-7 text-muted">
+              收录小说正文与章节目录。最近更新会优先展示，其他作品按书架形式陈列。
+            </p>
 
-            {canManageNovels && (
-              <Link
-                to="/admin/novels"
-                className="rounded-xl border border-[var(--color-accent-border)] bg-[var(--color-accent-soft)] px-5 py-3 text-sm font-semibold link-accent transition hover:border-[var(--color-accent-border-strong)]"
-              >
-                进入小说管理
-              </Link>
-            )}
-          </div>
-
-          <div className="mt-10 rounded-2xl border border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] px-6 py-8 md:px-8">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-main">书架</h2>
-                <p className="mt-2 text-sm leading-7 text-muted">
-                  按最近更新时间排序。新写或修改过的小说会靠前显示。
-                </p>
-              </div>
-
-              <span className="text-sm text-soft">
+            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm">
+              <span className="rounded-full bg-[var(--color-panel-soft-bg)] px-3 py-1 text-soft">
                 共 {sortedNovels.length} 部小说
               </span>
+
+              {canManageNovels && (
+                <Link
+                  to="/admin/novels"
+                  className="rounded-full border border-[var(--color-accent-border)] bg-[var(--color-accent-soft)] px-3 py-1 font-semibold link-accent transition hover:border-[var(--color-accent-border-strong)]"
+                >
+                  进入小说管理
+                </Link>
+              )}
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-12 md:px-10">
-        {isLoading && (
-          <section className="surface-card px-6 py-10">
-            <p className="text-sm text-soft">正在加载小说列表...</p>
-          </section>
-        )}
+          {!isLoading && !errorMessage && featuredNovel && (
+            <section>
+              <FeaturedNovelCard novel={featuredNovel} />
+            </section>
+          )}
+        </header>
 
-        {errorMessage && (
-          <section>
-            <p className="message-error p-4 text-sm">{errorMessage}</p>
-          </section>
-        )}
+        <section className="mt-8">
+          {isLoading && (
+            <section className="surface-card px-6 py-8">
+              <p className="text-sm text-soft">正在加载小说列表...</p>
+            </section>
+          )}
 
-        {!isLoading && !errorMessage && sortedNovels.length === 0 && (
-          <section className="surface-card px-6 py-10">
-            <p className="text-sm text-soft">暂无小说。</p>
-          </section>
-        )}
+          {errorMessage && (
+            <section>
+              <p className="message-error p-4 text-sm">{errorMessage}</p>
+            </section>
+          )}
 
-        {!isLoading && !errorMessage && featuredNovel && (
-          <section>
-            <div className="mb-7">
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
-                Recently Updated
-              </p>
+          {!isLoading && !errorMessage && sortedNovels.length === 0 && (
+            <section className="surface-card px-6 py-8">
+              <p className="text-sm text-soft">暂无小说。</p>
+            </section>
+          )}
 
-              <h2 className="mt-2 text-2xl font-bold text-main">
-                最近更新
-              </h2>
-            </div>
+          {!isLoading && !errorMessage && sortedNovels.length > 0 && (
+            <section className="surface-card overflow-hidden">
+              <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--color-border-soft)] px-5 py-4 md:px-6">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] link-accent">
+                    Library
+                  </p>
 
-            <FeaturedNovelCard novel={featuredNovel} />
-          </section>
-        )}
+                  <h2 className="mt-1 text-xl font-bold text-main">
+                    全部小说
+                  </h2>
+                </div>
 
-        {!isLoading && !errorMessage && sortedNovels.length > 0 && (
-          <section className="mt-14">
-            <div className="mb-7 flex flex-wrap items-end justify-between gap-3 border-b border-[var(--color-border-soft)] pb-4">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
-                  Library
-                </p>
-
-                <h2 className="mt-2 text-2xl font-bold text-main">
-                  全部小说
-                </h2>
+                <span className="text-sm text-soft">
+                  按最近更新时间排序
+                </span>
               </div>
-            </div>
 
-            <div className="grid grid-cols-[repeat(auto-fill,112px)] justify-center gap-x-9 gap-y-12 sm:grid-cols-[repeat(auto-fill,128px)] md:justify-start">
-              {featuredNovel && (
-                <CreatorBookCard
-                  title={featuredNovel.title}
-                  summary={featuredNovel.summary}
-                  coverUrl={featuredNovel.coverUrl}
-                  href={`/works/novels/${featuredNovel.slug}`}
-                  meta="最近更新"
-                />
-              )}
+              <div className="px-5 py-6 md:px-6">
+                <div className="grid grid-cols-[repeat(auto-fill,104px)] justify-center gap-x-7 gap-y-9 sm:grid-cols-[repeat(auto-fill,118px)] md:justify-start">
+                  {featuredNovel && (
+                    <CreatorBookCard
+                      title={featuredNovel.title}
+                      summary={featuredNovel.summary}
+                      coverUrl={featuredNovel.coverUrl}
+                      href={`/works/novels/${featuredNovel.slug}`}
+                      meta="最近更新"
+                    />
+                  )}
 
-              {shelfNovels.map((novel) => (
-                <CreatorBookCard
-                  key={novel.id}
-                  title={novel.title}
-                  summary={novel.summary}
-                  coverUrl={novel.coverUrl}
-                  href={`/works/novels/${novel.slug}`}
-                  meta={`更新于 ${new Date(novel.updatedAt).toLocaleDateString()}`}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+                  {shelfNovels.map((novel) => (
+                    <CreatorBookCard
+                      key={novel.id}
+                      title={novel.title}
+                      summary={novel.summary}
+                      coverUrl={novel.coverUrl}
+                      href={`/works/novels/${novel.slug}`}
+                      meta={`更新于 ${formatDate(novel.updatedAt)}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+        </section>
       </section>
     </main>
   );

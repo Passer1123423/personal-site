@@ -23,7 +23,7 @@ import {
   type AdminComicOwner,
 } from "../api/adminComics";
 
-import { useNavigate } from "react-router-dom";
+import {Link, useNavigate} from "react-router-dom";
 import { clearAccessToken, getMe } from "../api/auth";
 
 const NEW_OPTION = "__new__";
@@ -1290,8 +1290,14 @@ function AdminComicsPage() {
     <main className="admin-page-shell">
       <div className="mx-auto max-w-5xl space-y-8 p-6">
       <section>
-        <h1 className="text-2xl font-bold text-main">漫画后台管理</h1>
-        <p className="mt-2 text-muted">
+        <Link
+          to="/admin"
+          className="mb-3 inline-block text-sm font-semibold link-accent"
+        >
+          ← 返回后台首页
+        </Link>
+        <h1 className="mt-2 text-3xl font-semibold text-main">漫画后台管理</h1>
+        <p className="mt-3 text-sm leading-6 text-muted">
           当前页面用于本地上传章节、调整章节顺序和删除测试内容。
         </p>
       </section>

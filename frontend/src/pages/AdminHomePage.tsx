@@ -45,7 +45,7 @@ export default function AdminHomePage() {
           选择要管理的模块。
         </p>
 
-        <div className="mt-8 grid gap-5 md:grid-cols-2">
+        <div className="mt-8 grid gap-5 md:grid-cols-3">
           <Link
             to="/admin/comics"
             className="surface-card surface-card-link p-6"
@@ -53,6 +53,16 @@ export default function AdminHomePage() {
             <h2 className="text-xl font-semibold text-main">漫画管理</h2>
             <p className="mt-3 text-sm leading-6 text-muted">
               上传章节、删除内容、调整章节顺序。
+            </p>
+          </Link>
+
+          <Link
+            to="/admin/novels"
+            className="surface-card surface-card-link p-6"
+          >
+            <h2 className="text-xl font-semibold text-main">小说管理</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">
+              创建小说、管理章节目录、调整章节顺序。
             </p>
           </Link>
 

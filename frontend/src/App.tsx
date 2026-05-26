@@ -20,6 +20,7 @@ import AdminHomePage from "./pages/AdminHomePage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminComicsPage from "./pages/AdminComicsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
+import AdminNovelsPage from "./pages/AdminNovelsPage";
 
 import NovelsPage from './pages/NovelsPage'
 import NovelDetailPage from './pages/NovelDetailPage'
@@ -71,6 +72,7 @@ function App() {
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin/comics" element={<AdminComicsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/novels" element={<AdminNovelsPage />} />
       </Routes>
 
       <Footer />

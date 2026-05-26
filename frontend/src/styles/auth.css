@@ -2,6 +2,7 @@
   min-height: 100vh;
   background: var(--color-page-bg);
   color: var(--color-text-main);
+  font-family: var(--font-sans);
 }
 
 .auth-card {
