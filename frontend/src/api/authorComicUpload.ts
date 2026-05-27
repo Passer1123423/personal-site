@@ -106,6 +106,65 @@ export async function uploadAuthorComicImages(
   return readJsonOrThrow<UploadImagesResult>(response);
 }
 
+export function uploadAuthorComicImageWithProgress(
+  file: File,
+  onProgress: (progress: number) => void,
+): Promise<UploadImagesResult> {
+  return new Promise((resolve, reject) => {
+    const token = getAccessToken();
+
+    if (!token) {
+      reject(new Error("未登录"));
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("files", file);
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.open("POST", `${API_BASE_URL}/api/author/comic-upload/images`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) {
+        return;
+      }
+
+      const progress = Math.round((event.loaded / event.total) * 100);
+      onProgress(Math.min(100, Math.max(0, progress)));
+    };
+
+    xhr.onload = () => {
+      const data = (() => {
+        try {
+          return JSON.parse(xhr.responseText);
+        } catch {
+          return null;
+        }
+      })();
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(data?.detail ?? "上传失败"));
+        return;
+      }
+
+      onProgress(100);
+      resolve(data as UploadImagesResult);
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("无法连接后端服务。"));
+    };
+
+    xhr.onabort = () => {
+      reject(new Error("上传已取消。"));
+    };
+
+    xhr.send(formData);
+  });
+}
+
 export async function deleteAuthorUploadImage(
   imageId: string,
 ): Promise<AuthorUploadState> {

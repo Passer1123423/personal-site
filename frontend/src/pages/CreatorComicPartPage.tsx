@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { getMe } from "../api/auth";
@@ -10,7 +10,7 @@ import {
   listAuthorUploadImages,
   publishAuthorComicChapter,
   type AuthorUploadImage,
-  uploadAuthorComicImages,
+  uploadAuthorComicImageWithProgress,
 } from "../api/authorComicUpload";
 
 import {
@@ -31,6 +31,17 @@ import { API_BASE_URL } from "../api/config";
 type Message = {
   type: "success" | "error";
   text: string;
+};
+
+type PendingUploadImage = {
+  id: string;
+  file: File;
+  fileName: string;
+  sizeBytes: number;
+  previewUrl: string;
+  progress: number;
+  status: "waiting" | "uploading" | "error";
+  errorText?: string;
 };
 
 function formatBytes(value: number) {
@@ -302,6 +313,8 @@ export default function CreatorComicPartPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [images, setImages] = useState<AuthorUploadImage[]>([]);
+  const [pendingUploads, setPendingUploads] = useState<PendingUploadImage[]>([]);
+  const pendingUploadsRef = useRef<PendingUploadImage[]>([]);
   const [totalSizeBytes, setTotalSizeBytes] = useState(0);
   const [limitBytes, setLimitBytes] = useState(500 * 1024 * 1024);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
@@ -321,6 +334,17 @@ export default function CreatorComicPartPage() {
   );
 
   const chapters = partDetail?.chapters ?? [];
+
+  const hasUploadingImages = pendingUploads.some(
+    (item) => item.status === "waiting" || item.status === "uploading",
+  );
+
+  const visibleUploadCount = images.length + pendingUploads.length;
+
+  const pendingUploadTotalSize = useMemo(
+    () => pendingUploads.reduce((sum, item) => sum + item.sizeBytes, 0),
+    [pendingUploads],
+  );
 
   useEffect(() => {
     setPartSummaryDraft(partDetail?.part.summary ?? "");
@@ -415,28 +439,116 @@ export default function CreatorComicPartPage() {
     };
   }, [images]);
 
+  useEffect(() => {
+    pendingUploadsRef.current = pendingUploads;
+  }, [pendingUploads]);
+
+  useEffect(() => {
+    return () => {
+      pendingUploadsRef.current.forEach((item) =>
+        URL.revokeObjectURL(item.previewUrl),
+      );
+    };
+  }, []);
+
+  function updatePendingUpload(
+    id: string,
+    updater: (item: PendingUploadImage) => PendingUploadImage,
+  ) {
+    setPendingUploads((current) =>
+      current.map((item) => (item.id === id ? updater(item) : item)),
+    );
+  }
+
+  function removePendingUpload(id: string) {
+    setPendingUploads((current) => {
+      const target = current.find((item) => item.id === id);
+
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+
+      return current.filter((item) => item.id !== id);
+    });
+  }
+
   async function handleUploadFiles(files: FileList | null) {
     if (!files || files.length === 0) {
       return;
     }
 
+    const selectedFiles = Array.from(files);
+
+    const pendingItems: PendingUploadImage[] = selectedFiles.map((file, index) => ({
+      id: `pending-${Date.now()}-${index}-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      file,
+      fileName: file.name,
+      sizeBytes: file.size,
+      previewUrl: URL.createObjectURL(file),
+      progress: 0,
+      status: "waiting",
+    }));
+
+    setPendingUploads((current) => [...current, ...pendingItems]);
     setSubmitting(true);
     setMessage(null);
 
+    let savedCount = 0;
+    const rejected: { filename: string; reason: string }[] = [];
+
     try {
-      const result = await uploadAuthorComicImages(Array.from(files));
+      for (const item of pendingItems) {
+        updatePendingUpload(item.id, (current) => ({
+          ...current,
+          status: "uploading",
+        }));
+
+        try {
+          const result = await uploadAuthorComicImageWithProgress(
+            item.file,
+            (progress) => {
+              updatePendingUpload(item.id, (current) => ({
+                ...current,
+                progress,
+              }));
+            },
+          );
+
+          savedCount += result.saved.length;
+          rejected.push(...result.rejected);
+
+          removePendingUpload(item.id);
+          await refreshUploadImages();
+        } catch (error: unknown) {
+          const text = error instanceof Error ? error.message : "上传失败";
+
+          rejected.push({
+            filename: item.fileName,
+            reason: text,
+          });
+
+          updatePendingUpload(item.id, (current) => ({
+            ...current,
+            progress: 100,
+            status: "error",
+            errorText: text,
+          }));
+        }
+      }
 
       await refreshUploadImages();
 
-      if (result.rejected.length > 0) {
+      if (rejected.length > 0) {
         setMessage({
           type: "error",
-          text: `已上传 ${result.saved.length} 张，拒绝 ${result.rejected.length} 张。`,
+          text: `已上传 ${savedCount} 张，失败或拒绝 ${rejected.length} 张。`,
         });
       } else {
         setMessage({
           type: "success",
-          text: `已上传 ${result.saved.length} 张图片。`,
+          text: `已上传 ${savedCount} 张图片。`,
         });
       }
     } catch (error: unknown) {
@@ -445,6 +557,10 @@ export default function CreatorComicPartPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleRemovePendingUpload(id: string) {
+    removePendingUpload(id);
   }
 
   async function handleDeleteImage(imageId: string) {
@@ -602,6 +718,14 @@ export default function CreatorComicPartPage() {
       setMessage({
         type: "error",
         text: "当前路由缺少 seriesSlug 或 partSlug。",
+      });
+      return;
+    }
+
+    if (hasUploadingImages) {
+      setMessage({
+        type: "error",
+        text: "仍有图片正在上传，请等待上传完成。",
       });
       return;
     }
@@ -899,17 +1023,17 @@ export default function CreatorComicPartPage() {
                           图片预览
                         </h3>
                         <p className="mt-1 text-xs text-soft">
-                          当前 {images.length} 张，按显示顺序发布。
+                          当前 {visibleUploadCount} 张，按显示顺序发布。
                         </p>
                       </div>
 
                       <span className="shrink-0 text-xs text-soft">
-                        {formatBytes(totalSizeBytes)} / {formatBytes(limitBytes)}
+                        {formatBytes(totalSizeBytes + pendingUploadTotalSize)} / {formatBytes(limitBytes)}
                       </span>
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                      {images.length === 0 ? (
+                      {visibleUploadCount === 0 ? (
                         <div className="flex h-full min-h-48 items-center justify-center rounded-xl border border-dashed border-[var(--color-border-control)] bg-white px-4 py-10 text-center text-sm text-soft">
                           待传区为空。点击下方区域上传新章节图片。
                         </div>
@@ -955,6 +1079,80 @@ export default function CreatorComicPartPage() {
                                 >
                                   删除
                                 </button>
+                              </div>
+                            </article>
+                          ))}
+
+                          {pendingUploads.map((item, index) => (
+                            <article
+                              key={item.id}
+                              className="overflow-hidden rounded-xl border border-[var(--color-border-soft)] bg-white"
+                            >
+                              <div className="relative flex h-28 items-center justify-center bg-[var(--color-panel-muted-bg)]">
+                                <img
+                                  src={item.previewUrl}
+                                  alt={item.fileName}
+                                  className="h-full w-full object-contain opacity-80"
+                                />
+
+                                {item.status !== "error" && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-white/45 text-xs font-semibold text-main">
+                                    {item.status === "waiting" ? "等待中" : "上传中"}
+                                  </div>
+                                )}
+
+                                {item.status === "error" && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-red-50/80 px-2 text-center text-xs font-semibold text-red-600">
+                                    上传失败
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="space-y-2 px-2 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="badge-accent px-2 py-0.5 text-xs">
+                                    #{images.length + index + 1}
+                                  </span>
+
+                                  <span className="text-[11px] text-soft">
+                                    {formatBytes(item.sizeBytes)}
+                                  </span>
+                                </div>
+
+                                <p className="truncate text-xs font-medium text-main">
+                                  {item.fileName}
+                                </p>
+
+                                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-panel-muted-bg)]">
+                                  <div
+                                    className={
+                                      item.status === "error"
+                                        ? "h-full rounded-full bg-red-400 transition-all duration-150"
+                                        : "h-full rounded-full bg-[var(--color-accent)] transition-all duration-150"
+                                    }
+                                    style={{
+                                      width: `${item.progress}%`,
+                                    }}
+                                  />
+                                </div>
+
+                                <p className="truncate text-[11px] text-soft">
+                                  {item.status === "error"
+                                    ? item.errorText ?? "上传失败"
+                                    : item.status === "waiting"
+                                      ? "等待上传"
+                                      : `${item.progress}%`}
+                                </p>
+
+                                {item.status === "error" && (
+                                  <button
+                                    type="button"
+                                    className="admin-button-danger w-full px-2 py-1 text-xs"
+                                    onClick={() => handleRemovePendingUpload(item.id)}
+                                  >
+                                    移除
+                                  </button>
+                                )}
                               </div>
                             </article>
                           ))}
@@ -1008,7 +1206,7 @@ export default function CreatorComicPartPage() {
                   <button
                     type="button"
                     className="admin-button-primary px-4 py-2 text-sm font-semibold"
-                    disabled={submitting || images.length === 0}
+                    disabled={submitting || hasUploadingImages || images.length === 0}
                     onClick={handlePublish}
                   >
                     发布 chapter
@@ -1017,7 +1215,7 @@ export default function CreatorComicPartPage() {
                   <button
                     type="button"
                     className="admin-button-danger px-4 py-2 text-sm font-semibold"
-                    disabled={submitting || images.length === 0}
+                    disabled={submitting || hasUploadingImages || images.length === 0}
                     onClick={handleClearImages}
                   >
                     清空缓存区
