@@ -977,7 +977,7 @@ export default function CreatorNovelChapterEditorPage() {
             ) : (
               <>
                 <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-                  <article className="novel-reader-prose max-w-none">
+                  <article className="novel-preview-prose">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {content || "暂无内容。"}
                     </ReactMarkdown>

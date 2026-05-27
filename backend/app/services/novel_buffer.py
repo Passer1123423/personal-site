@@ -29,13 +29,12 @@ def normalize_content_type(content_type: str | None) -> str:
 
 def plain_text_to_markdown(content: str | None) -> str:
     """
-    将普通文本转成基础 Markdown。
+    将普通小说文本转成基础 Markdown。
 
-    当前规则保持保守：
-    1. 统一换行符
-    2. 去掉首尾空白
-    3. 空行分段
-    4. 段内单换行合并为空格
+    小说文本规则：
+    1. 一个非空行就是一个自然段
+    2. 多个连续空行只作为段落分隔
+    3. 最终用 Markdown 段落格式保存，即段落之间空一行
     """
 
     content = (content or "").replace("\r\n", "\n").replace("\r", "\n").strip()
@@ -43,21 +42,15 @@ def plain_text_to_markdown(content: str | None) -> str:
     if not content:
         return ""
 
-    paragraphs = re.split(r"\n\s*\n", content)
+    paragraphs = []
 
-    markdown_paragraphs = []
+    for line in content.split("\n"):
+        line = line.strip()
 
-    for paragraph in paragraphs:
-        lines = [
-            line.strip()
-            for line in paragraph.split("\n")
-            if line.strip()
-        ]
+        if line:
+            paragraphs.append(line)
 
-        if lines:
-            markdown_paragraphs.append(" ".join(lines))
-
-    return "\n\n".join(markdown_paragraphs)
+    return "\n\n".join(paragraphs)
 
 
 def buffer_content_to_markdown(buffer: NovelTextBuffer) -> str:

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 
+import { getAccessToken } from "../api/auth";
+import { fetchAuthorNovelsTree } from "../api/authorNovels";
+
 import {
   getNovelDetail,
   resolveAssetUrl,
@@ -48,6 +51,8 @@ function NovelDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [canManageNovel, setCanManageNovel] = useState(false);
+
   useEffect(() => {
     async function loadNovel() {
       if (!novelSlug) {
@@ -62,6 +67,23 @@ function NovelDetailPage() {
 
         const data = await getNovelDetail(novelSlug);
         setNovel(data);
+
+        const token = getAccessToken();
+
+        if (!token) {
+          setCanManageNovel(false);
+          return;
+        }
+
+        try {
+          const authorNovels = await fetchAuthorNovelsTree();
+
+          setCanManageNovel(
+            authorNovels.some((authorNovel) => authorNovel.slug === data.slug),
+          );
+        } catch {
+          setCanManageNovel(false);
+        }
       } catch (error) {
         console.error(error);
 
@@ -123,6 +145,17 @@ function NovelDetailPage() {
                 <h1 className="mt-3 text-3xl font-bold leading-tight text-main md:text-4xl">
                   {novel.title}
                 </h1>
+
+                {canManageNovel && (
+                  <div className="mt-4">
+                    <Link
+                      to={`/creator/novels/${novel.slug}`}
+                      className="inline-flex rounded-xl px-4 py-2 text-sm font-semibold transition hover:bg-[var(--color-panel-soft-bg)] link-accent"
+                    >
+                      管理这本小说
+                    </Link>
+                  </div>
+                )}
 
                 <p className="mt-4 max-w-3xl whitespace-pre-line text-sm leading-7 text-muted md:text-base">
                   {novel.summary || "暂无小说简介。"}

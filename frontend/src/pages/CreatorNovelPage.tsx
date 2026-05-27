@@ -473,13 +473,13 @@ export default function CreatorNovelPage() {
 
               <Link
                 to={
-                  novel
-                    ? `/creator/novels/${novel.slug}/new-chapter`
-                    : "/creator/novels"
-                }
-                className="admin-button-primary px-5 py-3 font-semibold"
+                novel
+                  ? `/works/novels/${novel.slug}`
+                  : `/works/novels`
+              }
+                className="admin-button-secondary px-4 py-2 text-sm"
               >
-                新建 chapter
+                查看当前小说
               </Link>
             </div>
 

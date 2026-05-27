@@ -99,6 +99,114 @@
   background: var(--color-panel-soft-bg);
 }
 
+.novel-preview-prose {
+  max-width: 720px;
+  margin: 0 auto;
+  color: var(--color-text-main);
+  font-size: 0.98rem;
+  line-height: 2;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+}
+
+.novel-preview-prose h1 {
+  margin: 0 0 1.5rem;
+  font-size: 1.6rem;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.novel-preview-prose h2 {
+  margin: 2.2rem 0 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--color-border-soft);
+  font-size: 1.25rem;
+  line-height: 1.5;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.novel-preview-prose h3 {
+  margin: 1.8rem 0 0.8rem;
+  font-size: 1.08rem;
+  line-height: 1.5;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.novel-preview-prose p {
+  margin: 0 0 1.15rem;
+}
+
+.novel-preview-prose strong {
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.novel-preview-prose em {
+  font-style: italic;
+}
+
+.novel-preview-prose blockquote {
+  margin: 1.5rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-panel-soft-bg);
+  color: var(--color-text-muted);
+}
+
+.novel-preview-prose blockquote p {
+  margin: 0.35rem 0;
+}
+
+.novel-preview-prose hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.novel-preview-prose ul,
+.novel-preview-prose ol {
+  margin: 1rem 0 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.novel-preview-prose ul {
+  list-style: disc;
+}
+
+.novel-preview-prose ol {
+  list-style: decimal;
+}
+
+.novel-preview-prose li {
+  margin: 0.35rem 0;
+}
+
+.novel-preview-prose code {
+  border-radius: 0.35rem;
+  background: var(--color-panel-soft-bg);
+  padding: 0.12rem 0.32rem;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.88em;
+}
+
+.novel-preview-prose a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.novel-preview-prose img {
+  display: block;
+  max-width: 100%;
+  margin: 1.5rem auto;
+  border-radius: 0.75rem;
+}
+
 .novel-detail-frame {
   overflow: hidden;
   border-radius: 0.75rem;
