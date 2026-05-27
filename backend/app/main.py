@@ -29,6 +29,7 @@ from app.routers.user_admin import router as user_admin_router
 
 from app.routers.comics import router as comics_router
 from app.routers.comic_upload import router as comic_upload_router
+from app.routers.comic_author import router as comic_author_router
 from app.routers.comic_admin import router as comic_admin_router
 
 from app.routers.novels import router as novels_router
@@ -119,6 +120,7 @@ app.include_router(auth_router)
 app.include_router(user_admin_router)
 app.include_router(comics_router)
 app.include_router(comic_upload_router)
+app.include_router(comic_author_router)
 app.include_router(comic_admin_router)
 app.include_router(novels_router)
 app.include_router(novel_admin_router)

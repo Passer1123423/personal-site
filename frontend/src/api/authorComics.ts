@@ -75,6 +75,8 @@ export type CreateAuthorComicPartResult = {
   owner: AuthorComicOwner | null;
 };
 
+const AUTHOR_COMICS_API = `${API_BASE_URL}/api/author/comics`;
+
 function getAuthorHeaders(extraHeaders?: HeadersInit): HeadersInit {
   const token = getAccessToken();
 
@@ -113,7 +115,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 
 export async function fetchAuthorComicsTree() {
   return fetchJson<AuthorComicSeries[]>(
-    `${API_BASE_URL}/api/admin/comics/tree`,
+    `${AUTHOR_COMICS_API}/tree`,
     {
       headers: getAuthorHeaders(),
     },
@@ -158,7 +160,7 @@ export async function renameAuthorComicChapter(params: {
   customTitle: string;
 }) {
   return fetchJson(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}/rename`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}/rename`,
     {
       method: "PATCH",
       headers: getAuthorHeaders({
@@ -185,7 +187,7 @@ export async function moveAuthorComicChapter(params: {
     targetChapterSlug?: string;
     targetDisplayOrder?: number;
   }>(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}/move`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}/move`,
     {
       method: "PATCH",
       headers: getAuthorHeaders({
@@ -204,7 +206,7 @@ export async function deleteAuthorComicChapter(params: {
   chapterSlug: string;
 }) {
   return fetchJson(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/${params.partSlug}/${params.chapterSlug}`,
     {
       method: "DELETE",
       headers: getAuthorHeaders(),
@@ -218,7 +220,7 @@ export async function updateAuthorPartSummary(params: {
   summary: string;
 }) {
   return fetchJson<AuthorComicPart>(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/summary`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/${params.partSlug}/summary`,
     {
       method: "PATCH",
       headers: getAuthorHeaders({
@@ -240,7 +242,7 @@ export async function uploadAuthorPartCover(params: {
   formData.append("file", params.file);
 
   return fetchJson<AuthorComicPart>(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/cover`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/${params.partSlug}/cover`,
     {
       method: "POST",
       headers: getAuthorHeaders(),
@@ -254,7 +256,7 @@ export async function updateAuthorSeriesSummary(params: {
   summary: string;
 }) {
   return fetchJson<AuthorComicSeries>(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/summary`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/summary`,
     {
       method: "PATCH",
       headers: getAuthorHeaders({
@@ -275,7 +277,7 @@ export async function uploadAuthorSeriesCover(params: {
   formData.append("file", params.file);
 
   return fetchJson<AuthorComicSeries>(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/cover`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/cover`,
     {
       method: "POST",
       headers: getAuthorHeaders(),
@@ -289,7 +291,7 @@ export async function renameAuthorComicSeries(params: {
   title: string;
 }) {
   return fetchJson<AuthorComicSeries>(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/rename`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/rename`,
     {
       method: "PATCH",
       headers: getAuthorHeaders({
@@ -308,7 +310,7 @@ export async function renameAuthorComicPart(params: {
   title: string;
 }) {
   return fetchJson<AuthorComicPart>(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/${params.partSlug}/rename`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/${params.partSlug}/rename`,
     {
       method: "PATCH",
       headers: getAuthorHeaders({
@@ -327,7 +329,7 @@ export async function createAuthorComicSeries(params: {
   summary?: string;
 }) {
   return fetchJson<AuthorComicSeries>(
-    `${API_BASE_URL}/api/admin/comics/series/create`,
+    `${AUTHOR_COMICS_API}/series/create`,
     {
       method: "POST",
       headers: getAuthorHeaders({
@@ -349,7 +351,7 @@ export async function createAuthorComicPart(params: {
   summary?: string;
 }) {
   return fetchJson<CreateAuthorComicPartResult>(
-    `${API_BASE_URL}/api/admin/comics/${params.seriesSlug}/part/create`,
+    `${AUTHOR_COMICS_API}/${params.seriesSlug}/part/create`,
     {
       method: "POST",
       headers: getAuthorHeaders({
