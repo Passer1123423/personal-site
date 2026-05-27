@@ -47,22 +47,22 @@ export default function CreatorPage() {
 
         <div className="mt-8 grid gap-5 md:grid-cols-2">
           <Link
-            to="/creator/comics"
-            className="surface-card surface-card-link p-6"
-          >
-            <h2 className="text-xl font-semibold text-main">漫画创作</h2>
-            <p className="mt-3 text-sm leading-6 text-muted">
-              上传漫画图片、发布章节、管理作品归属。
-            </p>
-          </Link>
-
-          <Link
             to="/creator/novels"
             className="surface-card surface-card-link p-6"
           >
             <h2 className="text-xl font-semibold text-main">小说创作</h2>
             <p className="mt-3 text-sm leading-6 text-muted">
               创建小说、编辑章节正文、管理封面和简介。
+            </p>
+          </Link>
+
+          <Link
+            to="/creator/comics"
+            className="surface-card surface-card-link p-6"
+          >
+            <h2 className="text-xl font-semibold text-main">漫画创作</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">
+              上传漫画图片、发布章节、管理作品归属。
             </p>
           </Link>
         </div>

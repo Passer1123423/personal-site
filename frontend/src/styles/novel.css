@@ -286,6 +286,20 @@
   border-bottom: none;
 }
 
+.novel-markdown p,
+.novel-reader-prose p,
+.novel-preview-prose p {
+  text-indent: 2em;
+}
+.novel-markdown blockquote p,
+.novel-reader-prose blockquote p,
+.novel-preview-prose blockquote p,
+.novel-markdown li p,
+.novel-reader-prose li p,
+.novel-preview-prose li p {
+  text-indent: 0;
+}
+
 @media (max-width: 1023px) {
   .novel-detail-header {
     grid-template-columns: 1fr;
