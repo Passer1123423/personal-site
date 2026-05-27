@@ -80,6 +80,20 @@ function makeChapterGroups(chapters: AuthorNovelChapter[]) {
   return groups;
 }
 
+function plainTextToPreviewMarkdown(content: string) {
+  const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function DisabledHintButton({
   children,
   reason,
@@ -172,6 +186,14 @@ export default function CreatorNovelChapterEditorPage() {
       );
     });
   }, [novels, novelSearchKeyword]);
+
+  const previewContent = useMemo(() => {
+    if (contentMode === "plain_text") {
+      return plainTextToPreviewMarkdown(content);
+    }
+
+    return content;
+  }, [content, contentMode]);
 
   function getChapterSearchKeyword(novel: AuthorNovel) {
     return chapterSearchByNovel[novel.slug] ?? "";
@@ -979,7 +1001,7 @@ export default function CreatorNovelChapterEditorPage() {
                 <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
                   <article className="novel-preview-prose">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {content || "暂无内容。"}
+                      {previewContent || "暂无内容。"}
                     </ReactMarkdown>
                   </article>
                 </div>
