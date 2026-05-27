@@ -31,10 +31,10 @@ function WorksPage() {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white via-white/88 to-white/25" />
 
           <div className="relative z-10 flex min-h-[260px] max-w-md flex-col justify-end">
-            <h2 className="text-2xl font-bold text-main">小说存档</h2>
+            <h2 className="text-2xl font-bold text-main">小说随笔</h2>
 
             <p className="mt-4 leading-7 text-muted">
-              用于整理小说正文、章节目录和后续阅读评论入口。
+              记录存储小说，随笔。
             </p>
           </div>
         </Link>

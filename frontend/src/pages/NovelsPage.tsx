@@ -137,11 +137,11 @@ function NovelsPage() {
             </p>
 
             <h1 className="mt-3 text-3xl font-bold leading-tight text-main md:text-4xl">
-              小说存档
+              小说随笔
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-7 text-muted">
-              收录小说正文与章节目录。最近更新会优先展示，其他作品按书架形式陈列。
+              收录小说正文，博客简介。最近更新会优先展示，其他作品按书架形式陈列。
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-3 text-sm">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -14,6 +14,17 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
 }
 
+function getSavedScrollY(storageKey: string) {
+  const savedValue = localStorage.getItem(storageKey);
+  const savedScrollY = savedValue ? Number(savedValue) : 0;
+
+  return Number.isFinite(savedScrollY) ? savedScrollY : 0;
+}
+
+function normalizePathname(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
 function NovelReaderPage() {
   const { novelSlug, chapterSlug } = useParams<{
     novelSlug: string;
@@ -27,6 +38,22 @@ function NovelReaderPage() {
   const [openChapterGroups, setOpenChapterGroups] = useState<
     Record<number, boolean>
   >({});
+
+  const hasRestoredScrollRef = useRef(false);
+  const isRestoringScrollRef = useRef(false);
+  const latestScrollYRef = useRef(0);
+
+  const scrollStorageKey = useMemo(() => {
+    if (!novelSlug || !chapterSlug) return null;
+
+    return `novel-reader-scroll:${novelSlug}:${chapterSlug}`;
+  }, [novelSlug, chapterSlug]);
+
+  const readerPathname = useMemo(() => {
+    if (!novelSlug || !chapterSlug) return null;
+
+    return normalizePathname(`/works/novels/${novelSlug}/${chapterSlug}`);
+  }, [novelSlug, chapterSlug]);
 
   useEffect(() => {
     async function loadReaderData() {
@@ -62,6 +89,123 @@ function NovelReaderPage() {
 
     loadReaderData();
   }, [novelSlug, chapterSlug]);
+
+  useEffect(() => {
+    hasRestoredScrollRef.current = false;
+    isRestoringScrollRef.current = false;
+
+    if (scrollStorageKey) {
+      latestScrollYRef.current = getSavedScrollY(scrollStorageKey);
+    } else {
+      latestScrollYRef.current = 0;
+    }
+  }, [scrollStorageKey]);
+
+  useLayoutEffect(() => {
+    if (
+      isLoading ||
+      errorMessage ||
+      !readerData ||
+      !scrollStorageKey ||
+      hasRestoredScrollRef.current
+    ) {
+      return;
+    }
+
+    hasRestoredScrollRef.current = true;
+    isRestoringScrollRef.current = true;
+
+    const safeScrollY = getSavedScrollY(scrollStorageKey);
+    latestScrollYRef.current = safeScrollY;
+
+    const restoreScroll = () => {
+      const root = document.documentElement;
+      const previousScrollBehavior = root.style.scrollBehavior;
+
+      root.style.scrollBehavior = "auto";
+      window.scrollTo(0, safeScrollY);
+      root.style.scrollBehavior = previousScrollBehavior;
+
+      latestScrollYRef.current = safeScrollY;
+    };
+
+    restoreScroll();
+
+    const frameIds: number[] = [];
+
+    frameIds.push(
+      window.requestAnimationFrame(() => {
+        frameIds.push(
+          window.requestAnimationFrame(() => {
+            restoreScroll();
+            isRestoringScrollRef.current = false;
+          }),
+        );
+      }),
+    );
+
+    return () => {
+      frameIds.forEach((frameId) => {
+        window.cancelAnimationFrame(frameId);
+      });
+
+      isRestoringScrollRef.current = false;
+    };
+  }, [isLoading, errorMessage, readerData, scrollStorageKey]);
+
+  useEffect(() => {
+    if (
+      isLoading ||
+      errorMessage ||
+      !readerData ||
+      !scrollStorageKey ||
+      !readerPathname
+    ) {
+      return;
+    }
+
+    const storageKey = scrollStorageKey;
+    const expectedPathname = readerPathname;
+
+    latestScrollYRef.current = getSavedScrollY(storageKey);
+
+    function isStillCurrentReaderPage() {
+      return normalizePathname(window.location.pathname) === expectedPathname;
+    }
+
+    function saveScrollPosition(scrollY: number) {
+      if (isRestoringScrollRef.current) return;
+      if (!isStillCurrentReaderPage()) return;
+      if (!Number.isFinite(scrollY)) return;
+
+      latestScrollYRef.current = scrollY;
+      localStorage.setItem(storageKey, String(scrollY));
+    }
+
+    function handleScroll() {
+      saveScrollPosition(window.scrollY);
+    }
+
+    function handlePageHide() {
+      saveScrollPosition(window.scrollY);
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        saveScrollPosition(window.scrollY);
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isLoading, errorMessage, readerData, scrollStorageKey, readerPathname]);
 
   const chapters = useMemo(() => {
     if (!novelDetail) return [];
@@ -130,23 +274,23 @@ function NovelReaderPage() {
   return (
     <main className="page-shell min-h-[100dvh] pb-14">
       <section className="mx-auto max-w-[1250px] px-6 py-8 md:px-8">
-          <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
-            <Link to="/works/novels" className="font-semibold link-accent">
-              ← 小说存档
-            </Link>
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+          <Link to="/works/novels" className="font-semibold link-accent">
+            ← 小说存档
+          </Link>
 
-            {readerData && (
-              <>
-                <span className="text-soft">/</span>
-                <Link
-                  to={`/works/novels/${readerData.novel.slug}`}
-                  className="font-semibold link-accent"
-                >
-                  {readerData.novel.title}
-                </Link>
-              </>
-            )}
-          </div>
+          {readerData && (
+            <>
+              <span className="text-soft">/</span>
+              <Link
+                to={`/works/novels/${readerData.novel.slug}`}
+                className="font-semibold link-accent"
+              >
+                {readerData.novel.title}
+              </Link>
+            </>
+          )}
+        </div>
 
         {isLoading && (
           <section className="surface-card px-6 py-8">
