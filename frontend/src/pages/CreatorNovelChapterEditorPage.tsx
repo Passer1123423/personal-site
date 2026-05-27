@@ -20,6 +20,7 @@ import {
 } from "../api/authorNovels";
 
 type ContentMode = "markdown" | "plain_text";
+type MobilePanel = "catalog" | "editor" | "preview";
 
 type Message = {
   type: "success" | "error";
@@ -115,6 +116,28 @@ function DisabledHintButton({
   );
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+
+    function syncValue() {
+      setIsMobile(mediaQuery.matches);
+    }
+
+    syncValue();
+
+    mediaQuery.addEventListener("change", syncValue);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncValue);
+    };
+  }, []);
+
+  return isMobile;
+}
+
 export default function CreatorNovelChapterEditorPage() {
   const { novelSlug, chapterSlug } = useParams<{
     novelSlug: string;
@@ -122,6 +145,7 @@ export default function CreatorNovelChapterEditorPage() {
   }>();
 
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const isNewChapter = !chapterSlug;
 
   const [novels, setNovels] = useState<AuthorNovel[]>([]);
@@ -144,8 +168,7 @@ export default function CreatorNovelChapterEditorPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [metaCollapsed, setMetaCollapsed] = useState(false);
   const [catalogCollapsed, setCatalogCollapsed] = useState(false);
-  const [editorCollapsed, setEditorCollapsed] = useState(false);
-  const [previewCollapsed, setPreviewCollapsed] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("editor");
 
   const [openNovelSlugs, setOpenNovelSlugs] = useState<Record<string, boolean>>(
     {},
@@ -158,14 +181,18 @@ export default function CreatorNovelChapterEditorPage() {
   const [submitting, setSubmitting] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
+
   useEffect(() => {
     if (!message) {
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      setMessage(null);
-    }, 3200);
+    const timer = window.setTimeout(
+      () => {
+        setMessage(null);
+      },
+      message.type === "error" ? 5200 : 3200,
+    );
 
     return () => {
       window.clearTimeout(timer);
@@ -559,6 +586,427 @@ export default function CreatorNovelChapterEditorPage() {
     }
   }
 
+  function renderMessage(className = "mx-4 mt-4 px-4 py-3") {
+    if (!message) {
+      return null;
+    }
+
+    return (
+      <div
+        className={
+          message.type === "success"
+            ? `admin-message-success ${className}`
+            : `admin-message-error ${className}`
+        }
+      >
+        {message.text}
+      </div>
+    );
+  }
+
+  function renderChapterInfo() {
+    return (
+      <div className="border-b border-[var(--color-border-soft)] px-3 py-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-soft">
+            Chapter Info
+          </p>
+
+          <button
+            type="button"
+            className="text-xs link-accent"
+            onClick={() => setMetaCollapsed((value) => !value)}
+          >
+            {metaCollapsed ? "展开" : "折叠"}
+          </button>
+        </div>
+
+        {!metaCollapsed && (
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-main">
+                Chapter slug
+              </label>
+
+              {isNewChapter ? (
+                <input
+                  className="admin-input mt-1 w-full px-3 py-2 text-sm"
+                  value={chapterSlugDraft}
+                  disabled={submitting}
+                  onChange={(event) => {
+                    setChapterSlugDraft(event.target.value);
+                    setDirty(true);
+                  }}
+                  placeholder="例如：chapter-001"
+                />
+              ) : (
+                <input
+                  className="admin-input mt-1 w-full cursor-not-allowed px-3 py-2 text-sm opacity-60"
+                  value={chapterSlugDraft}
+                  disabled
+                  title="已有 chapter 的 slug 不能在编辑页修改。"
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-main">
+                标题后缀
+              </label>
+
+              <input
+                className="admin-input mt-1 w-full px-3 py-2 text-sm"
+                value={chapterTitleDraft}
+                disabled={submitting}
+                onChange={(event) => {
+                  setChapterTitleDraft(event.target.value);
+                  setDirty(true);
+                }}
+                placeholder="例如：起源"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderCatalogContent() {
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <input
+          className="admin-input mb-3 w-full border-transparent bg-[var(--color-panel-soft-bg)] px-3 py-2 text-xs"
+          value={novelSearchKeyword}
+          onChange={(event) => setNovelSearchKeyword(event.target.value)}
+          placeholder="搜索 novel"
+        />
+
+        <div className="space-y-3">
+          {filteredNovels.map((novel) => {
+            const open = isNovelOpen(novel);
+            const chapterKeyword = getChapterSearchKeyword(novel);
+            const filteredChapters = getFilteredChapters(novel);
+            const chapterGroups = makeChapterGroups(filteredChapters);
+            const selectedNovel = novel.slug === currentNovel?.slug;
+
+            return (
+              <section
+                key={novel.id}
+                className={
+                  selectedNovel
+                    ? "rounded-xl border border-[var(--color-accent-border-strong)] bg-white/80"
+                    : "rounded-xl border border-[var(--color-border-soft)] bg-white/60"
+                }
+              >
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+                  onClick={() => toggleNovel(novel.slug)}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-main">
+                      {novel.title}
+                    </span>
+
+                    <span className="block truncate text-[11px] text-soft">
+                      {novel.slug}
+                    </span>
+                  </span>
+
+                  <span className="shrink-0 text-xs text-soft">
+                    {open ? "收起" : "展开"}
+                  </span>
+                </button>
+
+                {open && (
+                  <div className="border-t border-[var(--color-border-soft)] px-3 pb-3 pt-2">
+                    <input
+                      className="admin-input mb-2 w-full border-transparent bg-[var(--color-panel-soft-bg)] px-2 py-1.5 text-xs"
+                      value={chapterKeyword}
+                      onChange={(event) =>
+                        setNovelChapterSearch(novel.slug, event.target.value)
+                      }
+                      placeholder="搜索 chapter"
+                    />
+
+                    {chapterGroups.length === 0 ? (
+                      <p className="border-l border-[var(--color-border-soft)] py-2 pl-3 text-xs text-soft">
+                        暂无匹配 chapter。
+                      </p>
+                    ) : (
+                      <div className="space-y-2 border-l border-[var(--color-border-soft)] pl-3">
+                        {chapterGroups.map((group) => {
+                          const groupOpen = isGroupOpen(
+                            novel.slug,
+                            group.groupIndex,
+                          );
+
+                          return (
+                            <div key={group.groupIndex}>
+                              <button
+                                type="button"
+                                className="flex w-full items-center justify-between rounded-md px-2 py-1 text-xs text-muted hover:bg-[var(--color-panel-soft-bg)]"
+                                onClick={() =>
+                                  toggleChapterGroup(
+                                    novel.slug,
+                                    group.groupIndex,
+                                  )
+                                }
+                              >
+                                <span>
+                                  第{group.startOrder}-{group.endOrder}章
+                                </span>
+
+                                <span>{groupOpen ? "收起" : "展开"}</span>
+                              </button>
+
+                              {groupOpen && (
+                                <div className="mt-1 space-y-1">
+                                  {group.chapters.map((chapter) => {
+                                    const selected =
+                                      novel.slug === currentNovel?.slug &&
+                                      chapter.slug === chapterSlug;
+
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={chapter.id}
+                                        className={
+                                          selected
+                                            ? "w-full rounded-md border-l-2 border-[var(--color-accent)] bg-[var(--color-panel-soft-bg)] px-2 py-1.5 text-left text-xs font-semibold text-main"
+                                            : "w-full rounded-md border-l-2 border-transparent px-2 py-1.5 text-left text-xs text-muted hover:bg-[var(--color-panel-soft-bg)] hover:text-main"
+                                        }
+                                        onClick={() =>
+                                          handleNavigate(
+                                            `/creator/novels/${novel.slug}/${chapter.slug}/edit`,
+                                          )
+                                        }
+                                      >
+                                        <span className="block truncate">
+                                          {chapter.title}
+                                        </span>
+
+                                        <span className="block truncate text-[10px] text-soft">
+                                          {chapter.slug}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className={
+                        novel.slug === currentNovel?.slug && isNewChapter
+                          ? "mt-2 w-full rounded-md border-l-2 border-[var(--color-accent)] bg-[var(--color-panel-soft-bg)] px-2 py-2 text-left text-xs font-semibold link-accent"
+                          : "mt-2 w-full rounded-md border-l-2 border-transparent px-2 py-2 text-left text-xs link-accent hover:bg-[var(--color-panel-soft-bg)]"
+                      }
+                      onClick={() =>
+                        handleNavigate(`/creator/novels/${novel.slug}/new-chapter`)
+                      }
+                    >
+                      ＋ 新建章节...
+                    </button>
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function renderCatalogPanel() {
+    return (
+      <>
+        <div className="flex items-center justify-between border-b border-[var(--color-border-soft)] px-3 py-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-soft">
+            Catalog
+          </p>
+
+          <button
+            type="button"
+            className="text-xs link-accent"
+            onClick={() => setCatalogCollapsed((value) => !value)}
+          >
+            {catalogCollapsed ? "展开" : "折叠"}
+          </button>
+        </div>
+
+        {catalogCollapsed ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center px-3 text-center text-xs leading-6 text-soft">
+            章节目录已折叠
+          </div>
+        ) : (
+          renderCatalogContent()
+        )}
+      </>
+    );
+  }
+
+  function renderModeSwitcher() {
+    return (
+      <div className="flex rounded-lg border border-[var(--color-border-soft)] bg-white p-1 text-xs">
+        <button
+          type="button"
+          className={
+            contentMode === "markdown"
+              ? "rounded-md bg-[var(--color-panel-soft-bg)] px-3 py-1 font-semibold text-main"
+              : "rounded-md px-3 py-1 text-soft"
+          }
+          disabled={submitting}
+          onClick={() => {
+            setContentMode("markdown");
+            setDirty(true);
+          }}
+        >
+          Markdown
+        </button>
+
+        {isNewChapter ? (
+          <button
+            type="button"
+            className={
+              contentMode === "plain_text"
+                ? "rounded-md bg-[var(--color-panel-soft-bg)] px-3 py-1 font-semibold text-main"
+                : "rounded-md px-3 py-1 text-soft"
+            }
+            disabled={submitting}
+            onClick={() => {
+              setContentMode("plain_text");
+              setDirty(true);
+            }}
+          >
+            文本
+          </button>
+        ) : (
+          <DisabledHintButton
+            reason="编辑已有 chapter 时只支持 Markdown。"
+            className="rounded-md px-3 py-1 text-soft"
+          >
+            文本
+          </DisabledHintButton>
+        )}
+      </div>
+    );
+  }
+
+  function renderEditorBody() {
+    return (
+      <>
+        <div className="flex items-center justify-between border-b border-[var(--color-border-soft)] px-4 py-3">
+          {renderModeSwitcher()}
+
+          <button
+            type="button"
+            className="admin-button-secondary px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-55"
+            disabled={submitting || !dirty}
+            title={!dirty ? "当前没有需要保存的缓冲区改动。" : ""}
+            onClick={handleSaveBufferClick}
+          >
+            保存缓冲区
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden px-4 py-4">
+          <textarea
+            className="admin-textarea h-full w-full resize-none px-4 py-4 font-mono text-sm leading-7"
+            value={content}
+            disabled={submitting}
+            onChange={(event) => {
+              setContent(event.target.value);
+              setDirty(true);
+            }}
+            placeholder={
+              contentMode === "markdown"
+                ? "在这里编写 Markdown 正文..."
+                : "在这里输入普通文本，上传时会转成 Markdown..."
+            }
+          />
+        </div>
+      </>
+    );
+  }
+
+  function renderPreviewBody() {
+    return (
+      <>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+          <article className="novel-preview-prose">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {previewContent || "暂无内容。"}
+            </ReactMarkdown>
+          </article>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--color-border-soft)] px-4 py-3">
+          <button
+            type="button"
+            className="admin-button-danger px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55"
+            disabled={submitting || !buffer}
+            title={!buffer ? "当前没有可清除的缓冲区。" : ""}
+            onClick={handleClearBuffer}
+          >
+            清除缓冲区
+          </button>
+
+          <button
+            type="button"
+            className="admin-button-primary px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55"
+            disabled={submitting || !buffer}
+            title={!buffer ? "当前没有可上传的缓冲区。" : ""}
+            onClick={handlePublish}
+          >
+            {isNewChapter ? "上传为新 chapter" : "上传覆盖 chapter"}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  function renderMobileActionBar() {
+    return (
+      <div className="grid grid-cols-3 gap-2 border-t border-[var(--color-border-soft)] bg-[var(--color-panel-bg)] px-3 py-3">
+        <button
+          type="button"
+          className="admin-button-secondary px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-55"
+          disabled={submitting || !dirty}
+          title={!dirty ? "当前没有需要保存的缓冲区改动。" : ""}
+          onClick={handleSaveBufferClick}
+        >
+          保存
+        </button>
+
+        <button
+          type="button"
+          className="admin-button-danger px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-55"
+          disabled={submitting || !buffer}
+          title={!buffer ? "当前没有可清除的缓冲区。" : ""}
+          onClick={handleClearBuffer}
+        >
+          清除
+        </button>
+
+        <button
+          type="button"
+          className="admin-button-primary px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-55"
+          disabled={submitting || !buffer}
+          title={!buffer ? "当前没有可上传的缓冲区。" : ""}
+          onClick={handlePublish}
+        >
+          上传
+        </button>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <main className="admin-page-shell min-h-[100dvh] px-6 py-10">
@@ -574,6 +1022,96 @@ export default function CreatorNovelChapterEditorPage() {
           返回小说书架
         </Link>
         <p className="mt-6 text-sm text-muted">没有找到 novel。</p>
+      </main>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <main className="admin-page-shell flex h-[100dvh] flex-col overflow-hidden">
+        <header className="border-b border-[var(--color-border-soft)] bg-[var(--color-panel-bg)] px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <Link
+                to={`/creator/novels/${currentNovel.slug}`}
+                className="link-accent text-xs"
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleNavigate(`/creator/novels/${currentNovel.slug}`);
+                }}
+              >
+                返回管理
+              </Link>
+
+              <h1 className="mt-2 truncate text-lg font-bold text-main">
+                {isNewChapter ? "新建 chapter" : currentChapter?.title}
+              </h1>
+
+              <p className="mt-1 truncate text-xs text-soft">
+                {currentNovel.title} / {chapterSlugDraft}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-[var(--color-border-soft)] bg-white p-1 text-xs">
+            {([
+              ["catalog", "目录"],
+              ["editor", "编辑"],
+              ["preview", "预览"],
+            ] as const).map(([panel, label]) => (
+              <button
+                key={panel}
+                type="button"
+                className={
+                  mobilePanel === panel
+                    ? "rounded-lg bg-[var(--color-panel-soft-bg)] px-3 py-2 font-semibold text-main"
+                    : "rounded-lg px-3 py-2 text-soft"
+                }
+                onClick={() => setMobilePanel(panel)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </header>
+
+        {renderMessage("mx-3 mt-3 px-4 py-3")}
+
+        <section className="min-h-0 flex-1 overflow-hidden px-3 py-3">
+          {mobilePanel === "catalog" && (
+            <section className="admin-section flex h-full min-h-0 flex-col overflow-hidden p-0">
+              {renderChapterInfo()}
+              {renderCatalogPanel()}
+            </section>
+          )}
+
+          {mobilePanel === "editor" && (
+            <section className="admin-section flex h-full min-h-0 flex-col overflow-hidden p-0">
+              {renderEditorBody()}
+            </section>
+          )}
+
+          {mobilePanel === "preview" && (
+            <section className="admin-section flex h-full min-h-0 flex-col overflow-hidden p-0">
+              <div className="border-b border-[var(--color-border-soft)] px-4 py-3">
+                <h2 className="text-lg font-semibold text-main">实时预览</h2>
+                <p className="mt-1 text-xs text-soft">
+                  预览以 Markdown 渲染为准。
+                </p>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+                <article className="novel-preview-prose">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {previewContent || "暂无内容。"}
+                  </ReactMarkdown>
+                </article>
+              </div>
+            </section>
+          )}
+        </section>
+
+        {renderMobileActionBar()}
       </main>
     );
   }
@@ -610,248 +1148,8 @@ export default function CreatorNovelChapterEditorPage() {
               </div>
             ) : (
               <>
-                <div className="border-b border-[var(--color-border-soft)] px-3 py-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-soft">
-                      Chapter Info
-                    </p>
-
-                    <button
-                      type="button"
-                      className="text-xs link-accent"
-                      onClick={() => setMetaCollapsed((value) => !value)}
-                    >
-                      {metaCollapsed ? "展开" : "折叠"}
-                    </button>
-                  </div>
-
-                  {!metaCollapsed && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs font-semibold text-main">
-                          Chapter slug
-                        </label>
-
-                        {isNewChapter ? (
-                          <input
-                            className="admin-input mt-1 w-full px-3 py-2 text-sm"
-                            value={chapterSlugDraft}
-                            disabled={submitting}
-                            onChange={(event) => {
-                              setChapterSlugDraft(event.target.value);
-                              setDirty(true);
-                            }}
-                            placeholder="例如：chapter-001"
-                          />
-                        ) : (
-                          <input
-                            className="admin-input mt-1 w-full cursor-not-allowed px-3 py-2 text-sm opacity-60"
-                            value={chapterSlugDraft}
-                            disabled
-                            title="已有 chapter 的 slug 不能在编辑页修改。"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-semibold text-main">
-                          标题后缀
-                        </label>
-
-                        <input
-                          className="admin-input mt-1 w-full px-3 py-2 text-sm"
-                          value={chapterTitleDraft}
-                          disabled={submitting}
-                          onChange={(event) => {
-                            setChapterTitleDraft(event.target.value);
-                            setDirty(true);
-                          }}
-                          placeholder="例如：起源"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between border-b border-[var(--color-border-soft)] px-3 py-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-soft">
-                    Catalog
-                  </p>
-
-                  <button
-                    type="button"
-                    className="text-xs link-accent"
-                    onClick={() => setCatalogCollapsed((value) => !value)}
-                  >
-                    {catalogCollapsed ? "展开" : "折叠"}
-                  </button>
-                </div>
-
-                {catalogCollapsed ? (
-                  <div className="flex min-h-0 flex-1 items-center justify-center px-3 text-center text-xs leading-6 text-soft">
-                    章节目录已折叠
-                  </div>
-                ) : (
-                  <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-                    <input
-                      className="admin-input mb-3 w-full border-transparent bg-[var(--color-panel-soft-bg)] px-3 py-2 text-xs"
-                      value={novelSearchKeyword}
-                      onChange={(event) =>
-                        setNovelSearchKeyword(event.target.value)
-                      }
-                      placeholder="搜索 novel"
-                    />
-
-                    <div className="space-y-3">
-                      {filteredNovels.map((novel) => {
-                        const open = isNovelOpen(novel);
-                        const chapterKeyword = getChapterSearchKeyword(novel);
-                        const filteredChapters = getFilteredChapters(novel);
-                        const chapterGroups = makeChapterGroups(filteredChapters);
-                        const selectedNovel = novel.slug === currentNovel.slug;
-
-                        return (
-                          <section
-                            key={novel.id}
-                            className={
-                              selectedNovel
-                                ? "rounded-xl border border-[var(--color-accent-border-strong)] bg-white/80"
-                                : "rounded-xl border border-[var(--color-border-soft)] bg-white/60"
-                            }
-                          >
-                            <button
-                              type="button"
-                              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
-                              onClick={() => toggleNovel(novel.slug)}
-                            >
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-semibold text-main">
-                                  {novel.title}
-                                </span>
-
-                                <span className="block truncate text-[11px] text-soft">
-                                  {novel.slug}
-                                </span>
-                              </span>
-
-                              <span className="shrink-0 text-xs text-soft">
-                                {open ? "收起" : "展开"}
-                              </span>
-                            </button>
-
-                            {open && (
-                              <div className="border-t border-[var(--color-border-soft)] px-3 pb-3 pt-2">
-                                <input
-                                  className="admin-input mb-2 w-full border-transparent bg-[var(--color-panel-soft-bg)] px-2 py-1.5 text-xs"
-                                  value={chapterKeyword}
-                                  onChange={(event) =>
-                                    setNovelChapterSearch(
-                                      novel.slug,
-                                      event.target.value,
-                                    )
-                                  }
-                                  placeholder="搜索 chapter"
-                                />
-
-                                {chapterGroups.length === 0 ? (
-                                  <p className="border-l border-[var(--color-border-soft)] py-2 pl-3 text-xs text-soft">
-                                    暂无匹配 chapter。
-                                  </p>
-                                ) : (
-                                  <div className="space-y-2 border-l border-[var(--color-border-soft)] pl-3">
-                                    {chapterGroups.map((group) => {
-                                      const groupOpen = isGroupOpen(
-                                        novel.slug,
-                                        group.groupIndex,
-                                      );
-
-                                      return (
-                                        <div key={group.groupIndex}>
-                                          <button
-                                            type="button"
-                                            className="flex w-full items-center justify-between rounded-md px-2 py-1 text-xs text-muted hover:bg-[var(--color-panel-soft-bg)]"
-                                            onClick={() =>
-                                              toggleChapterGroup(
-                                                novel.slug,
-                                                group.groupIndex,
-                                              )
-                                            }
-                                          >
-                                            <span>
-                                              第{group.startOrder}-
-                                              {group.endOrder}章
-                                            </span>
-
-                                            <span>
-                                              {groupOpen ? "收起" : "展开"}
-                                            </span>
-                                          </button>
-
-                                          {groupOpen && (
-                                            <div className="mt-1 space-y-1">
-                                              {group.chapters.map((chapter) => {
-                                                const selected =
-                                                  novel.slug ===
-                                                    currentNovel.slug &&
-                                                  chapter.slug === chapterSlug;
-
-                                                return (
-                                                  <button
-                                                    type="button"
-                                                    key={chapter.id}
-                                                    className={
-                                                      selected
-                                                        ? "w-full rounded-md border-l-2 border-[var(--color-accent)] bg-[var(--color-panel-soft-bg)] px-2 py-1.5 text-left text-xs font-semibold text-main"
-                                                        : "w-full rounded-md border-l-2 border-transparent px-2 py-1.5 text-left text-xs text-muted hover:bg-[var(--color-panel-soft-bg)] hover:text-main"
-                                                    }
-                                                    onClick={() =>
-                                                      handleNavigate(
-                                                        `/creator/novels/${novel.slug}/${chapter.slug}/edit`,
-                                                      )
-                                                    }
-                                                  >
-                                                    <span className="block truncate">
-                                                      {chapter.title}
-                                                    </span>
-
-                                                    <span className="block truncate text-[10px] text-soft">
-                                                      {chapter.slug}
-                                                    </span>
-                                                  </button>
-                                                );
-                                              })}
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-
-                                <button
-                                  type="button"
-                                  className={
-                                    novel.slug === currentNovel.slug &&
-                                    isNewChapter
-                                      ? "mt-2 w-full rounded-md border-l-2 border-[var(--color-accent)] bg-[var(--color-panel-soft-bg)] px-2 py-2 text-left text-xs font-semibold link-accent"
-                                      : "mt-2 w-full rounded-md border-l-2 border-transparent px-2 py-2 text-left text-xs link-accent hover:bg-[var(--color-panel-soft-bg)]"
-                                  }
-                                  onClick={() =>
-                                    handleNavigate(
-                                      `/creator/novels/${novel.slug}/new-chapter`,
-                                    )
-                                  }
-                                >
-                                  ＋ 新建章节...
-                                </button>
-                              </div>
-                            )}
-                          </section>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {renderChapterInfo()}
+                {renderCatalogPanel()}
               </>
             )}
           </section>
@@ -869,107 +1167,10 @@ export default function CreatorNovelChapterEditorPage() {
                   {currentNovel.title} / {chapterSlugDraft}
                 </p>
               </div>
-
-              <button
-                type="button"
-                className="admin-button-secondary px-3 py-2 text-xs font-semibold"
-                onClick={() => setEditorCollapsed((value) => !value)}
-              >
-                {editorCollapsed ? "展开编辑区" : "折叠编辑区"}
-              </button>
             </div>
 
-            {message && (
-              <div
-                className={
-                  message.type === "success"
-                    ? "admin-message-success mx-4 mt-4 px-4 py-3"
-                    : "admin-message-error mx-4 mt-4 px-4 py-3"
-                }
-              >
-                {message.text}
-              </div>
-            )}
-
-            {editorCollapsed ? (
-              <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-sm text-soft">
-                编辑区已折叠
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between border-b border-[var(--color-border-soft)] px-4 py-3">
-                  <div className="flex rounded-lg border border-[var(--color-border-soft)] bg-white p-1 text-xs">
-                    <button
-                      type="button"
-                      className={
-                        contentMode === "markdown"
-                          ? "rounded-md bg-[var(--color-panel-soft-bg)] px-3 py-1 font-semibold text-main"
-                          : "rounded-md px-3 py-1 text-soft"
-                      }
-                      disabled={submitting}
-                      onClick={() => {
-                        setContentMode("markdown");
-                        setDirty(true);
-                      }}
-                    >
-                      Markdown
-                    </button>
-
-                    {isNewChapter ? (
-                      <button
-                        type="button"
-                        className={
-                          contentMode === "plain_text"
-                            ? "rounded-md bg-[var(--color-panel-soft-bg)] px-3 py-1 font-semibold text-main"
-                            : "rounded-md px-3 py-1 text-soft"
-                        }
-                        disabled={submitting}
-                        onClick={() => {
-                          setContentMode("plain_text");
-                          setDirty(true);
-                        }}
-                      >
-                        文本
-                      </button>
-                    ) : (
-                      <DisabledHintButton
-                        reason="编辑已有 chapter 时只支持 Markdown。"
-                        className="rounded-md px-3 py-1 text-soft"
-                      >
-                        文本
-                      </DisabledHintButton>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="admin-button-secondary px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-55"
-                    disabled={submitting || !dirty}
-                    title={!dirty ? "当前没有需要保存的缓冲区改动。" : ""}
-                    onClick={handleSaveBufferClick}
-                  >
-                    保存缓冲区
-                  </button>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-hidden px-4 py-4">
-                  <textarea
-                    className="admin-textarea h-full w-full resize-none px-4 py-4 font-mono text-sm leading-7"
-                    value={content}
-                    disabled={submitting}
-                    onChange={(event) => {
-                      setContent(event.target.value);
-                      setDirty(true);
-                    }}
-                    placeholder={
-                      contentMode === "markdown"
-                        ? "在这里编写 Markdown 正文..."
-                        : "在这里输入普通文本，上传时会转成 Markdown..."
-                    }
-                  />
-                </div>
-              </>
-            )}
+            {renderMessage()}
+            {renderEditorBody()}
           </section>
         </section>
 
@@ -982,53 +1183,9 @@ export default function CreatorNovelChapterEditorPage() {
                   预览以 Markdown 渲染为准。
                 </p>
               </div>
-
-              <button
-                type="button"
-                className="admin-button-secondary px-3 py-2 text-xs font-semibold"
-                onClick={() => setPreviewCollapsed((value) => !value)}
-              >
-                {previewCollapsed ? "展开预览区" : "折叠预览区"}
-              </button>
             </div>
 
-            {previewCollapsed ? (
-              <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-sm text-soft">
-                预览区已折叠
-              </div>
-            ) : (
-              <>
-                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-                  <article className="novel-preview-prose">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {previewContent || "暂无内容。"}
-                    </ReactMarkdown>
-                  </article>
-                </div>
-
-                <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--color-border-soft)] px-4 py-3">
-                  <button
-                    type="button"
-                    className="admin-button-danger px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55"
-                    disabled={submitting || !buffer}
-                    title={!buffer ? "当前没有可清除的缓冲区。" : ""}
-                    onClick={handleClearBuffer}
-                  >
-                    清除缓冲区
-                  </button>
-
-                  <button
-                    type="button"
-                    className="admin-button-primary px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55"
-                    disabled={submitting || !buffer}
-                    title={!buffer ? "当前没有可上传的缓冲区。" : ""}
-                    onClick={handlePublish}
-                  >
-                    {isNewChapter ? "上传为新 chapter" : "上传覆盖 chapter"}
-                  </button>
-                </div>
-              </>
-            )}
+            {renderPreviewBody()}
           </section>
         </section>
       </div>
