@@ -7,6 +7,7 @@ import {
   type ComicPartItem,
   type ComicSeriesDetail,
 } from "../api/comics";
+import CreatorBookCard from "../components/creator/CreatorBookCard";
 
 function EmptyCover({ title }: { title: string }) {
   return (
@@ -41,6 +42,25 @@ function ChapterGridItem({
   );
 }
 
+function MobileChapterListItem({
+  seriesSlug,
+  partSlug,
+  chapter,
+}: {
+  seriesSlug: string;
+  partSlug: string;
+  chapter: ComicChapterItem;
+}) {
+  return (
+    <Link
+      to={`/works/comics/${seriesSlug}/${partSlug}/${chapter.slug}`}
+      className="block border-b border-[var(--color-border-soft)] py-3 text-sm text-main transition hover:text-[var(--color-accent)]"
+    >
+      <span className="line-clamp-1 font-medium">{chapter.title}</span>
+    </Link>
+  );
+}
+
 function PartSection({
   seriesSlug,
   part,
@@ -59,71 +79,142 @@ function PartSection({
     (a, b) => a.displayOrder - b.displayOrder,
   );
 
+  const firstChapter = sortedChapters[0] ?? null;
+  const mobileCardHref = firstChapter
+    ? `/works/comics/${seriesSlug}/${part.slug}/${firstChapter.slug}`
+    : `/works/comics/${seriesSlug}`;
+
   return (
-    <article
-      ref={partRef}
-      className="scroll-mt-24 overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-sm"
-    >
-      <button
-        type="button"
-        className="group grid w-full min-h-44 text-left transition hover:bg-[var(--color-panel-soft-bg)] sm:grid-cols-[150px_minmax(0,1fr)] md:grid-cols-[170px_minmax(0,1fr)]"
-        onClick={() => setIsOpen((value) => !value)}
-      >
-        <div className="hidden h-full min-h-44 overflow-hidden border-r border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] sm:block">
-          {coverUrl ? (
-            <img
-              src={coverUrl}
-              alt={part.title}
-              className="h-full min-h-44 w-full object-cover"
+    <article ref={partRef} className="scroll-mt-24">
+      <div className="md:hidden">
+        <div className="border-b border-[var(--color-border-soft)] py-5">
+          <div className="flex items-start gap-4">
+            <CreatorBookCard
+              title={part.title}
+              summary={part.summary}
+              coverUrl={part.coverUrl}
+              href={mobileCardHref}
+              meta={
+                sortedChapters.length > 0
+                  ? `${sortedChapters.length} 章`
+                  : "暂无章节"
+              }
             />
-          ) : (
-            <EmptyCover title={part.title} />
-          )}
-        </div>
 
-        <div className="flex min-w-0 items-center justify-between gap-5 px-6 py-5">
-          <div className="min-w-0">
-            <h2 className="truncate text-2xl font-bold text-main group-hover:underline group-hover:underline-offset-4">
-              {part.title}
-            </h2>
+            <div className="min-w-0 flex-1 pt-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] link-accent">
+                Part
+              </p>
 
-            {part.summary ? (
-              <p className="mt-3 line-clamp-2 max-w-4xl text-sm leading-7 text-muted">
-                {part.summary}
-              </p>
-            ) : (
-              <p className="mt-3 text-sm leading-7 text-soft">
-                暂无分部简介。
-              </p>
-            )}
+              <h2 className="mt-2 line-clamp-2 text-lg font-bold leading-6 text-main">
+                {part.title}
+              </h2>
+
+              {part.summary ? (
+                <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">
+                  {part.summary}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm leading-6 text-soft">
+                  暂无分部简介。
+                </p>
+              )}
+
+              <button
+                type="button"
+                className="mt-4 inline-flex rounded-lg border border-[var(--color-border-control)] bg-white px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-[var(--color-accent-border-strong)] hover:text-[var(--color-accent)]"
+                onClick={() => setIsOpen((value) => !value)}
+              >
+                {isOpen ? "收起章节" : "展开章节"}
+              </button>
+            </div>
           </div>
 
-          <span className="shrink-0 text-2xl font-light text-soft transition group-hover:text-muted">
-            {isOpen ? "−" : "+"}
-          </span>
-        </div>
-      </button>
-
-      {isOpen && (
-        <div className="border-t border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] px-5 py-5">
-          {sortedChapters.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
-              {sortedChapters.map((chapter) => (
-                <ChapterGridItem
-                  key={chapter.id}
-                  seriesSlug={seriesSlug}
-                  partSlug={part.slug}
-                  chapter={chapter}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-[var(--color-border-control)] bg-white px-4 py-5 text-center text-sm text-soft">
-              暂无章节。
+          {isOpen && (
+            <div className="mt-4 border-t border-[var(--color-border-soft)]">
+              {sortedChapters.length > 0 ? (
+                <div>
+                  {sortedChapters.map((chapter) => (
+                    <MobileChapterListItem
+                      key={chapter.id}
+                      seriesSlug={seriesSlug}
+                      partSlug={part.slug}
+                      chapter={chapter}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="py-4 text-sm text-soft">暂无章节。</p>
+              )}
             </div>
           )}
         </div>
-      )}
+      </div>
+
+      <div className="hidden md:block">
+        <article className="overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-sm">
+          <button
+            type="button"
+            className="group grid w-full min-h-44 text-left transition hover:bg-[var(--color-panel-soft-bg)] sm:grid-cols-[150px_minmax(0,1fr)] md:grid-cols-[170px_minmax(0,1fr)]"
+            onClick={() => setIsOpen((value) => !value)}
+          >
+            <div className="hidden h-full min-h-44 overflow-hidden border-r border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] sm:block">
+              {coverUrl ? (
+                <img
+                  src={coverUrl}
+                  alt={part.title}
+                  className="h-full min-h-44 w-full object-cover"
+                />
+              ) : (
+                <EmptyCover title={part.title} />
+              )}
+            </div>
+
+            <div className="flex min-w-0 items-center justify-between gap-5 px-6 py-5">
+              <div className="min-w-0">
+                <h2 className="truncate text-2xl font-bold text-main group-hover:underline group-hover:underline-offset-4">
+                  {part.title}
+                </h2>
+
+                {part.summary ? (
+                  <p className="mt-3 line-clamp-2 max-w-4xl text-sm leading-7 text-muted">
+                    {part.summary}
+                  </p>
+                ) : (
+                  <p className="mt-3 text-sm leading-7 text-soft">
+                    暂无分部简介。
+                  </p>
+                )}
+              </div>
+
+              <span className="shrink-0 text-2xl font-light text-soft transition group-hover:text-muted">
+                {isOpen ? "−" : "+"}
+              </span>
+            </div>
+          </button>
+
+          {isOpen && (
+            <div className="border-t border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] px-5 py-5">
+              {sortedChapters.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
+                  {sortedChapters.map((chapter) => (
+                    <ChapterGridItem
+                      key={chapter.id}
+                      seriesSlug={seriesSlug}
+                      partSlug={part.slug}
+                      chapter={chapter}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-[var(--color-border-control)] bg-white px-4 py-5 text-center text-sm text-soft">
+                  暂无章节。
+                </div>
+              )}
+            </div>
+          )}
+        </article>
+      </div>
     </article>
   );
 }
@@ -226,48 +317,48 @@ function ComicSeriesPage() {
   const coverUrl = resolveAssetUrl(series.coverUrl);
 
   return (
-    <main className="page-shell min-h-[100dvh] px-6 py-14">
+    <main className="page-shell min-h-[100dvh] px-4 py-8 md:px-6 md:py-14">
       <section className="mx-auto max-w-7xl">
         <Link to="/works/comics" className="link-accent text-sm font-semibold">
           ← 返回漫画存档
         </Link>
 
-        <section className="mt-8 overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-sm">
+        <section className="mt-5 overflow-hidden border-b border-[var(--color-border-soft)] pb-6 md:mt-8 md:rounded-2xl md:border md:bg-white md:pb-0 md:shadow-sm">
           <div className="grid gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
-            <div className="relative min-h-96 border-b border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] lg:border-b-0 lg:border-r">
+            <div className="relative min-h-64 border-b border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] md:min-h-96 lg:border-b-0 lg:border-r">
               {coverUrl ? (
                 <img
                   src={coverUrl}
                   alt={series.title}
-                  className="h-full min-h-96 w-full object-cover"
+                  className="h-full min-h-64 w-full object-cover md:min-h-96"
                 />
               ) : (
                 <EmptyCover title={series.title} />
               )}
             </div>
 
-            <div className="flex flex-col justify-between p-7 md:p-9">
+            <div className="flex flex-col justify-between pt-5 md:p-9">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em]">
                   Comic Series
                 </p>
 
-                <h1 className="mt-4 text-4xl font-bold leading-tight text-main">
+                <h1 className="mt-3 text-2xl font-bold leading-tight text-main md:mt-4 md:text-4xl">
                   {series.title}
                 </h1>
 
                 {series.summary ? (
-                  <p className="mt-6 max-w-3xl text-base leading-8 text-muted">
+                  <p className="mt-4 max-w-3xl text-sm leading-7 text-muted md:mt-6 md:text-base md:leading-8">
                     {series.summary}
                   </p>
                 ) : (
-                  <p className="mt-6 max-w-3xl text-base leading-8 text-soft">
+                  <p className="mt-4 max-w-3xl text-sm leading-7 text-soft md:mt-6 md:text-base md:leading-8">
                     暂无系列简介。
                   </p>
                 )}
               </div>
 
-              <div className="mt-8 border-t border-[var(--color-border-soft)] pt-5">
+              <div className="mt-5 border-t border-[var(--color-border-soft)] pt-4 md:mt-8 md:pt-5">
                 <p className="text-sm leading-7 text-soft">
                   选择下方分部展开目录，点击章节进入阅读。
                 </p>
@@ -276,21 +367,23 @@ function ComicSeriesPage() {
           </div>
         </section>
 
-        <section className="mt-12">
-          <div className="mb-6">
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
+        <section className="mt-8 md:mt-12">
+          <div className="mb-4 border-b border-[var(--color-border-soft)] pb-4 md:mb-6 md:border-b-0 md:pb-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em]">
               Contents
             </p>
 
-            <h2 className="mt-2 text-2xl font-bold text-main">分部目录</h2>
+            <h2 className="mt-2 text-xl font-bold text-main md:text-2xl">
+              分部目录
+            </h2>
 
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted md:mt-3 md:leading-7">
               每个分部可以展开查看章节。左侧目录可以快速跳转到对应分部。
             </p>
           </div>
 
           {sortedParts.length > 0 ? (
-            <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="grid gap-5 md:gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
               <aside className="hidden lg:block">
                 <div className="sticky top-24 overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-sm">
                   <button
@@ -328,7 +421,7 @@ function ComicSeriesPage() {
                 </div>
               </aside>
 
-              <div className="space-y-6">
+              <div className="space-y-0 md:space-y-6">
                 {sortedParts.map((part, index) => (
                   <PartSection
                     key={part.id}
@@ -343,7 +436,7 @@ function ComicSeriesPage() {
               </div>
             </div>
           ) : (
-            <div className="surface-card px-6 py-10 text-sm text-soft">
+            <div className="border-y border-[var(--color-border-soft)] py-6 text-sm text-soft md:surface-card md:px-6 md:py-10">
               暂无分部。
             </div>
           )}

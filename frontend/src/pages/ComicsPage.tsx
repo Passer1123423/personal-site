@@ -6,68 +6,10 @@ import {
   resolveAssetUrl,
   type ComicSeriesListItem,
 } from "../api/comics";
-
-function EmptyComicCover({ title }: { title: string }) {
-  return (
-    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-blue-700 px-6 text-center">
-      <div className="absolute inset-y-0 left-0 w-5 border-r border-black/20 bg-black/15" />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-transparent to-white/10" />
-      <p className="relative text-xl font-semibold leading-8 text-white">
-        {title}
-      </p>
-    </div>
-  );
-}
-
-function SeriesShelfCard({ series }: { series: ComicSeriesListItem }) {
-  const coverUrl = resolveAssetUrl(series.coverUrl);
-
-  return (
-    <Link
-      to={`/works/comics/${series.slug}`}
-      className="group block w-32 sm:w-36"
-    >
-      <div className="relative aspect-[5/7] overflow-hidden rounded-xl bg-white shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-md">
-        <div className="absolute inset-y-0 left-0 z-10 w-4 border-r border-black/10 bg-black/10" />
-
-        <div className="absolute inset-0 border border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)]">
-          {coverUrl ? (
-            <img
-              src={coverUrl}
-              alt={series.title}
-              loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <EmptyComicCover title={series.title} />
-          )}
-
-          <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-white/10" />
-          <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/14" />
-        </div>
-      </div>
-
-      <div className="mt-3 min-h-[78px]">
-        <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-main group-hover:underline group-hover:underline-offset-4">
-          {series.title}
-        </h3>
-
-        {series.summary ? (
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">
-            {series.summary}
-          </p>
-        ) : (
-          <p className="mt-1 text-xs leading-5 text-soft">暂无简介</p>
-        )}
-      </div>
-    </Link>
-  );
-}
+import CreatorBookCard from "../components/creator/CreatorBookCard";
 
 function FeaturedOverlayCard({ series }: { series: ComicSeriesListItem }) {
   const coverUrl = resolveAssetUrl(series.coverUrl);
-
   return (
     <Link
       to={`/works/comics/${series.slug}`}
@@ -83,7 +25,13 @@ function FeaturedOverlayCard({ series }: { series: ComicSeriesListItem }) {
               className="h-full min-h-[280px] w-full object-cover"
             />
           ) : (
-            <EmptyComicCover title={series.title} />
+            <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-blue-700 px-6 text-center">
+              <div className="absolute inset-y-0 left-0 w-5 border-r border-black/20 bg-black/15" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-transparent to-white/10" />
+              <p className="relative text-xl font-semibold leading-8 text-white">
+                {series.title}
+              </p>
+            </div>
           )}
 
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-transparent to-white/10" />
@@ -182,10 +130,10 @@ function ComicsPage() {
   const heroBgSize = "100% auto";
 
   return (
-    <main className="page-shell min-h-[100dvh] pb-16">
+    <main className="page-shell min-h-[100dvh] pb-10 md:pb-16">
       <section className="relative">
         <div
-          className="relative min-h-[500px] overflow-hidden"
+          className="relative min-h-[260px] overflow-hidden md:min-h-[500px]"
           style={
             heroBgUrl
               ? {
@@ -210,18 +158,18 @@ function ComicsPage() {
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.07),transparent_28%)]" />
 
-          <div className="relative mx-auto flex min-h-[500px] max-w-7xl flex-col justify-between px-6 py-12 md:px-10 md:py-14">
-            <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="relative mx-auto flex min-h-[260px] max-w-7xl flex-col justify-between px-4 py-7 md:min-h-[500px] md:px-10 md:py-14">
+            <div className="flex flex-wrap items-start justify-between gap-4 md:gap-6">
               <div className="max-w-3xl">
-                <p className="text-sm font-semibold uppercase tracking-[0.32em] text-blue-200">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-200 md:text-sm md:tracking-[0.32em]">
                   Comics
                 </p>
 
-                <h1 className="mt-4 text-5xl font-bold leading-tight text-white md:text-6xl">
+                <h1 className="mt-3 text-3xl font-bold leading-tight text-white md:mt-4 md:text-6xl">
                   漫画主页
                 </h1>
 
-                <p className="mt-6 max-w-2xl text-base leading-8 text-slate-200 md:text-lg">
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200 md:mt-6 md:text-lg md:leading-8">
                   这里整理漫画系列、分部目录和章节阅读入口。点击封面进入系列目录，再选择章节开始阅读。
                 </p>
               </div>
@@ -229,17 +177,18 @@ function ComicsPage() {
               {canUploadComics && (
                 <Link
                   to="/creator/comics"
-                  className="shrink-0 rounded-xl border border-white/25 bg-white/12 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-white/18 hover:underline hover:underline-offset-4"
+                  className="shrink-0 rounded-lg border border-white/25 bg-white/12 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/18 hover:underline hover:underline-offset-4 md:rounded-xl md:px-5 md:py-3"
                 >
                   进入创作者上传
                 </Link>
               )}
             </div>
 
-            <div className="mt-10">
+            <div className="mt-6 md:mt-10">
               <div className="h-px w-full bg-gradient-to-r from-white/80 via-white/35 to-transparent" />
-              <div className="mt-3 flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-slate-300">
-                <span>Featured Entrance</span>
+
+              <div className="mt-3 flex items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-slate-300 md:text-xs md:tracking-[0.22em]">
+                <span>Comic Library</span>
                 <span className="h-px flex-1 bg-white/20" />
               </div>
             </div>
@@ -247,7 +196,7 @@ function ComicsPage() {
         </div>
 
         {featuredSeries && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-1/2">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden translate-y-1/2 md:block">
             <div className="mx-auto w-[calc(100%-2rem)] max-w-5xl">
               <div className="pointer-events-auto relative">
                 <FeaturedOverlayCard series={featuredSeries} />
@@ -257,10 +206,10 @@ function ComicsPage() {
         )}
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 md:px-10">
-        <div className={featuredSeries ? "pt-48" : "pt-12"}>
+      <section className="mx-auto max-w-7xl px-4 md:px-10">
+        <div className={featuredSeries ? "pt-8 md:pt-48" : "pt-8 md:pt-12"}>
           {isLoading && (
-            <section className="surface-card px-6 py-10">
+            <section className="border-y border-[var(--color-border-soft)] py-6 md:surface-card md:px-6 md:py-10">
               <p className="text-sm text-soft">正在加载漫画列表...</p>
             </section>
           )}
@@ -272,34 +221,47 @@ function ComicsPage() {
           )}
 
           {!isLoading && !errorMessage && sortedSeriesList.length === 0 && (
-            <section className="surface-card px-6 py-10">
+            <section className="border-y border-[var(--color-border-soft)] py-6 md:surface-card md:px-6 md:py-10">
               <p className="text-sm text-soft">暂无漫画系列。</p>
             </section>
           )}
 
           {!isLoading && !errorMessage && sortedSeriesList.length > 0 && (
-            <section className="mt-2">
-              <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
-                    Library
-                  </p>
+            <section>
+              <div className="mb-5 border-b border-[var(--color-border-soft)] pb-4 md:mb-7 md:border-b-0 md:pb-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em]">
+                  Library
+                </p>
 
-                  <h2 className="mt-2 text-2xl font-bold text-main">
-                    全部漫画
-                  </h2>
+                <h2 className="mt-2 text-xl font-bold text-main md:text-2xl">
+                  全部漫画
+                </h2>
 
-                  <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
-                    系列数量不会太多，因此这里采用封面书架式陈列，保留更明确的漫画主页感。
-                  </p>
-                </div>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-muted md:mt-3 md:leading-7">
+                  系列数量不会太多，因此这里采用封面书架式陈列，保留更明确的漫画主页感。
+                </p>
               </div>
 
-              <div className="grid grid-cols-[repeat(auto-fill,128px)] justify-center gap-x-10 gap-y-12 sm:grid-cols-[repeat(auto-fill,144px)] md:justify-start">
-                {featuredSeries && <SeriesShelfCard series={featuredSeries} />}
+              <div className="grid grid-cols-[repeat(auto-fill,112px)] justify-center gap-x-7 gap-y-9 sm:grid-cols-[repeat(auto-fill,128px)] md:grid-cols-[repeat(auto-fill,128px)] md:justify-start md:gap-x-10 md:gap-y-12 lg:grid-cols-[repeat(auto-fill,144px)]">
+                {featuredSeries && (
+                  <CreatorBookCard
+                    title={featuredSeries.title}
+                    summary={featuredSeries.summary}
+                    coverUrl={featuredSeries.coverUrl}
+                    href={`/works/comics/${featuredSeries.slug}`}
+                    meta={featuredSeries.status}
+                  />
+                )}
 
                 {shelfSeries.map((series) => (
-                  <SeriesShelfCard key={series.id} series={series} />
+                  <CreatorBookCard
+                    key={series.id}
+                    title={series.title}
+                    summary={series.summary}
+                    coverUrl={series.coverUrl}
+                    href={`/works/comics/${series.slug}`}
+                    meta={series.status}
+                  />
                 ))}
               </div>
             </section>

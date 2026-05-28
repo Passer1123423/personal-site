@@ -293,7 +293,7 @@ function NovelReaderPage() {
         </div>
 
         {isLoading && (
-          <section className="surface-card px-6 py-8">
+          <section className="border-y border-[var(--color-border-soft)] px-6 py-8 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:shadow-[var(--shadow-card)]">
             <p className="text-sm text-soft">正在加载章节内容...</p>
           </section>
         )}
@@ -305,7 +305,7 @@ function NovelReaderPage() {
         )}
 
         {!isLoading && !errorMessage && readerData && (
-          <div className="novel-reader-frame surface-card">
+          <div className="novel-reader-frame border-y border-[var(--color-border-soft)] md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:shadow-[var(--shadow-card)]">
             <header className="novel-reader-header">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] link-accent">
                 {readerData.novel.title}

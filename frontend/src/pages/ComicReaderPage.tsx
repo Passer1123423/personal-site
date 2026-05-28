@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   getComicReaderData,
@@ -211,27 +217,37 @@ function ComicReaderPage() {
       ? (readerData.chapter as { summary?: string | null }).summary
       : null;
 
-  useEffect(() => {
+    useLayoutEffect(() => {
     if (isLoading || !readerData) {
-      return
+      return;
     }
 
-    const html = document.documentElement
-    const body = document.body
+    const html = document.documentElement;
+    const body = document.body;
 
-    const previousHtmlScrollBehavior = html.style.scrollBehavior
-    const previousBodyScrollBehavior = body.style.scrollBehavior
+    const previousHtmlScrollBehavior = html.style.scrollBehavior;
+    const previousBodyScrollBehavior = body.style.scrollBehavior;
 
-    html.style.scrollBehavior = "auto"
-    body.style.scrollBehavior = "auto"
+    html.style.scrollBehavior = "auto";
+    body.style.scrollBehavior = "auto";
 
-    window.scrollTo(0, 0)
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
 
-    window.requestAnimationFrame(() => {
-      html.style.scrollBehavior = previousHtmlScrollBehavior
-      body.style.scrollBehavior = previousBodyScrollBehavior
-    })
-  }, [isLoading, readerData, seriesSlug, partSlug, chapterSlug])
+    const restoreScrollBehavior = window.requestAnimationFrame(() => {
+      html.style.scrollBehavior = previousHtmlScrollBehavior;
+      body.style.scrollBehavior = previousBodyScrollBehavior;
+    });
+
+    return () => {
+      window.cancelAnimationFrame(restoreScrollBehavior);
+      html.style.scrollBehavior = previousHtmlScrollBehavior;
+      body.style.scrollBehavior = previousBodyScrollBehavior;
+    };
+  }, [isLoading, readerData, seriesSlug, partSlug, chapterSlug]);
 
   function scrollToTop() {
     window.scrollTo({

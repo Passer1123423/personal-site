@@ -28,18 +28,18 @@ function NovelCover({ novel }: { novel: NovelDetail }) {
   }
 
   return (
-    <div className="flex h-full w-full flex-col justify-between bg-gradient-to-br from-[var(--color-accent-soft)] to-white p-5">
+    <div className="flex h-full w-full flex-col justify-between bg-gradient-to-br from-[var(--color-accent-soft)] to-white p-3 md:p-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] link-accent">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] link-accent md:text-xs md:tracking-[0.22em]">
           Novel
         </p>
 
-        <h2 className="mt-4 text-xl font-bold leading-tight text-main">
+        <h2 className="mt-2 line-clamp-3 text-sm font-bold leading-5 text-main md:mt-4 md:text-xl md:leading-tight">
           {novel.title}
         </h2>
       </div>
 
-      <p className="text-sm text-soft">暂无封面</p>
+      <p className="text-xs text-soft md:text-sm">暂无封面</p>
     </div>
   );
 }
@@ -109,8 +109,8 @@ function NovelDetailPage() {
   }, [novel]);
 
   return (
-    <main className="page-shell min-h-[100dvh] pb-16">
-      <section className="mx-auto max-w-[1250px] px-6 py-8 md:px-8">
+    <main className="page-shell min-h-[100dvh] pb-10 md:pb-16">
+      <section className="mx-auto max-w-[1250px] px-4 py-6 md:px-8 md:py-8">
         <Link
           to="/works/novels"
           className="mb-4 inline-block text-sm font-semibold link-accent"
@@ -119,7 +119,7 @@ function NovelDetailPage() {
         </Link>
 
         {isLoading && (
-          <section className="surface-card px-6 py-8">
+          <section className="border-y border-[var(--color-border-soft)] py-6 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:px-6 md:py-8 md:shadow-[var(--shadow-card)]">
             <p className="text-sm text-soft">正在加载小说详情...</p>
           </section>
         )}
@@ -131,37 +131,39 @@ function NovelDetailPage() {
         )}
 
         {!isLoading && !errorMessage && novel && (
-          <section className="novel-detail-frame surface-card">
-            <header className="novel-detail-header">
-              <div className="novel-detail-cover">
+          <section className="overflow-hidden border-y border-[var(--color-border-soft)] md:rounded-xl md:border md:bg-white md:shadow-sm">
+            <header className="grid grid-cols-[86px_minmax(0,1fr)] gap-4 border-b border-[var(--color-border-soft)] py-4 md:grid-cols-[180px_minmax(0,1fr)] md:gap-7 md:px-8 md:py-7">
+              <div className="h-[120px] overflow-hidden rounded-sm border border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] md:h-[250px] md:rounded-[0.65rem]">
                 <NovelCover novel={novel} />
               </div>
 
-              <div className="novel-detail-main">
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] link-accent">
-                  Novel Detail
-                </p>
+              <div className="flex min-w-0 flex-col justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent md:text-sm md:tracking-[0.22em]">
+                    Novel Detail
+                  </p>
 
-                <h1 className="mt-3 text-3xl font-bold leading-tight text-main md:text-4xl">
-                  {novel.title}
-                </h1>
+                  <h1 className="mt-1.5 line-clamp-2 text-xl font-bold leading-7 text-main md:mt-3 md:text-4xl md:leading-tight">
+                    {novel.title}
+                  </h1>
 
-                {canManageNovel && (
-                  <div className="mt-4">
-                    <Link
-                      to={`/creator/novels/${novel.slug}`}
-                      className="inline-flex rounded-xl px-4 py-2 text-sm font-semibold transition hover:bg-[var(--color-panel-soft-bg)] link-accent"
-                    >
-                      管理这本小说
-                    </Link>
-                  </div>
-                )}
+                  {canManageNovel && (
+                    <div className="mt-2 md:mt-4">
+                      <Link
+                        to={`/creator/novels/${novel.slug}`}
+                        className="inline-flex rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:bg-[var(--color-panel-soft-bg)] link-accent md:rounded-xl md:px-4 md:py-2 md:text-sm"
+                      >
+                        管理这本小说
+                      </Link>
+                    </div>
+                  )}
 
-                <p className="mt-4 max-w-3xl whitespace-pre-line text-sm leading-7 text-muted md:text-base">
-                  {novel.summary || "暂无小说简介。"}
-                </p>
+                  <p className="mt-2 line-clamp-4 max-w-3xl whitespace-pre-line text-sm leading-6 text-muted md:mt-4 md:line-clamp-none md:text-base md:leading-7">
+                    {novel.summary || "暂无小说简介。"}
+                  </p>
+                </div>
 
-                <div className="novel-detail-meta">
+                <div className="mt-3 hidden grid-cols-3 gap-3 border-t border-[var(--color-border-soft)] pt-4 text-sm text-soft md:grid">
                   <div>
                     <p className="font-semibold text-main">章节数</p>
                     <p className="mt-1">{chapters.length} 章</p>
@@ -180,33 +182,50 @@ function NovelDetailPage() {
               </div>
             </header>
 
-            <div className="novel-detail-body">
-              <section className="novel-detail-chapters">
-                <div className="novel-detail-section-heading">
+            <div className="grid grid-cols-3 gap-2 border-b border-[var(--color-border-soft)] py-3 text-xs text-soft md:hidden">
+              <div>
+                <p className="font-semibold text-main">章节数</p>
+                <p className="mt-1">{chapters.length} 章</p>
+              </div>
+
+              <div>
+                <p className="font-semibold text-main">最近更新</p>
+                <p className="mt-1">{formatDate(novel.updatedAt)}</p>
+              </div>
+
+              <div>
+                <p className="font-semibold text-main">作品标识</p>
+                <p className="mt-1 break-all">{novel.slug}</p>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-[340px_minmax(0,1fr)]">
+              <section className="border-b border-[var(--color-border-soft)] py-4 md:border-b-0 md:border-r md:px-6 md:py-6">
+                <div className="flex items-end justify-between gap-3 border-b border-[var(--color-border-soft)] pb-3 md:pb-4">
                   <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.22em] link-accent">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent md:text-sm md:tracking-[0.22em]">
                       Chapters
                     </p>
 
-                    <h2 className="mt-2 text-xl font-bold text-main">
+                    <h2 className="mt-1 text-lg font-bold text-main md:mt-2 md:text-xl">
                       章节目录
                     </h2>
                   </div>
 
-                  <span className="text-sm text-soft">
+                  <span className="text-xs text-soft md:text-sm">
                     共 {chapters.length} 章
                   </span>
                 </div>
 
                 {chapters.length === 0 ? (
-                  <p className="text-sm text-soft">暂无章节。</p>
+                  <p className="py-4 text-sm text-soft">暂无章节。</p>
                 ) : (
-                  <div className="novel-detail-chapter-list">
+                  <div>
                     {chapters.map((chapter) => (
                       <Link
                         key={chapter.id}
                         to={`/works/novels/${novel.slug}/${chapter.slug}`}
-                        className="novel-detail-chapter-link group"
+                        className="group flex items-center justify-between gap-3 border-b border-[var(--color-border-soft)] py-3 md:py-3.5"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-main group-hover:text-[var(--color-accent)]">
@@ -218,7 +237,7 @@ function NovelDetailPage() {
                           </p>
                         </div>
 
-                        <span className="shrink-0 text-sm font-semibold link-accent">
+                        <span className="shrink-0 text-xs font-semibold link-accent md:text-sm">
                           阅读 →
                         </span>
                       </Link>
@@ -227,16 +246,16 @@ function NovelDetailPage() {
                 )}
               </section>
 
-              <aside className="novel-detail-discussion">
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] link-accent">
+              <aside className="py-4 md:px-7 md:py-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent md:text-sm md:tracking-[0.22em]">
                   Reader Area
                 </p>
 
-                <h2 className="mt-2 text-xl font-bold text-main">
+                <h2 className="mt-1 text-lg font-bold text-main md:mt-2 md:text-xl">
                   评论区预留
                 </h2>
 
-                <p className="mt-4 text-sm leading-7 text-muted">
+                <p className="mt-3 text-sm leading-6 text-muted md:mt-4 md:leading-7">
                   这里暂时作为读者讨论区、作者说明或更新记录的预留位置。后续可以接评论、点赞、阅读记录等功能。
                 </p>
               </aside>

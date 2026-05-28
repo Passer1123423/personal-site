@@ -76,7 +76,7 @@ function EditableChapterTitle({
 
   if (isEditing) {
     return (
-      <span className="inline-flex items-center gap-2">
+      <span className="inline-flex flex-wrap items-center gap-2">
         <span className="text-soft">第{chapter.displayOrder}章</span>
 
         <input
@@ -91,7 +91,7 @@ function EditableChapterTitle({
               cancelEdit();
             }
           }}
-          className="admin-input w-56 px-2 py-1 text-sm"
+          className="admin-input w-44 px-2 py-1 text-sm md:w-56"
           placeholder="标题后缀，可空"
           autoFocus
         />
@@ -215,10 +215,10 @@ function ChapterRow({
   }
 
   return (
-    <article className="rounded-2xl border border-[var(--color-border-soft)] bg-white px-4 py-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <article className="border-b border-[var(--color-border-soft)] py-4 md:rounded-2xl md:border md:bg-white md:px-4 md:shadow-sm">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <div className="text-base font-semibold text-main">
+          <div className="text-sm font-semibold text-main md:text-base">
             <EditableChapterTitle
               chapter={chapter}
               disabled={submitting}
@@ -234,14 +234,14 @@ function ChapterRow({
         <div className="flex flex-wrap gap-2">
           <Link
             to={`/creator/novels/${novelSlug}/${chapter.slug}/edit`}
-            className="admin-button-primary px-3 py-2 text-xs font-semibold"
+            className="admin-button-primary px-3 py-1.5 text-xs font-semibold md:py-2"
           >
             编辑正文
           </Link>
 
           <button
             type="button"
-            className="admin-button-secondary px-3 py-2 text-xs font-semibold"
+            className="admin-button-secondary px-3 py-1.5 text-xs font-semibold md:py-2"
             disabled={submitting}
             onClick={() => handleMove("up")}
           >
@@ -250,7 +250,7 @@ function ChapterRow({
 
           <button
             type="button"
-            className="admin-button-secondary px-3 py-2 text-xs font-semibold"
+            className="admin-button-secondary px-3 py-1.5 text-xs font-semibold md:py-2"
             disabled={submitting}
             onClick={() => handleMove("down")}
           >
@@ -259,7 +259,7 @@ function ChapterRow({
 
           <button
             type="button"
-            className="admin-button-danger px-3 py-2 text-xs font-semibold"
+            className="admin-button-danger px-3 py-1.5 text-xs font-semibold md:py-2"
             disabled={submitting}
             onClick={handleDelete}
           >
@@ -450,33 +450,29 @@ export default function CreatorNovelPage() {
   return (
     <main className="admin-page-shell min-h-screen">
       <div className="flex min-h-screen">
-        <section className="min-w-0 flex-1 px-6 py-10 transition-all duration-300">
+        <section className="min-w-0 flex-1 px-4 py-7 transition-all duration-300 md:px-6 md:py-10">
           <div className="mx-auto max-w-6xl">
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <div>
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3 md:mb-6 md:items-center md:gap-4">
+              <div className="min-w-0">
                 <Link to="/creator/novels" className="link-accent text-sm">
                   返回小说书架
                 </Link>
 
-                <p className="mt-3 text-sm font-semibold uppercase tracking-[0.25em] link-accent">
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em]">
                   Creator Novels
                 </p>
 
-                <h1 className="mt-2 text-3xl font-bold text-main">
+                <h1 className="mt-2 text-2xl font-bold leading-tight text-main md:text-3xl">
                   {novel?.title ?? novelSlug ?? "Novel 管理"}
                 </h1>
 
-                <p className="mt-3 text-sm text-muted">
+                <p className="mt-2 text-sm text-muted md:mt-3">
                   {novel?.slug ?? novelSlug ?? "-"}
                 </p>
               </div>
 
               <Link
-                to={
-                novel
-                  ? `/works/novels/${novel.slug}`
-                  : `/works/novels`
-              }
+                to={novel ? `/works/novels/${novel.slug}` : `/works/novels`}
                 className="admin-button-secondary px-4 py-2 text-sm"
               >
                 查看当前小说
@@ -487,8 +483,8 @@ export default function CreatorNovelPage() {
               <div
                 className={
                   message.type === "success"
-                    ? "admin-message-success mb-6 px-4 py-3"
-                    : "admin-message-error mb-6 px-4 py-3"
+                    ? "admin-message-success mb-5 px-4 py-3 text-sm md:mb-6"
+                    : "admin-message-error mb-5 px-4 py-3 text-sm md:mb-6"
                 }
               >
                 {message.text}
@@ -496,18 +492,18 @@ export default function CreatorNovelPage() {
             )}
 
             {loading ? (
-              <section className="admin-section">
+              <section className="border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
                 <p className="text-sm text-soft">正在加载 novel 数据...</p>
               </section>
             ) : !novel ? (
-              <section className="admin-section">
+              <section className="border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
                 <p className="text-sm text-soft">没有找到 novel。</p>
               </section>
             ) : (
               <>
-                <section className="admin-section">
-                  <div className="grid gap-6 md:grid-cols-[180px_minmax(0,1fr)]">
-                    <label className="group relative flex h-60 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] text-sm text-soft">
+                <section className="border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
+                  <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-4 md:grid-cols-[180px_minmax(0,1fr)] md:gap-6">
+                    <label className="group relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] text-xs text-soft md:h-60 md:rounded-2xl md:text-sm">
                       {resolveCoverUrl(novel.coverUrl) ? (
                         <img
                           src={resolveCoverUrl(novel.coverUrl) ?? ""}
@@ -518,7 +514,7 @@ export default function CreatorNovelPage() {
                         "Novel 封面"
                       )}
 
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 text-sm font-semibold text-white opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100">
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 px-2 text-center text-xs font-semibold text-white opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100 md:text-sm">
                         点击更换封面
                       </div>
 
@@ -534,12 +530,12 @@ export default function CreatorNovelPage() {
                       />
                     </label>
 
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 md:gap-3">
                         {isTitleEditing ? (
                           <>
                             <input
-                              className="admin-input px-3 py-2 text-lg font-semibold"
+                              className="admin-input min-w-0 flex-1 px-3 py-2 text-base font-semibold md:text-lg"
                               value={titleDraft}
                               disabled={submitting}
                               onChange={(event) =>
@@ -582,7 +578,7 @@ export default function CreatorNovelPage() {
                         ) : (
                           <button
                             type="button"
-                            className="group inline-flex items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                            className="group inline-flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60 md:gap-3"
                             disabled={submitting}
                             title="编辑 novel 标题"
                             onClick={() => {
@@ -590,24 +586,24 @@ export default function CreatorNovelPage() {
                               setIsTitleEditing(true);
                             }}
                           >
-                            <h2 className="text-2xl font-bold text-main group-hover:underline group-hover:underline-offset-4">
+                            <h2 className="line-clamp-2 text-lg font-bold leading-6 text-main group-hover:underline group-hover:underline-offset-4 md:text-2xl md:leading-tight">
                               {novel.title}
                             </h2>
 
-                            <span className="admin-button-secondary px-3 py-1 text-sm group-hover:border-[var(--color-accent-border-strong)] group-hover:text-[var(--color-accent)]">
+                            <span className="admin-button-secondary px-2 py-1 text-xs group-hover:border-[var(--color-accent-border-strong)] group-hover:text-[var(--color-accent)] md:px-3 md:text-sm">
                               ✎
                             </span>
                           </button>
                         )}
                       </div>
 
-                      <div className="mt-4">
+                      <div className="mt-3 md:mt-4">
                         <label className="text-sm font-semibold text-main">
                           Novel 简介
                         </label>
 
                         <textarea
-                          className="admin-textarea mt-2 min-h-28 w-full px-4 py-3 text-sm leading-7"
+                          className="admin-textarea mt-2 min-h-24 w-full px-3 py-2.5 text-sm leading-6 md:min-h-28 md:px-4 md:py-3 md:leading-7"
                           value={summaryDraft}
                           disabled={submitting}
                           onChange={(event) =>
@@ -631,14 +627,14 @@ export default function CreatorNovelPage() {
                   </div>
                 </section>
 
-                <section className="admin-section mt-6">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                <section className="mt-6 border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border-soft)] pb-4 md:border-b-0 md:pb-0">
                     <div>
-                      <h2 className="text-xl font-semibold text-main">
+                      <h2 className="text-lg font-semibold text-main md:text-xl">
                         Chapter 目录
                       </h2>
 
-                      <p className="mt-2 text-sm text-muted">
+                      <p className="mt-1.5 text-sm leading-6 text-muted md:mt-2">
                         进入页面后直接展示当前 novel 的章节目录。正文编辑在 chapter 编辑页进行。
                       </p>
                     </div>
@@ -652,11 +648,11 @@ export default function CreatorNovelPage() {
                   </div>
 
                   {sortedChapters.length === 0 ? (
-                    <div className="admin-muted-panel mt-5 px-4 py-8 text-center text-sm text-soft">
+                    <div className="mt-5 border-y border-[var(--color-border-soft)] py-6 text-center text-sm text-soft md:admin-muted-panel md:border md:px-4 md:py-8">
                       当前 novel 暂无 chapter。点击“新建 chapter”进入编辑页。
                     </div>
                   ) : (
-                    <div className="mt-5 space-y-3">
+                    <div className="mt-3 md:mt-5 md:space-y-3">
                       {sortedChapters.map((chapter) => (
                         <ChapterRow
                           key={chapter.id}
@@ -671,7 +667,7 @@ export default function CreatorNovelPage() {
                   )}
                 </section>
 
-                <div className="mt-6 flex justify-end">
+                <div className="mt-5 flex justify-end md:mt-6">
                   <button
                     type="button"
                     className="admin-button-danger px-4 py-2 text-sm font-semibold"
