@@ -35,7 +35,7 @@ function FeaturedNovelCard({ novel }: { novel: NovelListItem }) {
       to={`/works/novels/${novel.slug}`}
       className="group block border-y border-[var(--color-border-soft)] py-4 transition hover:bg-[var(--color-panel-soft-bg)] md:overflow-hidden md:rounded-xl md:border md:bg-[var(--color-panel-bg)] md:py-0 md:shadow-sm md:hover:-translate-y-0.5 md:hover:bg-[var(--color-panel-bg)] md:hover:shadow-md"
     >
-      <div className="grid min-h-0 grid-cols-[82px_minmax(0,1fr)] gap-4 md:min-h-[220px] md:grid-cols-[150px_minmax(0,1fr)] md:gap-0">
+      <div className="grid min-h-0 grid-cols-[82px_minmax(0,1fr)] gap-x-4 gap-y-3 md:min-h-[220px] md:grid-cols-[150px_minmax(0,1fr)] md:gap-0">
         <div className="flex items-start justify-center bg-transparent md:items-center md:border-r md:border-[var(--color-border-soft)] md:bg-[var(--color-panel-soft-bg)] md:px-5 md:py-6">
           <div className="h-[116px] w-[72px] overflow-hidden rounded-sm shadow-md md:h-[160px] md:w-[100px] md:shadow-lg">
             <NovelCoverOnly novel={novel} />
@@ -52,12 +52,12 @@ function FeaturedNovelCard({ novel }: { novel: NovelListItem }) {
               {novel.title}
             </h2>
 
-            <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted md:mt-4 md:leading-7">
+            <p className="mt-2 hidden line-clamp-3 text-sm leading-6 text-muted md:mt-4 md:block md:leading-7">
               {novel.summary || "暂无小说简介。"}
             </p>
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-border-soft)] pt-2 md:mt-5 md:pt-3">
+          <div className="mt-3 flex flex-col gap-1 border-t border-[var(--color-border-soft)] pt-2 md:mt-5 md:flex-row md:items-center md:justify-between md:gap-3 md:pt-3">
             <span className="min-w-0 truncate text-xs text-soft">
               更新于 {formatDate(novel.updatedAt)}
             </span>
@@ -67,6 +67,10 @@ function FeaturedNovelCard({ novel }: { novel: NovelListItem }) {
             </span>
           </div>
         </div>
+
+        <p className="col-span-2 line-clamp-3 text-sm leading-6 text-muted md:hidden">
+          {novel.summary || "暂无小说简介。"}
+        </p>
       </div>
     </Link>
   );

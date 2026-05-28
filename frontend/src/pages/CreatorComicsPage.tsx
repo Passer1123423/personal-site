@@ -191,7 +191,7 @@ export default function CreatorComicsPage() {
               </p>
             </div>
 
-            <div className="mt-6 grid grid-cols-[repeat(auto-fill,112px)] justify-center gap-x-7 gap-y-9 sm:grid-cols-[repeat(auto-fill,128px)] md:mt-8 md:justify-start md:gap-x-10 md:gap-y-12">
+            <div className="mt-6 grid grid-cols-[repeat(auto-fill,96px)] justify-center gap-x-5 gap-y-7 sm:grid-cols-[repeat(auto-fill,128px)] sm:gap-x-7 sm:gap-y-9 md:mt-8 md:justify-start md:gap-x-10 md:gap-y-12">
               {seriesList.map((series) => (
                 <CreatorBookCard
                   key={series.id}

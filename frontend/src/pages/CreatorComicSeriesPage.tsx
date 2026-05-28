@@ -7,9 +7,12 @@ import { getMe } from "../api/auth";
 import {
   createAuthorComicPart,
   fetchAuthorComicsTree,
+  updateAuthorSeriesSummary,
+  uploadAuthorSeriesCover,
   type AuthorComicPart,
   type AuthorComicSeries,
 } from "../api/authorComics";
+import { API_BASE_URL } from "../api/config";
 import CreatorAddBookCard from "../components/creator/CreatorAddBookCard";
 import CreatorBookCard from "../components/creator/CreatorBookCard";
 
@@ -21,6 +24,18 @@ type Message = {
 const desktopSectionClass =
   "md:border md:border-[var(--color-border-soft)] md:rounded-[var(--radius-card)] md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]";
 
+function resolveCoverUrl(coverUrl?: string | null) {
+  if (!coverUrl) {
+    return null;
+  }
+
+  if (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) {
+    return coverUrl;
+  }
+
+  return `${API_BASE_URL}${coverUrl}`;
+}
+
 export default function CreatorComicSeriesPage() {
   const { seriesSlug } = useParams();
   const navigate = useNavigate();
@@ -28,6 +43,8 @@ export default function CreatorComicSeriesPage() {
   const [seriesList, setSeriesList] = useState<AuthorComicSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<Message | null>(null);
+
+  const [seriesSummaryDraft, setSeriesSummaryDraft] = useState("");
 
   const [createPartOpen, setCreatePartOpen] = useState(false);
   const [newPartSlug, setNewPartSlug] = useState("");
@@ -93,6 +110,10 @@ export default function CreatorComicSeriesPage() {
     return seriesList.find((series) => series.slug === seriesSlug) ?? null;
   }, [seriesList, seriesSlug]);
 
+  useEffect(() => {
+    setSeriesSummaryDraft(currentSeries?.summary ?? "");
+  }, [currentSeries?.summary]);
+
   const sortedParts = useMemo<AuthorComicPart[]>(() => {
     if (!currentSeries) {
       return [];
@@ -150,6 +171,62 @@ export default function CreatorComicSeriesPage() {
     }
   }
 
+  async function handleUploadSeriesCover(file: File | undefined) {
+    if (!currentSeries || !file) {
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage(null);
+
+    try {
+      await uploadAuthorSeriesCover({
+        seriesSlug: currentSeries.slug,
+        file,
+      });
+
+      await loadPageData();
+
+      setMessage({
+        type: "success",
+        text: "Series 封面已更新。",
+      });
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : "上传 series 封面失败";
+      setMessage({ type: "error", text });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSaveSeriesSummary() {
+    if (!currentSeries) {
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage(null);
+
+    try {
+      await updateAuthorSeriesSummary({
+        seriesSlug: currentSeries.slug,
+        summary: seriesSummaryDraft,
+      });
+
+      await loadPageData();
+
+      setMessage({
+        type: "success",
+        text: "Series 简介已保存。",
+      });
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : "保存 series 简介失败";
+      setMessage({ type: "error", text });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (!seriesSlug) {
     return (
       <main className="admin-page-shell min-h-[100dvh] px-4 py-7 md:px-6 md:py-10">
@@ -184,7 +261,7 @@ export default function CreatorComicSeriesPage() {
     );
   }
 
-  if (message) {
+  if (message && !currentSeries) {
     return (
       <main className="admin-page-shell min-h-[100dvh] px-4 py-7 md:px-6 md:py-10">
         <section className="mx-auto max-w-7xl">
@@ -224,6 +301,8 @@ export default function CreatorComicSeriesPage() {
     );
   }
 
+  const seriesCoverUrl = resolveCoverUrl(currentSeries.coverUrl);
+
   return (
     <main className="admin-page-shell min-h-[100dvh] px-4 py-7 md:px-6 md:py-10">
       <section className="mx-auto max-w-7xl">
@@ -241,15 +320,9 @@ export default function CreatorComicSeriesPage() {
               {currentSeries.title}
             </h1>
 
-            {currentSeries.summary ? (
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-muted md:mt-4 md:leading-7">
-                {currentSeries.summary}
-              </p>
-            ) : (
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-soft md:mt-4 md:leading-7">
-                暂无 series 简介。
-              </p>
-            )}
+            <p className="mt-3 text-sm text-muted md:mt-4">
+              {currentSeries.slug}
+            </p>
           </div>
 
           <button
@@ -261,8 +334,114 @@ export default function CreatorComicSeriesPage() {
           </button>
         </div>
 
+        {message && (
+          <div
+            className={
+              message.type === "success"
+                ? "admin-message-success mb-5 px-4 py-3 text-sm md:mb-6"
+                : "admin-message-error mb-5 px-4 py-3 text-sm md:mb-6"
+            }
+          >
+            {message.text}
+          </div>
+        )}
+
         <section
           className={`border-y border-[var(--color-border-soft)] py-5 ${desktopSectionClass}`}
+        >
+          <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-x-4 gap-y-4 md:grid-cols-[180px_minmax(0,1fr)] md:gap-6">
+            <label className="group relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] text-xs text-soft md:h-60 md:rounded-2xl md:text-sm">
+              {seriesCoverUrl ? (
+                <img
+                  src={seriesCoverUrl}
+                  alt={currentSeries.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                "Series 封面"
+              )}
+
+              <div className="absolute inset-0 flex items-center justify-center bg-black/0 px-2 text-center text-xs font-semibold text-white opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100 md:text-sm">
+                点击更换封面
+              </div>
+
+              <input
+                className="hidden"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                disabled={submitting}
+                onChange={(event) => {
+                  handleUploadSeriesCover(event.currentTarget.files?.[0]);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
+
+            <div className="min-w-0">
+              <h2 className="line-clamp-2 text-lg font-bold leading-6 text-main md:text-2xl md:leading-tight">
+                {currentSeries.title}
+              </h2>
+
+              <div className="mt-3 text-xs leading-5 text-soft md:mt-4 md:text-sm md:leading-6">
+                <p>{currentSeries.slug}</p>
+                <p className="mt-1">{sortedParts.length} 个 part</p>
+              </div>
+
+              <div className="mt-3 hidden md:mt-4 md:block">
+                <label className="text-sm font-semibold text-main">
+                  Series 简介
+                </label>
+
+                <textarea
+                  className="admin-textarea mt-2 min-h-28 w-full px-4 py-3 text-sm leading-7"
+                  value={seriesSummaryDraft}
+                  disabled={submitting}
+                  onChange={(event) => setSeriesSummaryDraft(event.target.value)}
+                  placeholder="填写这个 series 的简介。"
+                />
+
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    className="admin-button-secondary px-4 py-2 text-sm font-semibold"
+                    disabled={submitting}
+                    onClick={handleSaveSeriesSummary}
+                  >
+                    保存简介
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-span-2 md:hidden">
+              <label className="text-sm font-semibold text-main">
+                Series 简介
+              </label>
+
+              <textarea
+                className="admin-textarea mt-2 min-h-24 w-full px-3 py-2.5 text-sm leading-6"
+                value={seriesSummaryDraft}
+                disabled={submitting}
+                onChange={(event) => setSeriesSummaryDraft(event.target.value)}
+                placeholder="填写这个 series 的简介。"
+              />
+
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  className="admin-button-secondary px-4 py-2 text-sm font-semibold"
+                  disabled={submitting}
+                  onClick={handleSaveSeriesSummary}
+                >
+                  保存简介
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          className={`mt-6 border-y border-[var(--color-border-soft)] py-5 ${desktopSectionClass}`}
         >
           <div className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--color-border-soft)] pb-4 md:border-b-0 md:pb-0">
             <div>
@@ -281,7 +460,7 @@ export default function CreatorComicSeriesPage() {
           </div>
 
           {sortedParts.length > 0 ? (
-            <div className="mt-6 grid grid-cols-[repeat(auto-fill,112px)] justify-center gap-x-7 gap-y-9 sm:grid-cols-[repeat(auto-fill,128px)] md:mt-8 md:justify-start md:gap-x-10 md:gap-y-12">
+            <div className="mt-6 grid grid-cols-[repeat(auto-fill,96px)] justify-center gap-x-5 gap-y-7 sm:grid-cols-[repeat(auto-fill,128px)] sm:gap-x-7 sm:gap-y-9 md:mt-8 md:justify-start md:gap-x-10 md:gap-y-12">
               {sortedParts.map((part) => (
                 <CreatorBookCard
                   key={part.id}

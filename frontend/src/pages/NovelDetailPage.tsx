@@ -132,72 +132,61 @@ function NovelDetailPage() {
 
         {!isLoading && !errorMessage && novel && (
           <section className="overflow-hidden border-y border-[var(--color-border-soft)] md:rounded-xl md:border md:bg-white md:shadow-sm">
-            <header className="grid grid-cols-[86px_minmax(0,1fr)] gap-4 border-b border-[var(--color-border-soft)] py-4 md:grid-cols-[180px_minmax(0,1fr)] md:gap-7 md:px-8 md:py-7">
+            <header className="grid grid-cols-[86px_minmax(0,1fr)] gap-x-4 gap-y-3 border-b border-[var(--color-border-soft)] py-4 md:relative md:grid-cols-[180px_minmax(0,1fr)] md:gap-7 md:px-8 md:py-7">
               <div className="h-[120px] overflow-hidden rounded-sm border border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] md:h-[250px] md:rounded-[0.65rem]">
                 <NovelCover novel={novel} />
               </div>
 
-              <div className="flex min-w-0 flex-col justify-between">
+              <div className="flex min-w-0 flex-col justify-between md:pr-36">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent md:text-sm md:tracking-[0.22em]">
-                    Novel Detail
-                  </p>
+                  <div className="flex items-center justify-between gap-3 md:block">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent md:text-sm md:tracking-[0.22em]">
+                      Novel Detail
+                    </p>
+
+                    {canManageNovel && (
+                      <div className="shrink-0 md:absolute md:right-8 md:top-7">
+                        <Link
+                          to={`/creator/novels/${novel.slug}`}
+                          className="inline-flex rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:bg-[var(--color-panel-soft-bg)] link-accent md:rounded-xl md:px-4 md:py-2 md:text-sm"
+                        >
+                          管理这本小说
+                        </Link>
+                      </div>
+                    )}
+                  </div>
 
                   <h1 className="mt-1.5 line-clamp-2 text-xl font-bold leading-7 text-main md:mt-3 md:text-4xl md:leading-tight">
                     {novel.title}
                   </h1>
 
-                  {canManageNovel && (
-                    <div className="mt-2 md:mt-4">
-                      <Link
-                        to={`/creator/novels/${novel.slug}`}
-                        className="inline-flex rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:bg-[var(--color-panel-soft-bg)] link-accent md:rounded-xl md:px-4 md:py-2 md:text-sm"
-                      >
-                        管理这本小说
-                      </Link>
-                    </div>
-                  )}
-
-                  <p className="mt-2 line-clamp-4 max-w-3xl whitespace-pre-line text-sm leading-6 text-muted md:mt-4 md:line-clamp-none md:text-base md:leading-7">
+                  <p className="mt-2 hidden max-w-3xl whitespace-pre-line text-sm leading-6 text-muted md:mt-4 md:block md:text-base md:leading-7">
                     {novel.summary || "暂无小说简介。"}
                   </p>
                 </div>
 
-                <div className="mt-3 hidden grid-cols-3 gap-3 border-t border-[var(--color-border-soft)] pt-4 text-sm text-soft md:grid">
+                <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--color-border-soft)] pt-2 text-xs text-soft md:grid-cols-3 md:pt-4 md:text-sm">
                   <div>
                     <p className="font-semibold text-main">章节数</p>
-                    <p className="mt-1">{chapters.length} 章</p>
+                    <p className="mt-0.5 md:mt-1">{chapters.length} 章</p>
                   </div>
 
                   <div>
                     <p className="font-semibold text-main">最近更新</p>
-                    <p className="mt-1">{formatDate(novel.updatedAt)}</p>
+                    <p className="mt-0.5 md:mt-1">{formatDate(novel.updatedAt)}</p>
                   </div>
 
-                  <div>
+                  <div className="hidden md:block">
                     <p className="font-semibold text-main">作品标识</p>
                     <p className="mt-1 break-all">{novel.slug}</p>
                   </div>
                 </div>
               </div>
+
+              <p className="col-span-2 whitespace-pre-line text-sm leading-6 text-muted md:hidden">
+                {novel.summary || "暂无小说简介。"}
+              </p>
             </header>
-
-            <div className="grid grid-cols-3 gap-2 border-b border-[var(--color-border-soft)] py-3 text-xs text-soft md:hidden">
-              <div>
-                <p className="font-semibold text-main">章节数</p>
-                <p className="mt-1">{chapters.length} 章</p>
-              </div>
-
-              <div>
-                <p className="font-semibold text-main">最近更新</p>
-                <p className="mt-1">{formatDate(novel.updatedAt)}</p>
-              </div>
-
-              <div>
-                <p className="font-semibold text-main">作品标识</p>
-                <p className="mt-1 break-all">{novel.slug}</p>
-              </div>
-            </div>
 
             <div className="grid md:grid-cols-[340px_minmax(0,1fr)]">
               <section className="border-b border-[var(--color-border-soft)] py-4 md:border-b-0 md:border-r md:px-6 md:py-6">

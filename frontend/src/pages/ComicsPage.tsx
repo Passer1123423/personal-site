@@ -70,6 +70,66 @@ function FeaturedOverlayCard({ series }: { series: ComicSeriesListItem }) {
   );
 }
 
+function MobileFeaturedComicCard({ series }: { series: ComicSeriesListItem }) {
+  const coverUrl = resolveAssetUrl(series.coverUrl);
+
+  return (
+    <Link
+      to={`/works/comics/${series.slug}`}
+      className="block border-y border-[var(--color-border-soft)] py-4 transition hover:bg-[var(--color-panel-soft-bg)] md:hidden"
+    >
+      <div className="grid grid-cols-[82px_minmax(0,1fr)] gap-4">
+        <div className="flex items-start justify-center">
+          <div className="aspect-[5/7] w-[72px] overflow-hidden rounded-sm bg-[var(--color-panel-soft-bg)] shadow-md">
+            {coverUrl ? (
+              <img
+                src={coverUrl}
+                alt={series.title}
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-blue-700 px-3 text-center">
+                <div className="absolute inset-y-0 left-0 w-2 border-r border-black/20 bg-black/15" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-transparent to-white/10" />
+                <p className="relative line-clamp-3 text-[11px] font-semibold leading-4 text-white">
+                  {series.title}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent">
+            Featured Comic
+          </p>
+
+          <h2 className="mt-1.5 line-clamp-2 text-lg font-bold leading-6 text-main">
+            {series.title}
+          </h2>
+
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-soft">
+            <div>
+              <p className="font-semibold text-main">状态</p>
+              <p className="mt-0.5 truncate">{series.status}</p>
+            </div>
+
+            <div>
+              <p className="font-semibold text-main">Slug</p>
+              <p className="mt-0.5 truncate">{series.slug}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted">
+        {series.summary || "暂无系列简介。"}
+      </p>
+    </Link>
+  );
+}
+
 function ComicsPage() {
   const [seriesList, setSeriesList] = useState<ComicSeriesListItem[]>([]);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -208,6 +268,10 @@ function ComicsPage() {
 
       <section className="mx-auto max-w-7xl px-4 md:px-10">
         <div className={featuredSeries ? "pt-8 md:pt-48" : "pt-8 md:pt-12"}>
+          {!isLoading && !errorMessage && featuredSeries && (
+            <MobileFeaturedComicCard series={featuredSeries} />
+          )}
+
           {isLoading && (
             <section className="border-y border-[var(--color-border-soft)] py-6 md:surface-card md:px-6 md:py-10">
               <p className="text-sm text-soft">正在加载漫画列表...</p>
@@ -242,7 +306,7 @@ function ComicsPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-[repeat(auto-fill,112px)] justify-center gap-x-7 gap-y-9 sm:grid-cols-[repeat(auto-fill,128px)] md:grid-cols-[repeat(auto-fill,128px)] md:justify-start md:gap-x-10 md:gap-y-12 lg:grid-cols-[repeat(auto-fill,144px)]">
+              <div className="grid grid-cols-[repeat(auto-fill,96px)] justify-center gap-x-5 gap-y-7 sm:grid-cols-[repeat(auto-fill,128px)] sm:gap-x-7 sm:gap-y-9 md:grid-cols-[repeat(auto-fill,128px)] md:justify-start md:gap-x-10 md:gap-y-12 lg:grid-cols-[repeat(auto-fill,144px)]">
                 {featuredSeries && (
                   <CreatorBookCard
                     title={featuredSeries.title}

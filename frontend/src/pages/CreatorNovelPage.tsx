@@ -502,7 +502,7 @@ export default function CreatorNovelPage() {
             ) : (
               <>
                 <section className="border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
-                  <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-4 md:grid-cols-[180px_minmax(0,1fr)] md:gap-6">
+                  <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-x-4 gap-y-4 md:grid-cols-[180px_minmax(0,1fr)] md:gap-6">
                     <label className="group relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] text-xs text-soft md:h-60 md:rounded-2xl md:text-sm">
                       {resolveCoverUrl(novel.coverUrl) ? (
                         <img
@@ -597,13 +597,18 @@ export default function CreatorNovelPage() {
                         )}
                       </div>
 
-                      <div className="mt-3 md:mt-4">
+                      <div className="mt-3 text-xs leading-5 text-soft md:hidden">
+                        <p>{novel.slug}</p>
+                        <p className="mt-1">{sortedChapters.length} 个 chapter</p>
+                      </div>
+
+                      <div className="mt-3 hidden md:mt-4 md:block">
                         <label className="text-sm font-semibold text-main">
                           Novel 简介
                         </label>
 
                         <textarea
-                          className="admin-textarea mt-2 min-h-24 w-full px-3 py-2.5 text-sm leading-6 md:min-h-28 md:px-4 md:py-3 md:leading-7"
+                          className="admin-textarea mt-2 min-h-28 w-full px-4 py-3 text-sm leading-7"
                           value={summaryDraft}
                           disabled={submitting}
                           onChange={(event) =>
@@ -622,6 +627,33 @@ export default function CreatorNovelPage() {
                             保存简介
                           </button>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="col-span-2 md:hidden">
+                      <label className="text-sm font-semibold text-main">
+                        Novel 简介
+                      </label>
+
+                      <textarea
+                        className="admin-textarea mt-2 min-h-24 w-full px-3 py-2.5 text-sm leading-6"
+                        value={summaryDraft}
+                        disabled={submitting}
+                        onChange={(event) =>
+                          setSummaryDraft(event.target.value)
+                        }
+                        placeholder="填写这个 novel 的简介。"
+                      />
+
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          className="admin-button-secondary px-4 py-2 text-sm font-semibold"
+                          disabled={submitting}
+                          onClick={handleSaveSummary}
+                        >
+                          保存简介
+                        </button>
                       </div>
                     </div>
                   </div>

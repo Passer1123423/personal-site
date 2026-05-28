@@ -87,8 +87,8 @@ function PartSection({
   return (
     <article ref={partRef} className="scroll-mt-24">
       <div className="md:hidden">
-        <div className="border-b border-[var(--color-border-soft)] py-5">
-          <div className="flex items-start gap-4">
+        <div className="border-b border-[var(--color-border-soft)] py-4">
+          <div className="flex items-start gap-3">
             <CreatorBookCard
               title={part.title}
               summary={part.summary}
@@ -101,28 +101,28 @@ function PartSection({
               }
             />
 
-            <div className="min-w-0 flex-1 pt-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] link-accent">
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent">
                 Part
               </p>
 
-              <h2 className="mt-2 line-clamp-2 text-lg font-bold leading-6 text-main">
+              <h2 className="mt-1.5 line-clamp-2 text-base font-bold leading-6 text-main">
                 {part.title}
               </h2>
 
               {part.summary ? (
-                <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">
+                <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-muted">
                   {part.summary}
                 </p>
               ) : (
-                <p className="mt-2 text-sm leading-6 text-soft">
+                <p className="mt-1.5 text-sm leading-5 text-soft">
                   暂无分部简介。
                 </p>
               )}
 
               <button
                 type="button"
-                className="mt-4 inline-flex rounded-lg border border-[var(--color-border-control)] bg-white px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-[var(--color-accent-border-strong)] hover:text-[var(--color-accent)]"
+                className="mt-3 inline-flex rounded-lg border border-[var(--color-border-control)] bg-white px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-[var(--color-accent-border-strong)] hover:text-[var(--color-accent)]"
                 onClick={() => setIsOpen((value) => !value)}
               >
                 {isOpen ? "收起章节" : "展开章节"}
@@ -131,7 +131,7 @@ function PartSection({
           </div>
 
           {isOpen && (
-            <div className="mt-4 border-t border-[var(--color-border-soft)]">
+            <div className="mt-3 border-t border-[var(--color-border-soft)]">
               {sortedChapters.length > 0 ? (
                 <div>
                   {sortedChapters.map((chapter) => (
@@ -315,6 +315,10 @@ function ComicSeriesPage() {
   }
 
   const coverUrl = resolveAssetUrl(series.coverUrl);
+  const chapterCount = sortedParts.reduce(
+    (total, part) => total + part.chapters.length,
+    0,
+  );
 
   return (
     <main className="page-shell min-h-[100dvh] px-4 py-8 md:px-6 md:py-14">
@@ -323,42 +327,95 @@ function ComicSeriesPage() {
           ← 返回漫画存档
         </Link>
 
-        <section className="mt-5 overflow-hidden border-b border-[var(--color-border-soft)] pb-6 md:mt-8 md:rounded-2xl md:border md:bg-white md:pb-0 md:shadow-sm">
+        <section className="mt-5 border-b border-[var(--color-border-soft)] pb-5 md:hidden">
+          <div className="grid grid-cols-[82px_minmax(0,1fr)] gap-4">
+            <div className="flex items-start justify-center">
+              <div className="aspect-[5/7] w-[72px] overflow-hidden rounded-sm bg-[var(--color-panel-soft-bg)] shadow-md">
+                {coverUrl ? (
+                  <img
+                    src={coverUrl}
+                    alt={series.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <EmptyCover title={series.title} />
+                )}
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent">
+                Comic Series
+              </p>
+
+              <h1 className="mt-1.5 line-clamp-2 text-xl font-bold leading-7 text-main">
+                {series.title}
+              </h1>
+
+              <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-soft">
+                <div>
+                  <p className="font-semibold text-main">分部</p>
+                  <p className="mt-0.5">{sortedParts.length} 个</p>
+                </div>
+
+                <div>
+                  <p className="font-semibold text-main">章节</p>
+                  <p className="mt-0.5">{chapterCount} 章</p>
+                </div>
+
+                <div>
+                  <p className="font-semibold text-main">Slug</p>
+                  <p className="mt-0.5 truncate">{series.slug}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-3 line-clamp-4 text-sm leading-6 text-muted">
+            {series.summary || "暂无系列简介。"}
+          </p>
+
+          <p className="mt-3 border-t border-[var(--color-border-soft)] pt-3 text-sm leading-6 text-soft">
+            选择下方分部展开目录，点击章节进入阅读。
+          </p>
+        </section>
+
+        <section className="mt-8 hidden overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-sm md:block">
           <div className="grid gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
-            <div className="relative min-h-64 border-b border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] md:min-h-96 lg:border-b-0 lg:border-r">
+            <div className="relative min-h-96 border-b border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] lg:border-b-0 lg:border-r">
               {coverUrl ? (
                 <img
                   src={coverUrl}
                   alt={series.title}
-                  className="h-full min-h-64 w-full object-cover md:min-h-96"
+                  className="h-full min-h-96 w-full object-cover"
                 />
               ) : (
                 <EmptyCover title={series.title} />
               )}
             </div>
 
-            <div className="flex flex-col justify-between pt-5 md:p-9">
+            <div className="flex flex-col justify-between p-9">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em]">
+                <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
                   Comic Series
                 </p>
 
-                <h1 className="mt-3 text-2xl font-bold leading-tight text-main md:mt-4 md:text-4xl">
+                <h1 className="mt-4 text-4xl font-bold leading-tight text-main">
                   {series.title}
                 </h1>
 
                 {series.summary ? (
-                  <p className="mt-4 max-w-3xl text-sm leading-7 text-muted md:mt-6 md:text-base md:leading-8">
+                  <p className="mt-6 max-w-3xl text-base leading-8 text-muted">
                     {series.summary}
                   </p>
                 ) : (
-                  <p className="mt-4 max-w-3xl text-sm leading-7 text-soft md:mt-6 md:text-base md:leading-8">
+                  <p className="mt-6 max-w-3xl text-base leading-8 text-soft">
                     暂无系列简介。
                   </p>
                 )}
               </div>
 
-              <div className="mt-5 border-t border-[var(--color-border-soft)] pt-4 md:mt-8 md:pt-5">
+              <div className="mt-8 border-t border-[var(--color-border-soft)] pt-5">
                 <p className="text-sm leading-7 text-soft">
                   选择下方分部展开目录，点击章节进入阅读。
                 </p>

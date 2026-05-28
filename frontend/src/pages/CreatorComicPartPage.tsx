@@ -328,6 +328,32 @@ export default function CreatorComicPartPage() {
   const [partTitleDraft, setPartTitleDraft] = useState("");
   const [isPartTitleEditing, setIsPartTitleEditing] = useState(false);
 
+  useEffect(() => {
+    if (!drawerOpen) {
+      return;
+    }
+
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+
+    if (!isMobile) {
+      return;
+    }
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
+  }, [drawerOpen]);
+
   const orderedImageIds = useMemo(
     () => images.map((image) => image.id),
     [images],
@@ -819,8 +845,8 @@ export default function CreatorComicPartPage() {
             ) : (
               <>
                 <section className="border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
-                  <div className="grid gap-5 md:grid-cols-[180px_minmax(0,1fr)] md:gap-6">
-                    <label className="group relative mx-auto flex h-44 w-32 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] text-sm text-soft md:mx-0 md:h-60 md:w-auto md:rounded-2xl">
+                  <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-x-4 gap-y-4 md:grid-cols-[180px_minmax(0,1fr)] md:gap-6">
+                    <label className="group relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] text-xs text-soft md:h-60 md:rounded-2xl md:text-sm">
                       {partDetail?.part.coverUrl ? (
                         <img
                           src={`${API_BASE_URL}${partDetail.part.coverUrl}`}
@@ -831,7 +857,7 @@ export default function CreatorComicPartPage() {
                         "Part 封面"
                       )}
 
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 text-sm font-semibold text-white opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100">
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 px-2 text-center text-xs font-semibold text-white opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100 md:text-sm">
                         点击更换封面
                       </div>
 
@@ -847,12 +873,12 @@ export default function CreatorComicPartPage() {
                       />
                     </label>
 
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 md:gap-3">
                         {isPartTitleEditing ? (
                           <>
                             <input
-                              className="admin-input w-full px-3 py-2 text-base font-semibold md:w-auto md:text-lg"
+                              className="admin-input min-w-0 flex-1 px-3 py-2 text-base font-semibold md:text-lg"
                               value={partTitleDraft}
                               disabled={submitting}
                               onChange={(event) => setPartTitleDraft(event.target.value)}
@@ -893,7 +919,7 @@ export default function CreatorComicPartPage() {
                         ) : (
                           <button
                             type="button"
-                            className="group inline-flex items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                            className="group inline-flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60 md:gap-3"
                             disabled={submitting}
                             title="编辑 part 标题"
                             onClick={() => {
@@ -901,22 +927,27 @@ export default function CreatorComicPartPage() {
                               setIsPartTitleEditing(true);
                             }}
                           >
-                            <h2 className="text-xl font-bold text-main group-hover:underline group-hover:underline-offset-4 md:text-2xl">
+                            <h2 className="line-clamp-2 text-lg font-bold leading-6 text-main group-hover:underline group-hover:underline-offset-4 md:text-2xl md:leading-tight">
                               {partDetail?.part.title ?? partSlug}
                             </h2>
 
-                            <span className="admin-button-secondary px-3 py-1 text-sm group-hover:border-[var(--color-accent-border-strong)] group-hover:text-[var(--color-accent)]">
+                            <span className="admin-button-secondary px-2 py-1 text-xs group-hover:border-[var(--color-accent-border-strong)] group-hover:text-[var(--color-accent)] md:px-3 md:text-sm">
                               ✎
                             </span>
                           </button>
                         )}
                       </div>
 
-                      <div className="mt-4">
+                      <div className="mt-3 text-xs leading-5 text-soft md:mt-4 md:text-sm md:leading-6">
+                        <p>{seriesSlug ?? "-"} / {partSlug ?? "-"}</p>
+                        <p className="mt-1">{chapters.length} 个 chapter</p>
+                      </div>
+
+                      <div className="mt-3 hidden md:mt-4 md:block">
                         <label className="text-sm font-semibold text-main">Part 简介</label>
 
                         <textarea
-                          className="admin-textarea mt-2 min-h-24 w-full px-3 py-2.5 text-sm leading-6 md:min-h-28 md:px-4 md:py-3 md:leading-7"
+                          className="admin-textarea mt-2 min-h-28 w-full px-4 py-3 text-sm leading-7"
                           value={partSummaryDraft}
                           disabled={submitting}
                           onChange={(event) => setPartSummaryDraft(event.target.value)}
@@ -933,6 +964,29 @@ export default function CreatorComicPartPage() {
                             保存简介
                           </button>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="col-span-2 md:hidden">
+                      <label className="text-sm font-semibold text-main">Part 简介</label>
+
+                      <textarea
+                        className="admin-textarea mt-2 min-h-24 w-full px-3 py-2.5 text-sm leading-6"
+                        value={partSummaryDraft}
+                        disabled={submitting}
+                        onChange={(event) => setPartSummaryDraft(event.target.value)}
+                        placeholder="填写这个 part 的简介。"
+                      />
+
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          className="admin-button-secondary px-4 py-2 text-sm font-semibold"
+                          disabled={submitting}
+                          onClick={handleSavePartSummary}
+                        >
+                          保存简介
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -986,7 +1040,7 @@ export default function CreatorComicPartPage() {
 
         <aside
           className={[
-            "fixed inset-0 z-40 h-[100dvh] overflow-hidden border-l border-[var(--color-border-soft)] bg-[var(--color-panel-bg)] shadow-xl transition-transform duration-300 md:sticky md:top-0 md:z-auto md:shrink-0 md:transition-[width]",
+            "fixed inset-0 z-40 h-[100dvh] overflow-hidden overscroll-contain border-l border-[var(--color-border-soft)] bg-[var(--color-panel-bg)] shadow-xl transition-transform duration-300 md:sticky md:top-0 md:z-auto md:shrink-0 md:transition-[width]",
             drawerOpen
               ? "translate-x-0 md:w-[48vw] md:min-w-[560px] md:max-w-[820px]"
               : "translate-x-full md:w-0 md:translate-x-0",
@@ -1016,7 +1070,7 @@ export default function CreatorComicPartPage() {
                 </div>
               </header>
 
-              <div className="min-h-0 flex-1 px-4 py-4 md:px-6 md:py-5">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-6 md:py-5">
                 <section className="flex h-full min-h-0 flex-col gap-4 md:gap-5">
                   <div className="flex min-h-0 flex-1 flex-col border-y border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] py-3 md:rounded-2xl md:border md:p-4">
                     <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
@@ -1034,7 +1088,7 @@ export default function CreatorComicPartPage() {
                       </span>
                     </div>
 
-                    <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
                       {visibleUploadCount === 0 ? (
                         <div className="flex h-full min-h-48 items-center justify-center rounded-xl border border-dashed border-[var(--color-border-control)] bg-white px-4 py-10 text-center text-sm text-soft">
                           待传区为空。点击下方区域上传新章节图片。
