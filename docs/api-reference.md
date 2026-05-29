@@ -1,22 +1,24 @@
 # API Reference
 
-本文档只记录当前代码中已经注册的接口。新会话实现功能前先查这里，避免重复新增已有接口。
+本文档只记录当前后端已经注册的接口。后端入口为 `backend/app/main.py`。
 
-后端入口：`backend/app/main.py`。
-
-默认开发 API 地址目前统一在前端配置文件：
+前端 API base URL 来自：
 
 ```txt
 frontend/src/api/config.ts
 ```
 
-默认值：
+默认开发地址：
 
 ```txt
 http://127.0.0.1:18001
 ```
 
-生产同源构建时设置 `VITE_API_BASE_URL=""`，前端会请求 `/api/...`。
+生产同源部署时使用：
+
+```txt
+VITE_API_BASE_URL=""
+```
 
 ## Health
 
@@ -24,11 +26,6 @@ http://127.0.0.1:18001
 GET /
 GET /health
 ```
-
-用途：
-
-- `/` 返回后端运行信息。
-- `/health` 返回 `{ "status": "ok" }`。
 
 ## Auth
 
@@ -40,7 +37,7 @@ Prefix：
 /api/auth
 ```
 
-已存在接口：
+接口：
 
 ```txt
 POST /api/auth/register
@@ -48,141 +45,25 @@ POST /api/auth/login
 GET  /api/auth/me
 ```
 
-不要重复实现身份检查接口。`GET /api/auth/me` 已经用于检查当前 token 并返回当前用户。
+说明：
 
-请求与行为：
-
-- `register`
-  - body：`username`、`displayName`、`password`、可选 `bio`、`humanCheck`。
-  - `humanCheck` 必须为 `是`。
-  - 如果公开注册开关关闭，返回 403。
-  - 内存级限流：同一 client host 60 秒内最多 100 次尝试，服务重启后清空。
-  - 创建 `reader` 用户。
-  - 返回 access token 和 user。
-
-- `login`
-  - body：`username`、`password`。
-  - 校验用户存在、启用状态、密码。
-  - 返回 access token 和 user。
-
-- `me`
-  - header：`Authorization: Bearer <token>`。
-  - 通过 `require_current_user` 返回当前用户。
-
-相关后端依赖：
-
-```py
-require_current_user
-require_admin_user
-```
-
-位置：
-
-```txt
-backend/app/dependencies/auth.py
-```
-
-相关前端封装：
-
-```txt
-frontend/src/api/auth.ts
-```
+- `register` 创建 reader 用户，受公开注册开关、人类验证和轻量限流约束。
+- `login` 返回 access token 和 user。
+- `me` 需要 `Authorization: Bearer <token>`。
 
 ## Public Users
 
 Router：`backend/app/routers/users.py`
 
-Prefix：
-
-```txt
-/api/users
-```
-
-已存在接口：
-
 ```txt
 GET /api/users/{username}
 ```
 
-用途：
-
-- 获取公开用户主页信息。
-- 当前返回用户基础信息和空 `series`。
-
-前端封装：
-
-```txt
-frontend/src/api/users.ts
-```
-
-## 注册相关接口补充
-
-### 公开注册
-
-```txt
-POST /api/auth/register
-```
-请求体：
-```
-{
-  "username": "string",
-  "displayName": "string",
-  "password": "string",
-  "bio": "string",
-  "humanCheck": "是"
-}
-```
-说明：
-
-humanCheck 必须填写为 是。
-如果公开注册已关闭，该接口返回 403。
-注册成功后返回 access token 和用户信息。
-### 获取注册开关
-```
-GET /api/admin/users/settings/registration
-```
-权限：管理员。
-
-返回：
-```
-{
-  "enabled": true
-}
-```
-修改注册开关
-```
-PATCH /api/admin/users/settings/registration
-```
-权限：管理员。
-
-请求体：
-```
-{
-  "enabled": false
-}
-```
-返回：
-```
-{
-  "enabled": false
-}
-```
-说明：
-
-关闭公开注册后，普通注册入口不能创建新账号。
-管理员后台创建用户不受该开关影响。
+用于公开用户页。
 
 ## Public Comics
 
 Router：`backend/app/routers/comics.py`
-
-Prefix：
-
-```txt
-/api/comics
-```
-
-已存在接口：
 
 ```txt
 GET /api/comics
@@ -190,46 +71,11 @@ GET /api/comics/{series_slug}
 GET /api/comics/{series_slug}/{part_slug}/{chapter_slug}
 ```
 
-行为：
-
-- `GET /api/comics`
-  - 只返回 `visibility == "public"` 的 series。
-  - 按 `display_order` 排序。
-
-- `GET /api/comics/{series_slug}`
-  - 只查公开 series。
-  - 返回公开 parts 和公开 chapters。
-  - 不返回漫画页图片。
-
-- `GET /api/comics/{series_slug}/{part_slug}/{chapter_slug}`
-  - 返回阅读页所需数据。
-  - 返回 pages，每页含 `imageUrl`、`displayOrder`、尺寸字段。
-
-前端封装：
-
-```txt
-frontend/src/api/comics.ts
-```
-
-使用页面：
-
-```txt
-frontend/src/pages/ComicsPage.tsx
-frontend/src/pages/ComicSeriesPage.tsx
-frontend/src/pages/ComicReaderPage.tsx
-```
+用于漫画列表、系列详情和章节阅读。
 
 ## Public Novels
 
 Router：`backend/app/routers/novels.py`
-
-Prefix：
-
-```txt
-/api/novels
-```
-
-已存在接口：
 
 ```txt
 GET /api/novels
@@ -237,39 +83,41 @@ GET /api/novels/{novel_slug}
 GET /api/novels/{novel_slug}/{chapter_slug}
 ```
 
-行为：
+用于小说列表、详情和章节阅读。章节正文为 Markdown，前端用 React Markdown 渲染。
 
-- `GET /api/novels`
-  - 返回所有 novel。
-  - 按 `display_order` 排序。
-  - 返回 `id`、`slug`、`title`、`summary`、`coverUrl`、`displayOrder`、时间字段。
+## Admin Users
 
-- `GET /api/novels/{novel_slug}`
-  - 返回 novel 详情和 chapter 列表。
-  - chapters 按 `display_order` 排序。
+Router：`backend/app/routers/user_admin.py`
 
-- `GET /api/novels/{novel_slug}/{chapter_slug}`
-  - 返回小说阅读页所需数据。
-  - `chapter.content` 是 Markdown 文本，前端用 `react-markdown` 和 `remark-gfm` 渲染。
-
-注意：
-
-- 小说模型当前没有 `visibility` / `status` 字段，公开接口不会过滤私有内容。
-- 如果要支持草稿或私密小说，先补模型字段和迁移计划。
-
-前端封装：
+Prefix：
 
 ```txt
-frontend/src/api/novels.ts
+/api/admin/users
 ```
 
-使用页面：
+权限：
 
 ```txt
-frontend/src/pages/NovelsPage.tsx
-frontend/src/pages/NovelDetailPage.tsx
-frontend/src/pages/NovelReaderPage.tsx
+require_admin_user
 ```
+
+接口：
+
+```txt
+GET    /api/admin/users
+POST   /api/admin/users
+PATCH  /api/admin/users/{username}
+PATCH  /api/admin/users/{username}/password
+DELETE /api/admin/users/{username}
+GET    /api/admin/users/settings/registration
+PATCH  /api/admin/users/settings/registration
+```
+
+能力：
+
+- 列出、创建、更新、删除用户。
+- 重置密码。
+- 管理公开注册开关。
 
 ## Admin Comics
 
@@ -283,13 +131,11 @@ Prefix：
 
 权限：
 
-```py
-dependencies=[Depends(require_admin_user)]
+```txt
+require_admin_user
 ```
 
-也就是说：整个 router 都要求 admin。不要让普通 author 直接依赖这些接口。
-
-已存在接口：
+接口：
 
 ```txt
 GET    /api/admin/comics/tree
@@ -311,36 +157,71 @@ POST   /api/admin/comics/series/create
 POST   /api/admin/comics/{series_slug}/part/create
 ```
 
-主要能力：
+## Author Comics
 
-- 获取全站漫画树。
-- 上传图片并创建章节。
-- 删除 chapter、part、series。
-- 移动章节顺序。
-- 重命名 series、part、chapter。
-- 设置 part owner。
-- 修改 series、part 简介。
-- 上传 series、part 封面。
-- 创建新的 series。
-- 在已有 series 下创建 part，并把当前管理员设为该 part owner。
+Router：`backend/app/routers/comic_author.py`
 
-后端核心 service：
+Prefix：
 
 ```txt
-backend/app/services/comic_admin.py
+/api/author/comics
+```
+
+权限：
+
+- 需要登录。
+- 按 `ComicPartUserLink(role="owner")` 限制作者只能操作自己的 part。
+
+接口：
+
+```txt
+GET    /api/author/comics/tree
+POST   /api/author/comics/series/create
+POST   /api/author/comics/{series_slug}/part/create
+PATCH  /api/author/comics/{series_slug}/rename
+PATCH  /api/author/comics/{series_slug}/summary
+POST   /api/author/comics/{series_slug}/cover
+PATCH  /api/author/comics/{series_slug}/{part_slug}/rename
+PATCH  /api/author/comics/{series_slug}/{part_slug}/summary
+POST   /api/author/comics/{series_slug}/{part_slug}/cover
+PATCH  /api/author/comics/{series_slug}/{part_slug}/{chapter_slug}/rename
+PATCH  /api/author/comics/{series_slug}/{part_slug}/{chapter_slug}/move
+DELETE /api/author/comics/{series_slug}/{part_slug}/{chapter_slug}
 ```
 
 前端封装：
 
 ```txt
-frontend/src/api/adminComics.ts
+frontend/src/api/authorComics.ts
 ```
 
-使用页面：
+## Author Comic Upload
+
+Router：`backend/app/routers/comic_upload.py`
+
+Prefix：
 
 ```txt
-frontend/src/pages/AdminComicsPage.tsx
+/api/author/comic-upload
 ```
+
+接口：
+
+```txt
+GET    /api/author/comic-upload/images
+POST   /api/author/comic-upload/images
+GET    /api/author/comic-upload/images/{image_id}/preview
+DELETE /api/author/comic-upload/images/{image_id}
+POST   /api/author/comic-upload/images/delete-batch
+DELETE /api/author/comic-upload/images
+POST   /api/author/comic-upload/publish
+```
+
+能力：
+
+- 管理当前登录用户的漫画待传区。
+- 发布时检查当前用户是否是目标 part owner。
+- 单用户待传区 100MB，单文件 20MB。
 
 ## Admin Novels
 
@@ -354,11 +235,11 @@ Prefix：
 
 权限：
 
-```py
-dependencies=[Depends(require_admin_user)]
+```txt
+require_admin_user
 ```
 
-已存在接口：
+接口：
 
 ```txt
 GET    /api/admin/novels/tree
@@ -374,256 +255,63 @@ PATCH  /api/admin/novels/{novel_slug}/{chapter_slug}/move
 PATCH  /api/admin/novels/{novel_slug}/owner
 ```
 
-主要能力：
+## Author Novels
 
-- 获取全站小说树。
-- 获取 owner 候选用户。
-- 创建 novel，创建后把当前管理员设为 owner。
-- 创建 chapter。
-- 删除 chapter、novel。
-- 重命名 novel、chapter。
-- 编辑 chapter Markdown 正文。
-- 移动 chapter 顺序。
-- 设置 novel owner。
-
-请求体摘要：
-
-```txt
-POST /create
-{ "slug": "novel-slug", "title": "标题" }
-
-POST /{novel_slug}/chapter/create
-{ "slug": "chapter-001", "customTitle": "自定义标题", "content": "Markdown" }
-
-PATCH /{novel_slug}/rename
-{ "title": "新标题" }
-
-PATCH /{novel_slug}/{chapter_slug}/rename
-{ "customTitle": "新章节名" }
-
-PATCH /{novel_slug}/{chapter_slug}/content
-{ "content": "Markdown" }
-
-PATCH /{novel_slug}/{chapter_slug}/move
-{ "direction": "up" | "down" }
-
-PATCH /{novel_slug}/owner
-{ "username": "passer" | null }
-```
-
-后端核心 service：
-
-```txt
-backend/app/services/novel_admin.py
-```
-
-前端封装：
-
-```txt
-frontend/src/api/adminNovels.ts
-```
-
-使用页面：
-
-```txt
-frontend/src/pages/AdminNovelsPage.tsx
-```
-
-## Admin Users
-
-Router：`backend/app/routers/user_admin.py`
+Router：`backend/app/routers/novel_author.py`
 
 Prefix：
 
 ```txt
-/api/admin/users
+/api/author/novels
 ```
 
 权限：
 
-```py
-dependencies=[Depends(require_admin_user)]
-```
+- 需要登录。
+- 按 `NovelUserLink(role="owner")` 限制作者只能操作自己的 novel。
 
-已存在接口：
-
-```txt
-GET    /api/admin/users
-POST   /api/admin/users
-PATCH  /api/admin/users/{username}
-PATCH  /api/admin/users/{username}/password
-DELETE /api/admin/users/{username}
-GET    /api/admin/users/settings/registration
-PATCH  /api/admin/users/settings/registration
-```
-
-主要能力：
-
-- 列出用户。
-- 创建用户。
-- 更新显示名、角色、启用状态、bio。
-- 重置密码。
-- 删除用户，删除时要求确认用户名和当前管理员密码。
-- 读取和修改公开注册开关。
-
-前端封装：
+接口：
 
 ```txt
-frontend/src/api/adminUsers.ts
+GET    /api/author/novels/tree
+POST   /api/author/novels/create
+POST   /api/author/novels/{novel_slug}/chapter/create
+PATCH  /api/author/novels/{novel_slug}/rename
+PATCH  /api/author/novels/{novel_slug}/summary
+POST   /api/author/novels/{novel_slug}/cover
+PATCH  /api/author/novels/{novel_slug}/{chapter_slug}/rename
+PATCH  /api/author/novels/{novel_slug}/{chapter_slug}/content
+PATCH  /api/author/novels/{novel_slug}/{chapter_slug}/move
+DELETE /api/author/novels/{novel_slug}/{chapter_slug}
+DELETE /api/author/novels/{novel_slug}
 ```
 
-使用页面：
+Novel text buffer：
 
 ```txt
-frontend/src/pages/AdminUsersPage.tsx
-```
-
-## Author Comic Upload
-
-Router：`backend/app/routers/comic_upload.py`
-
-Prefix：
-
-```txt
-/api/author/comic-upload
-```
-
-权限：
-
-- 使用 `require_current_user`。
-- 发布时额外检查当前用户是否是目标 part 的 owner。
-
-已存在接口：
-
-```txt
-GET    /api/author/comic-upload/images
-POST   /api/author/comic-upload/images
-GET    /api/author/comic-upload/images/{image_id}/preview
-DELETE /api/author/comic-upload/images/{image_id}
-POST   /api/author/comic-upload/images/delete-batch
-DELETE /api/author/comic-upload/images
-POST   /api/author/comic-upload/publish
-```
-
-主要能力：
-
-- 查看当前用户待传区。
-- 上传多张图片到待传区。
-- 预览待传图片。
-- 删除单张图片。
-- 批量删除图片。
-- 清空待传区。
-- 发布待传区图片为某个已有 part 下的新 chapter。
-- 单用户待传区上限 100MB。
-- 单张图片上限 20MB。
-- 支持 `jpg`、`jpeg`、`png`、`webp`，拒绝 `:Zone.Identifier` 附加文件。
-
-后端核心 service：
-
-```txt
-backend/app/services/comic_upload.py
+GET    /api/author/novels/{novel_slug}/text-buffers
+POST   /api/author/novels/{novel_slug}/text-buffer/create
+POST   /api/author/novels/{novel_slug}/{chapter_slug}/text-buffer/load
+PATCH  /api/author/novels/text-buffer/{buffer_id}
+POST   /api/author/novels/{novel_slug}/{chapter_slug}/text-buffer/publish
+POST   /api/author/novels/{novel_slug}/text-buffer/publish-new-chapter
+DELETE /api/author/novels/text-buffer/{buffer_id}
 ```
 
 前端封装：
 
 ```txt
-frontend/src/api/authorComicUpload.ts
+frontend/src/api/authorNovels.ts
 ```
-
-使用页面：
-
-```txt
-frontend/src/pages/CreatorComicPartPage.tsx
-```
-
-## Frontend API Files
-
-当前前端 API 封装位置：
-
-```txt
-frontend/src/api/auth.ts
-frontend/src/api/comics.ts
-frontend/src/api/novels.ts
-frontend/src/api/users.ts
-frontend/src/api/adminComics.ts
-frontend/src/api/adminNovels.ts
-frontend/src/api/adminUsers.ts
-frontend/src/api/authorComics.ts
-frontend/src/api/authorComicUpload.ts
-```
-
-注意：
-
-- `API_BASE_URL` 已统一从 `frontend/src/api/config.ts` 导出。
-- 新功能不要在业务文件里重新定义 API 地址。
-- `authorComics.ts` 目前复用 admin API，这是现状问题，不是推荐架构。
-
-## Creator Pages API Usage
-
-当前创作者漫画页面使用的接口分两类：
-
-```txt
-frontend/src/api/authorComics.ts
-frontend/src/api/authorComicUpload.ts
-```
-
-`authorComicUpload.ts` 调用专门的 `/api/author/comic-upload`，使用 `require_current_user`，发布时检查 part owner。
-
-`authorComics.ts` 目前仍调用 `/api/admin/comics/...`，包括：
-
-```txt
-GET   /api/admin/comics/tree
-POST  /api/admin/comics/series/create
-POST  /api/admin/comics/{series_slug}/part/create
-PATCH /api/admin/comics/{series_slug}/rename
-PATCH /api/admin/comics/{series_slug}/{part_slug}/rename
-PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/rename
-PATCH /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}/move
-DELETE /api/admin/comics/{series_slug}/{part_slug}/{chapter_slug}
-PATCH /api/admin/comics/{series_slug}/summary
-PATCH /api/admin/comics/{series_slug}/{part_slug}/summary
-POST  /api/admin/comics/{series_slug}/cover
-POST  /api/admin/comics/{series_slug}/{part_slug}/cover
-```
-
-这些接口当前要求 admin。不要误判为普通 author 已具备完整后端权限。
 
 ## Auth Header Pattern
-
-已存在 Bearer token 模式：
 
 ```txt
 Authorization: Bearer <accessToken>
 ```
 
-前端 token 读写：
-
-```txt
-saveAccessToken
-getAccessToken
-clearAccessToken
-```
-
-位置：
+前端 token 读写在：
 
 ```txt
 frontend/src/api/auth.ts
-```
-
-后端 token 校验：
-
-```txt
-backend/app/dependencies/auth.py
-```
-
-如果需要保护新接口，优先使用：
-
-```py
-current_user: User = Depends(require_current_user)
-```
-
-如果只允许管理员，使用：
-
-```py
-current_user: User = Depends(require_admin_user)
 ```
