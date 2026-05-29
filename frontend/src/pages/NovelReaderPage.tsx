@@ -273,7 +273,7 @@ function NovelReaderPage() {
 
   return (
     <main className="page-shell min-h-[100dvh] pb-14">
-      <section className="mx-auto max-w-[1250px] px-6 py-8 md:px-8">
+      <section className="mx-auto max-w-[1250px] px-0 py-6 md:px-8 md:py-8">
         <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
           <Link to="/works/novels" className="font-semibold link-accent">
             ← 小说存档

@@ -136,7 +136,7 @@ function NovelsPage() {
       <section className="mx-auto max-w-[1250px] px-4 py-7 md:px-8 md:py-8">
         <header className="grid gap-5 md:grid-cols-[minmax(0,0.8fr)_minmax(420px,1.2fr)] md:items-end md:gap-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] link-accent md:tracking-[0.28em]">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] link-accent md:tracking-[0.28em] max-md:hidden">
               Novels
             </p>
 

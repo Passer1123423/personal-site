@@ -801,15 +801,15 @@ export default function CreatorComicPartPage() {
                   to={seriesSlug ? `/creator/comics/${seriesSlug}` : "/creator/comics"}
                   className="link-accent text-sm"
                 >
-                  返回 《 {seriesSlug ?? "创作者"} 》
+                  返回
                 </Link>
 
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em]">
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em] max-md:hidden">
                   Creator Comics
                 </p>
 
                 <h1 className="mt-2 text-2xl font-bold leading-tight text-main md:text-3xl">
-                  {partDetail?.part.title ?? partSlug ?? "Part 管理"}
+                  {partDetail?.part.title ?? partSlug ?? "Part"} 作者页
                 </h1>
 
                 <p className="mt-2 text-sm text-muted md:mt-3">

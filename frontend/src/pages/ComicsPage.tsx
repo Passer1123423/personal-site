@@ -229,7 +229,7 @@ function ComicsPage() {
                   漫画主页
                 </h1>
 
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200 md:mt-6 md:text-lg md:leading-8">
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200 md:mt-6 md:text-lg md:leading-8 max-md: hidden">
                   这里整理漫画系列、分部目录和章节阅读入口。点击封面进入系列目录，再选择章节开始阅读。
                 </p>
               </div>

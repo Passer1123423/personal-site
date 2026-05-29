@@ -442,13 +442,24 @@
     padding: 1.5rem 1.25rem;
   }
 
+  .novel-reader-content {
+    grid-column: 1 / -1;
+  }
+
   .novel-reader-sidebar {
     display: none;
   }
 
   .novel-reader-markdown {
     max-width: none;
-    padding: 1.75rem 1.25rem 2.25rem;
+    padding: 1.5rem 1.15rem 2.25rem;
+    font-size: 1.125rem;
+    line-height: 2.08;
+  }
+
+  .novel-reader-markdown p {
+    font-size: 1.125rem;
+    line-height: 2.08;
   }
 
   .novel-reader-footer {

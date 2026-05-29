@@ -277,17 +277,29 @@ export default function CreatorComicSeriesPage() {
   const resolvedCoverUrl = resolveCoverUrl(series?.coverUrl);
 
   return (
-    <main className="admin-page-shell min-h-[100dvh] px-6 py-10 max-md:px-4 max-md:py-7">
-      <section className="mx-auto max-w-7xl">
-        <div className="mb-6 max-md:mb-5">
-          <Link to="/creator/comics" className="link-accent text-sm">
-            返回创作者漫画书架
-          </Link>
+    <main className="admin-page-shell min-h-screen">
+      <div className="flex min-h-screen">
+        <section className="min-w-0 flex-1 px-4 py-7 transition-all duration-300 md:px-6 md:py-10">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3 md:mb-6 md:items-center md:gap-4">
+              <div className="min-w-0">
+                <Link to="/creator/comics" className="link-accent text-sm">
+                  返回创作者漫画书架
+                </Link>
 
-          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.25em] link-accent max-md:text-xs max-md:tracking-[0.2em]">
-            Creator Comics
-          </p>
-        </div>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em] max-md:hidden">
+                  Creator Comics
+                </p>
+
+                <h1 className="mt-2 text-2xl font-bold leading-tight text-main md:text-3xl">
+                  {series?.title ?? seriesSlug ?? "Series"} 作者页
+                </h1>
+
+                <p className="mt-2 text-sm text-muted md:mt-3">
+                  {series?.slug ?? seriesSlug ?? "-"}
+                </p>
+              </div>
+            </div>
 
         {message && (
           <div
@@ -302,18 +314,18 @@ export default function CreatorComicSeriesPage() {
         )}
 
         {loading ? (
-          <section className="admin-section max-md:rounded-none max-md:border-x-0 max-md:px-0 max-md:py-5 max-md:shadow-none">
+          <section className="border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
             <p className="text-sm text-soft">正在加载 series...</p>
           </section>
         ) : !series ? (
-          <section className="admin-section max-md:rounded-none max-md:border-x-0 max-md:px-0 max-md:py-5 max-md:shadow-none">
+          <section className="border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
             <p className="text-sm text-soft">未找到目标 series。</p>
           </section>
         ) : (
           <>
-            <section className="admin-section max-md:rounded-none max-md:border-x-0 max-md:px-0 max-md:py-5 max-md:shadow-none">
-              <div className="grid gap-6 md:grid-cols-[180px_minmax(0,1fr)] max-md:grid-cols-[92px_minmax(0,1fr)] max-md:gap-x-4 max-md:gap-y-4">
-                <label className="group relative flex h-60 cursor-pointer items-center justify-center overflow-hidden border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] text-sm text-soft max-md:h-32 max-md:rounded-sm max-md:text-xs">
+            <section className="border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
+              <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-x-4 gap-y-4 md:grid-cols-[180px_minmax(0,1fr)] md:gap-6">
+                <label className="group relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] text-xs text-soft md:h-60 md:rounded-2xl md:text-sm">
                   {resolvedCoverUrl ? (
                     <img
                       src={resolvedCoverUrl}
@@ -324,7 +336,7 @@ export default function CreatorComicSeriesPage() {
                     "Series 封面"
                   )}
 
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 text-sm font-semibold text-white opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100 max-md:px-2 max-md:text-center max-md:text-xs">
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 px-2 text-center text-xs font-semibold text-white opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100 md:text-sm">
                     点击更换封面
                   </div>
 
@@ -340,12 +352,12 @@ export default function CreatorComicSeriesPage() {
                   />
                 </label>
 
-                <div className="max-md:min-w-0">
-                  <div className="flex flex-wrap items-center gap-3 max-md:gap-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 md:gap-3">
                     {isTitleEditing ? (
                       <>
                         <input
-                          className="admin-input px-3 py-2 text-lg font-semibold max-md:min-w-0 max-md:flex-1 max-md:text-base"
+                          className="admin-input min-w-0 flex-1 px-3 py-2 text-base font-semibold md:text-lg"
                           value={seriesTitleDraft}
                           disabled={submitting}
                           onChange={(event) =>
@@ -388,7 +400,7 @@ export default function CreatorComicSeriesPage() {
                     ) : (
                       <button
                         type="button"
-                        className="group inline-flex items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-60 max-md:min-w-0 max-md:gap-2"
+                        className="group inline-flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60 md:gap-3"
                         disabled={submitting}
                         title="编辑 series 标题"
                         onClick={() => {
@@ -396,23 +408,23 @@ export default function CreatorComicSeriesPage() {
                           setIsTitleEditing(true);
                         }}
                       >
-                        <h1 className="text-3xl font-bold text-main group-hover:underline group-hover:underline-offset-4 max-md:line-clamp-2 max-md:text-lg max-md:leading-6">
+                        <h2 className="line-clamp-2 text-lg font-bold leading-6 text-main group-hover:underline group-hover:underline-offset-4 md:text-2xl md:leading-tight">
                           {series.title}
-                        </h1>
+                        </h2>
 
-                        <span className="admin-button-secondary px-3 py-1 text-sm group-hover:text-muted max-md:px-2 max-md:text-xs">
+                        <span className="admin-button-secondary px-2 py-1 text-xs group-hover:border-[var(--color-accent-border-strong)] group-hover:text-[var(--color-accent)] md:px-3 md:text-sm">
                           ✎
                         </span>
                       </button>
                     )}
                   </div>
 
-                  <div className="mt-4 max-md:mt-3 max-md:text-xs max-md:leading-5">
-                    <p className="text-soft">{series.slug}</p>
-                    <p className="mt-1 text-soft">{parts.length} 个 part</p>
+                  <div className="mt-3 text-xs leading-5 text-soft md:hidden">
+                    <p>{series.slug}</p>
+                    <p className="mt-1">{parts.length} 个 part</p>
                   </div>
 
-                  <div className="mt-4 max-md:hidden">
+                  <div className="mt-3 hidden md:mt-4 md:block">
                     <label className="text-sm font-semibold text-main">
                       Series 简介
                     </label>
@@ -440,7 +452,7 @@ export default function CreatorComicSeriesPage() {
                   </div>
                 </div>
 
-                <div className="hidden max-md:col-span-2 max-md:block">
+                <div className="col-span-2 md:hidden">
                   <label className="text-sm font-semibold text-main">
                     Series 简介
                   </label>
@@ -469,24 +481,24 @@ export default function CreatorComicSeriesPage() {
               </div>
             </section>
 
-            <section className="admin-section mt-6 max-md:rounded-none max-md:border-x-0 max-md:px-0 max-md:py-5 max-md:shadow-none">
-              <div className="flex flex-wrap items-end justify-between gap-3 max-md:gap-2 max-md:border-b max-md:border-[var(--color-border-soft)] max-md:pb-4">
+            <section className="mt-6 border-y border-[var(--color-border-soft)] py-5 md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:p-5 md:shadow-[var(--shadow-card)]">
+              <div className="flex flex-wrap items-end justify-between gap-2 border-b border-[var(--color-border-soft)] pb-4 md:border-b-0 md:pb-0">
                 <div>
-                  <h2 className="text-xl font-semibold text-main max-md:text-lg">
+                  <h2 className="text-lg font-semibold text-main md:text-xl">
                     我的 part 书架
                   </h2>
 
-                  <p className="mt-2 text-sm text-muted max-md:mt-1.5 max-md:leading-6">
+                  <p className="mt-1.5 text-sm leading-6 text-muted md:mt-2">
                     这里只展示当前登录用户拥有 owner 权限的 part。
                   </p>
                 </div>
 
-                <p className="text-sm text-soft max-md:text-xs">
+                <p className="text-xs text-soft md:text-sm">
                   共 {parts.length} 个 part
                 </p>
               </div>
 
-              <div className="mt-8 grid grid-cols-[repeat(auto-fill,112px)] justify-center gap-x-10 gap-y-12 sm:grid-cols-[repeat(auto-fill,128px)] md:justify-start max-md:mt-6 max-md:grid-cols-[repeat(auto-fill,96px)] max-md:gap-x-5 max-md:gap-y-7">
+              <div className="mt-6 grid grid-cols-[repeat(auto-fill,96px)] justify-center gap-x-5 gap-y-7 sm:grid-cols-[repeat(auto-fill,128px)] sm:gap-x-7 sm:gap-y-9 md:mt-8 md:justify-start md:gap-x-10 md:gap-y-12">
                 {parts.map((part) => (
                   <CreatorBookCard
                     key={part.id}
@@ -507,7 +519,9 @@ export default function CreatorComicSeriesPage() {
             </section>
           </>
         )}
-      </section>
+          </div>
+        </section>
+      </div>
 
       {createPartOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

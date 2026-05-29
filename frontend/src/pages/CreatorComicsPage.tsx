@@ -128,11 +128,11 @@ export default function CreatorComicsPage() {
       <section className="mx-auto max-w-7xl">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3 md:mb-8 md:items-center md:gap-4">
           <div className="min-w-0">
-            <Link to="/works" className="link-accent text-sm">
-              返回作品页
+            <Link to="/creator" className="link-accent text-sm">
+              返回创作中心
             </Link>
 
-            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em]">
+            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em] max-md:hidden">
               Creator Comics
             </p>
 
@@ -141,7 +141,7 @@ export default function CreatorComicsPage() {
             </h1>
 
             <p className="mt-3 max-w-3xl text-sm leading-6 text-muted md:mt-4 md:leading-7">
-              这里展示全站 series。series 本身不归属作者，进入某个 series 后再显示当前用户拥有 owner 权限的 part。
+              这里展示全站 series。series 是一季的总和，相当于文件夹。里面的part是章，以一本为单位，有各自的owner。
             </p>
           </div>
 

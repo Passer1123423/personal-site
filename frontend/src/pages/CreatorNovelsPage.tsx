@@ -107,7 +107,7 @@ export default function CreatorNovelsPage() {
               返回创作中心
             </Link>
 
-            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em]">
+            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em] max-md:hidden">
               Creator Novels
             </p>
 
