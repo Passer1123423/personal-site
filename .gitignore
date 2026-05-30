@@ -1,24 +1,34 @@
-<<<<<<< HEAD
-node_modules
-dist
+# frontend
+frontend/node_modules/
+frontend/dist/
+node_modules/
+dist/
+
+# backend virtualenv / env
+backend/.venv/
+.venv/
 .env
 .env.local
-=======
-# frontend
-frontend/node_modules
-frontend/dist
-
-# backend
-backend/.venv
-backend/__pycache__
 backend/.env
-backend/import
-backend/upload
 
-# uploaded files
-uploads
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyc
 
-# common
-.env
->>>>>>> bb8e3cf (init personal site project)
+# IDE
+.idea/
+.vscode/
+
+# local database and backups
+backend/data/
+backend/backups/
+*.db
+
+# uploads / generated files
+backend/uploads/
+backend/import_data/
+uploads/
+
+# system
 .DS_Store
