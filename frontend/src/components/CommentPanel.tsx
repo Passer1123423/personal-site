@@ -16,17 +16,45 @@ type CommentPanelProps = {
   className?: string;
 };
 
+type CommentUser = NonNullable<CommentItem["user"]>;
+
+type ReplyTarget = {
+  commentId: string;
+  parentId: string;
+  mentionUsername: string | null;
+};
+
+type FlatReply = {
+  comment: CommentItem;
+  replyToComment: CommentItem | null;
+};
+
 type CommentNodeProps = {
   comment: CommentItem;
   currentUser: AuthUser | null;
   deletingId: string;
-  replyingToId: string | null;
+  replyTarget: ReplyTarget | null;
   replyContent: string;
-  depth?: number;
-  onStartReply: (commentId: string) => void;
+  onStartReply: (target: ReplyTarget) => void;
   onCancelReply: () => void;
   onChangeReplyContent: (content: string) => void;
-  onSubmitReply: (parentId: string) => void;
+  onSubmitReply: () => void;
+  onDelete: (commentId: string) => void;
+  expandedReplyIds: Set<string>;
+  onToggleRepliesExpanded: (commentId: string) => void;
+};
+
+type ReplyNodeProps = {
+  item: FlatReply;
+  rootCommentId: string;
+  currentUser: AuthUser | null;
+  deletingId: string;
+  replyTarget: ReplyTarget | null;
+  replyContent: string;
+  onStartReply: (target: ReplyTarget) => void;
+  onCancelReply: () => void;
+  onChangeReplyContent: (content: string) => void;
+  onSubmitReply: () => void;
   onDelete: (commentId: string) => void;
 };
 
@@ -135,6 +163,34 @@ function getCurrentUserName(user: AuthUser) {
   return user.displayName || user.username;
 }
 
+function parseLeadingMention(content: string) {
+  const match = content.match(/^@([A-Za-z0-9_.-]+)[：:]\s*/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    username: match[1],
+    rest: content.slice(match[0].length),
+  };
+}
+
+function flattenReplies(children: CommentItem[], directParent: CommentItem): FlatReply[] {
+  const result: FlatReply[] = [];
+
+  children.forEach((child) => {
+    result.push({
+      comment: child,
+      replyToComment: directParent,
+    });
+
+    result.push(...flattenReplies(child.children, child));
+  });
+
+  return result;
+}
+
 function CommentAvatar({
   comment,
   small = false,
@@ -155,35 +211,110 @@ function CommentAvatar({
   );
 }
 
-function CommentNode({
-  comment,
+function CommentContent({ comment }: { comment: CommentItem }) {
+  if (comment.is_deleted) {
+    return <p className="mt-2 text-sm text-soft">该评论已删除。</p>;
+  }
+
+  const mention = parseLeadingMention(comment.content);
+
+  if (mention) {
+    return (
+      <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-7 text-main">
+        <Link to={`/users/${mention.username}`} className="link-accent">
+          @{mention.username}
+        </Link>
+        <span>：{mention.rest}</span>
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-7 text-main">
+      {comment.content}
+    </p>
+  );
+}
+
+function ReplyComposer({
+  replyContent,
+  onCancelReply,
+  onChangeReplyContent,
+  onSubmitReply,
+}: {
+  replyContent: string;
+  onCancelReply: () => void;
+  onChangeReplyContent: (content: string) => void;
+  onSubmitReply: () => void;
+}) {
+  return (
+    <div className="mt-3">
+      <AutoResizeTextarea
+        value={replyContent}
+        onChange={onChangeReplyContent}
+        placeholder="写下回复..."
+        minRows={1}
+        maxRows={5}
+      />
+
+      <div className="mt-2 flex justify-end gap-2">
+        <button
+          type="button"
+          className="rounded-lg px-3 py-1.5 text-xs text-soft hover:bg-[var(--color-panel-soft-bg)] hover:text-main"
+          onClick={onCancelReply}
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          className="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs text-[var(--color-text-inverse)] hover:bg-[var(--color-accent-hover)]"
+          onClick={onSubmitReply}
+        >
+          发布
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReplyNode({
+  item,
+  rootCommentId,
   currentUser,
   deletingId,
-  replyingToId,
+  replyTarget,
   replyContent,
-  depth = 0,
   onStartReply,
   onCancelReply,
   onChangeReplyContent,
   onSubmitReply,
   onDelete,
-}: CommentNodeProps) {
+}: ReplyNodeProps) {
+  const { comment, replyToComment } = item;
   const canDelete = Boolean(
     currentUser && currentUser.id === comment.user_id && !comment.is_deleted,
   );
-  const isReplying = replyingToId === comment.id;
-  const isChild = depth > 0;
+  const isReplying = replyTarget?.commentId === comment.id;
+
+  const replyToUser = replyToComment?.user ?? null;
+  const replyToText = replyToComment
+    ? replyToComment.is_deleted
+      ? "该评论已删除。"
+      : replyToComment.content
+    : "";
 
   return (
-    <article
-      className={
-        isChild
-          ? "pt-3"
-          : "border-b border-[var(--color-border-soft)] py-5 last:border-b-0"
-      }
-    >
+    <article className="group relative pt-3">
+      {replyToComment && (
+        <div className="pointer-events-none absolute left-11 top-2 z-20 hidden max-w-[min(420px,80vw)] rounded-lg border border-[var(--color-border-soft)] bg-white/95 px-3 py-2 text-xs text-muted shadow-lg backdrop-blur group-hover:block">
+          <div className="truncate">
+            回复：{replyToText}
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-3">
-        <CommentAvatar comment={comment} small={isChild} />
+        <CommentAvatar comment={comment} small />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -198,13 +329,7 @@ function CommentNode({
             )}
           </div>
 
-          {comment.is_deleted ? (
-            <p className="mt-2 text-sm text-soft">该评论已删除。</p>
-          ) : (
-            <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-7 text-main">
-              {comment.content}
-            </p>
-          )}
+          <CommentContent comment={comment} />
 
           <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-soft">
             <span>{formatCommentTime(comment.created_at)}</span>
@@ -213,7 +338,13 @@ function CommentNode({
               <button
                 type="button"
                 className="hover:text-[var(--color-accent)]"
-                onClick={() => onStartReply(comment.id)}
+                onClick={() =>
+                  onStartReply({
+                    commentId: comment.id,
+                    parentId: rootCommentId,
+                    mentionUsername: comment.user?.username ?? null,
+                  })
+                }
               >
                 回复
               </button>
@@ -232,45 +363,125 @@ function CommentNode({
           </div>
 
           {isReplying && (
-            <div className="mt-3">
-              <AutoResizeTextarea
-                value={replyContent}
-                onChange={onChangeReplyContent}
-                placeholder="写下回复..."
-                minRows={1}
-                maxRows={5}
-              />
+            <ReplyComposer
+              replyContent={replyContent}
+              onCancelReply={onCancelReply}
+              onChangeReplyContent={onChangeReplyContent}
+              onSubmitReply={onSubmitReply}
+            />
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
 
-              <div className="mt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="rounded-lg px-3 py-1.5 text-xs text-soft hover:bg-[var(--color-panel-soft-bg)] hover:text-main"
-                  onClick={onCancelReply}
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs text-[var(--color-text-inverse)] hover:bg-[var(--color-accent-hover)]"
-                  onClick={() => onSubmitReply(comment.id)}
-                >
-                  发布
-                </button>
-              </div>
-            </div>
+function CommentNode({
+  comment,
+  currentUser,
+  deletingId,
+  replyTarget,
+  replyContent,
+  onStartReply,
+  onCancelReply,
+  onChangeReplyContent,
+  onSubmitReply,
+  onDelete,
+  expandedReplyIds,
+  onToggleRepliesExpanded,
+  }: CommentNodeProps) {
+  const canDelete = Boolean(
+    currentUser && currentUser.id === comment.user_id && !comment.is_deleted,
+  );
+  const isReplying = replyTarget?.commentId === comment.id;
+  const replies = flattenReplies(comment.children, comment);
+
+  const shouldCollapseReplies = replies.length > 3;
+  const repliesCollapsed =
+    shouldCollapseReplies && !expandedReplyIds.has(comment.id);
+  const visibleReplies = shouldCollapseReplies && repliesCollapsed ? [] : replies;
+
+  return (
+    <article className="border-b border-[var(--color-border-soft)] py-5 last:border-b-0">
+      <div className="flex gap-3">
+        <CommentAvatar comment={comment} />
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-sm font-medium text-[var(--color-text-muted)]">
+              {getCommentUserName(comment)}
+            </span>
+
+            {comment.user?.role === "admin" && (
+              <span className="rounded px-1.5 py-0.5 text-[10px] leading-none text-[var(--color-accent)] ring-1 ring-[var(--color-accent-border)]">
+                UP
+              </span>
+            )}
+          </div>
+
+          <CommentContent comment={comment} />
+
+          <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-soft">
+            <span>{formatCommentTime(comment.created_at)}</span>
+
+            {!comment.is_deleted && currentUser && (
+              <button
+                type="button"
+                className="hover:text-[var(--color-accent)]"
+                onClick={() =>
+                  onStartReply({
+                    commentId: comment.id,
+                    parentId: comment.id,
+                    mentionUsername: null,
+                  })
+                }
+              >
+                回复
+              </button>
+            )}
+
+            {canDelete && (
+              <button
+                type="button"
+                className="hover:text-[var(--color-danger)] disabled:opacity-60"
+                disabled={deletingId === comment.id}
+                onClick={() => onDelete(comment.id)}
+              >
+                {deletingId === comment.id ? "删除中..." : "删除"}
+              </button>
+            )}
+          </div>
+
+          {isReplying && (
+            <ReplyComposer
+              replyContent={replyContent}
+              onCancelReply={onCancelReply}
+              onChangeReplyContent={onChangeReplyContent}
+              onSubmitReply={onSubmitReply}
+            />
           )}
 
-          {comment.children.length > 0 && (
+          {replies.length > 0 && (
             <div className="mt-3 space-y-1">
-              {comment.children.map((child) => (
-                <CommentNode
-                  key={child.id}
-                  comment={child}
+              {shouldCollapseReplies && (
+                <button
+                  type="button"
+                  className="text-xs text-soft hover:!text-[var(--color-accent)] hover:underline hover:underline-offset-4"
+                  onClick={() => onToggleRepliesExpanded(comment.id)}
+                >
+                  {repliesCollapsed ? `展开 ${replies.length} 条回复` : "收起回复"}
+                </button>
+              )}
+
+              {visibleReplies.map((item) => (
+                <ReplyNode
+                  key={item.comment.id}
+                  item={item}
+                  rootCommentId={comment.id}
                   currentUser={currentUser}
                   deletingId={deletingId}
-                  replyingToId={replyingToId}
+                  replyTarget={replyTarget}
                   replyContent={replyContent}
-                  depth={depth + 1}
                   onStartReply={onStartReply}
                   onCancelReply={onCancelReply}
                   onChangeReplyContent={onChangeReplyContent}
@@ -296,8 +507,10 @@ export default function CommentPanel({
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [content, setContent] = useState("");
-  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const [replyContent, setReplyContent] = useState("");
+  const [expandedReplyIds, setExpandedReplyIds] = useState<Set<string>>(new Set());
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState("");
@@ -329,14 +542,16 @@ export default function CommentPanel({
     setErrorMessage(message);
   }
 
-  async function loadComments() {
+  async function loadComments(options: { silent?: boolean } = {}) {
     if (!targetType || !targetId) {
       setComments([]);
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    if (!options.silent) {
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
@@ -447,6 +662,20 @@ export default function CommentPanel({
     };
   }, [comments.length, content, isLoading]);
 
+  function toggleRepliesExpanded(commentId: string) {
+    setExpandedReplyIds((prev) => {
+      const next = new Set(prev);
+
+      if (next.has(commentId)) {
+        next.delete(commentId);
+      } else {
+        next.add(commentId);
+      }
+
+      return next;
+    });
+  }
+
   async function handleSubmit() {
     const cleanContent = content.trim();
 
@@ -465,7 +694,7 @@ export default function CommentPanel({
       });
 
       setContent("");
-      await loadComments();
+      await loadComments({ silent: true });
     } catch (error) {
       showError(error instanceof Error ? error.message : "发表评论失败");
     } finally {
@@ -473,12 +702,16 @@ export default function CommentPanel({
     }
   }
 
-  async function handleSubmitReply(parentId: string) {
+  async function handleSubmitReply() {
     const cleanContent = replyContent.trim();
 
-    if (!cleanContent) {
+    if (!cleanContent || !replyTarget) {
       return;
     }
+
+    const finalContent = replyTarget.mentionUsername
+      ? `@${replyTarget.mentionUsername}：${cleanContent}`
+      : cleanContent;
 
     setIsSubmitting(true);
     setErrorMessage("");
@@ -487,13 +720,13 @@ export default function CommentPanel({
       await createComment({
         targetType,
         targetId,
-        content: cleanContent,
-        parentId,
+        content: finalContent,
+        parentId: replyTarget.parentId,
       });
 
-      setReplyingToId(null);
+      setReplyTarget(null);
       setReplyContent("");
-      await loadComments();
+      await loadComments({ silent: true });
     } catch (error) {
       showError(error instanceof Error ? error.message : "发布回复失败");
     } finally {
@@ -513,7 +746,7 @@ export default function CommentPanel({
 
     try {
       await deleteOwnComment(commentId);
-      await loadComments();
+      await loadComments({ silent: true });
     } catch (error) {
       showError(error instanceof Error ? error.message : "删除评论失败");
     } finally {
@@ -634,19 +867,21 @@ export default function CommentPanel({
                 comment={comment}
                 currentUser={currentUser}
                 deletingId={deletingId}
-                replyingToId={replyingToId}
+                replyTarget={replyTarget}
                 replyContent={replyContent}
-                onStartReply={(commentId) => {
-                  setReplyingToId(commentId);
+                onStartReply={(target) => {
+                  setReplyTarget(target);
                   setReplyContent("");
                 }}
                 onCancelReply={() => {
-                  setReplyingToId(null);
+                  setReplyTarget(null);
                   setReplyContent("");
                 }}
                 onChangeReplyContent={setReplyContent}
                 onSubmitReply={handleSubmitReply}
                 onDelete={handleDelete}
+                expandedReplyIds={expandedReplyIds}
+                onToggleRepliesExpanded={toggleRepliesExpanded}
               />
             ))}
           </div>
