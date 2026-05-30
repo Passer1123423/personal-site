@@ -75,7 +75,7 @@ export default function AdminHomePage() {
               创建用户、调整权限、停用账号、重置密码。
             </p>
           </Link>
-          
+
           <Link
             to="/admin/interactions"
             className="surface-card surface-card-link p-6"

@@ -10,6 +10,13 @@ import {
   type AdminCommentTreeItem,
 } from "../api/adminInteractions";
 
+import SearchablePicker, {
+  type SearchablePickerOption,
+} from "../components/SearchablePicker";
+import { fetchAdminUsers, type AdminUser } from "../api/adminUsers";
+import { fetchAdminNovelsTree, type AdminNovel } from "../api/adminNovels";
+import { fetchAdminComicsTree, type AdminComicSeries } from "../api/adminComics";
+
 type SortMode = "newest" | "oldest" | "reply_count_desc";
 
 const TARGET_TYPE_OPTIONS = [
@@ -20,6 +27,72 @@ const TARGET_TYPE_OPTIONS = [
   { value: "comic_part", label: "漫画 Part" },
   { value: "comic_chapter", label: "漫画章节" },
 ];
+
+type TargetOptionsByType = {
+  user_page: SearchablePickerOption[];
+  novel: SearchablePickerOption[];
+  novel_chapter: SearchablePickerOption[];
+  comic_part: SearchablePickerOption[];
+  comic_chapter: SearchablePickerOption[];
+};
+
+function buildUserOptions(users: AdminUser[]): SearchablePickerOption[] {
+  return users.map((user) => ({
+    value: user.id,
+    label: user.displayName || user.username,
+    description: `@${user.username}`,
+    badge: user.role,
+    searchText: `${user.id} ${user.username} ${user.displayName} ${user.role}`,
+  }));
+}
+
+function buildNovelOptions(novels: AdminNovel[]): SearchablePickerOption[] {
+  return novels.map((novel) => ({
+    value: novel.id,
+    label: novel.title,
+    description: novel.slug,
+    badge: "小说",
+    searchText: `${novel.id} ${novel.title} ${novel.slug}`,
+  }));
+}
+
+function buildNovelChapterOptions(novels: AdminNovel[]): SearchablePickerOption[] {
+  return novels.flatMap((novel) =>
+    novel.chapters.map((chapter) => ({
+      value: chapter.id,
+      label: chapter.title,
+      description: `${novel.title} / ${novel.slug}/${chapter.slug}`,
+      badge: "章节",
+      searchText: `${chapter.id} ${chapter.title} ${chapter.slug} ${novel.title} ${novel.slug}`,
+    })),
+  );
+}
+
+function buildComicPartOptions(seriesList: AdminComicSeries[]): SearchablePickerOption[] {
+  return seriesList.flatMap((series) =>
+    series.parts.map((part) => ({
+      value: part.id,
+      label: part.title,
+      description: `${series.title} / ${series.slug}/${part.slug}`,
+      badge: "Part",
+      searchText: `${part.id} ${part.title} ${part.slug} ${series.title} ${series.slug}`,
+    })),
+  );
+}
+
+function buildComicChapterOptions(seriesList: AdminComicSeries[]): SearchablePickerOption[] {
+  return seriesList.flatMap((series) =>
+    series.parts.flatMap((part) =>
+      part.chapters.map((chapter) => ({
+        value: chapter.id,
+        label: chapter.title,
+        description: `${series.title} / ${part.title} / ${series.slug}/${part.slug}/${chapter.slug}`,
+        badge: "章节",
+        searchText: `${chapter.id} ${chapter.title} ${chapter.slug} ${part.title} ${part.slug} ${series.title} ${series.slug}`,
+      })),
+    ),
+  );
+}
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -123,6 +196,17 @@ export default function AdminInteractionsPage() {
   const [isContextLoading, setIsContextLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [isPickerLoading, setIsPickerLoading] = useState(false);
+  const [userOptions, setUserOptions] = useState<SearchablePickerOption[]>([]);
+  const [targetOptionsByType, setTargetOptionsByType] =
+    useState<TargetOptionsByType>({
+      user_page: [],
+      novel: [],
+      novel_chapter: [],
+      comic_part: [],
+      comic_chapter: [],
+    });
+
   const limit = 30;
 
   const maxPage = useMemo(() => {
@@ -152,6 +236,23 @@ export default function AdminInteractionsPage() {
 
     checkLogin();
   }, [navigate]);
+
+  const currentTargetOptions = useMemo(() => {
+    if (targetType === "user_page") {
+      return userOptions;
+    }
+
+    if (
+      targetType === "novel" ||
+      targetType === "novel_chapter" ||
+      targetType === "comic_part" ||
+      targetType === "comic_chapter"
+    ) {
+      return targetOptionsByType[targetType];
+    }
+
+    return [];
+  }, [targetType, targetOptionsByType, userOptions]);
 
   async function loadComments(nextOffset = offset) {
     setIsLoading(true);
@@ -204,9 +305,37 @@ export default function AdminInteractionsPage() {
     }
   }
 
+  async function loadPickerOptions() {
+    setIsPickerLoading(true);
+
+    try {
+      const [users, novels, comics] = await Promise.all([
+        fetchAdminUsers(),
+        fetchAdminNovelsTree(),
+        fetchAdminComicsTree(),
+      ]);
+
+      const nextUserOptions = buildUserOptions(users);
+
+      setUserOptions(nextUserOptions);
+      setTargetOptionsByType({
+        user_page: nextUserOptions,
+        novel: buildNovelOptions(novels),
+        novel_chapter: buildNovelChapterOptions(novels),
+        comic_part: buildComicPartOptions(comics),
+        comic_chapter: buildComicChapterOptions(comics),
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "加载筛选候选项失败");
+    } finally {
+      setIsPickerLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (isAuthReady) {
       loadComments(0);
+      loadPickerOptions();
     }
   }, [isAuthReady]);
 
@@ -325,7 +454,10 @@ export default function AdminInteractionsPage() {
                 <span className="text-xs text-soft">目标类型</span>
                 <select
                   value={targetType}
-                  onChange={(event) => setTargetType(event.target.value)}
+                  onChange={(event) => {
+                    setTargetType(event.target.value);
+                    setTargetId("");
+                  }}
                   className="mt-1 w-full rounded-xl border border-[var(--color-border-control)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--color-accent-border-strong)]"
                 >
                   {TARGET_TYPE_OPTIONS.map((option) => (
@@ -337,23 +469,34 @@ export default function AdminInteractionsPage() {
               </label>
 
               <label className="block">
-                <span className="text-xs text-soft">目标 ID</span>
-                <input
-                  value={targetId}
-                  onChange={(event) => setTargetId(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-[var(--color-border-control)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--color-accent-border-strong)]"
-                  placeholder="target_id"
-                />
+                <span className="text-xs text-soft">目标对象</span>
+                <div className="mt-1">
+                  <SearchablePicker
+                    value={targetId}
+                    options={currentTargetOptions}
+                    isLoading={isPickerLoading}
+                    disabled={!targetType}
+                    placeholder={targetType ? "选择目标对象" : "先选择目标类型"}
+                    searchPlaceholder="搜索标题、slug 或 ID"
+                    emptyText="没有匹配的目标对象"
+                    onChange={setTargetId}
+                  />
+                </div>
               </label>
 
               <label className="block">
-                <span className="text-xs text-soft">用户 ID</span>
-                <input
-                  value={userId}
-                  onChange={(event) => setUserId(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-[var(--color-border-control)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--color-accent-border-strong)]"
-                  placeholder="user_id"
-                />
+                <span className="text-xs text-soft">用户</span>
+                <div className="mt-1">
+                  <SearchablePicker
+                    value={userId}
+                    options={userOptions}
+                    isLoading={isPickerLoading}
+                    placeholder="选择用户"
+                    searchPlaceholder="搜索用户名、显示名或 ID"
+                    emptyText="没有匹配的用户"
+                    onChange={setUserId}
+                  />
+                </div>
               </label>
 
               <label className="block">

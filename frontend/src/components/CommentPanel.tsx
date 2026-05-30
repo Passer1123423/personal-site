@@ -16,8 +16,6 @@ type CommentPanelProps = {
   className?: string;
 };
 
-type CommentUser = NonNullable<CommentItem["user"]>;
-
 type ReplyTarget = {
   commentId: string;
   parentId: string;
@@ -296,7 +294,6 @@ function ReplyNode({
   );
   const isReplying = replyTarget?.commentId === comment.id;
 
-  const replyToUser = replyToComment?.user ?? null;
   const replyToText = replyToComment
     ? replyToComment.is_deleted
       ? "该评论已删除。"
@@ -838,7 +835,7 @@ export default function CommentPanel({
         <button
           type="button"
           className="text-sm text-soft hover:text-[var(--color-accent)]"
-          onClick={loadComments}
+          onClick={() => loadComments()}
         >
           刷新
         </button>
