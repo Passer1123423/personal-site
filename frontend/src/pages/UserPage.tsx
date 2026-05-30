@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getUserProfile, type PublicUserProfile } from "../api/users";
+import CommentPanel from "../components/CommentPanel";
 
 export default function UserPage() {
   const { username } = useParams();
@@ -125,6 +126,15 @@ export default function UserPage() {
               动态功能尚未开放。
             </p>
           </div>
+        </section>
+
+        <section className="surface-card mt-8 p-6 max-sm:p-4">
+          <CommentPanel
+            targetType="user_page"
+            targetId={profile.id}
+            title="留言"
+            emptyText="还没有留言。"
+          />
         </section>
       </section>
     </main>

@@ -9,6 +9,7 @@ import {
   type NovelDetail,
   type NovelReaderData,
 } from "../api/novels";
+import CommentPanel from "../components/CommentPanel.tsx";
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
@@ -305,7 +306,7 @@ function NovelReaderPage() {
         )}
 
         {!isLoading && !errorMessage && readerData && (
-          <div className="novel-reader-frame border-y border-[var(--color-border-soft)] md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:shadow-[var(--shadow-card)]">
+           <div className="novel-reader-frame relative z-10 border-y border-[var(--color-border-soft)] md:rounded-[var(--radius-card)] md:border md:bg-[var(--color-panel-bg)] md:shadow-[var(--shadow-card)]">
             <header className="novel-reader-header">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] link-accent">
                 {readerData.novel.title}
@@ -456,6 +457,16 @@ function NovelReaderPage() {
               )}
             </footer>
           </div>
+        )}
+        {!isLoading && !errorMessage && readerData && (
+          <section className="mt-8 border-y border-[var(--color-border-soft)] bg-[var(--color-panel-bg)] px-6 py-8 md:rounded-[var(--radius-card)] md:border md:px-10 md:shadow-[var(--shadow-card)]">
+            <CommentPanel
+              targetType="novel_chapter"
+              targetId={readerData.chapter.id}
+              title="章节小评"
+              emptyText="还没有评论。"
+            />
+          </section>
         )}
       </section>
     </main>

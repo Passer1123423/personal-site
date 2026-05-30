@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "./config";
 
 export type PublicUserProfile = {
+  id: string;
   username: string;
   displayName: string;
   avatarUrl: string | null;

@@ -9,6 +9,7 @@ import {
   resolveAssetUrl,
   type NovelDetail,
 } from "../api/novels";
+import CommentPanel from "../components/CommentPanel.tsx";
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
@@ -240,13 +241,12 @@ function NovelDetailPage() {
                   Reader Area
                 </p>
 
-                <h2 className="mt-1 text-lg font-bold text-main md:mt-2 md:text-xl">
-                  评论区预留
-                </h2>
-
-                <p className="mt-3 text-sm leading-6 text-muted md:mt-4 md:leading-7">
-                  这里暂时作为读者讨论区、作者说明或更新记录的预留位置。后续可以接评论、点赞、阅读记录等功能。
-                </p>
+                <CommentPanel
+                  targetType="novel"
+                  targetId={novel.id}
+                  title="评论"
+                  emptyText="还没有评论。"
+                />
               </aside>
             </div>
           </section>

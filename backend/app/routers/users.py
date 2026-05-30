@@ -10,6 +10,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 def user_to_public_profile(user: User) -> dict:
     return {
+        "id": user.id,
         "username": user.username,
         "displayName": user.display_name,
         "avatarUrl": None,
