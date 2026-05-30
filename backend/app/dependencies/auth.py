@@ -70,3 +70,14 @@ def require_admin_user(
         )
 
     return current_user
+
+def require_author_user(
+    current_user: User = Depends(require_current_user),
+) -> User:
+    if current_user.role not in {"admin", "author"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="没有作者权限",
+        )
+
+    return current_user

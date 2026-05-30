@@ -1,0 +1,69 @@
+:root {
+
+
+  --color-page-bg: #f5f7fb;
+  --color-page-bg-soft: #f8fafc;
+
+  --color-panel-bg: #ffffff;
+  --color-panel-muted-bg: #f1f5f9;
+  --color-panel-soft-bg: #f8fafc;
+
+  --color-text-main: #0f172a;
+  --color-text-strong: #020617;
+  --color-text-muted: #475569;
+  --color-text-soft: #64748b;
+  --color-text-inverse: #ffffff;
+
+  --color-border-soft: #e2e8f0;
+  --color-border-control: #cbd5e1;
+
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-soft: #eff6ff;
+  --color-accent-border: #dbeafe;
+  --color-accent-border-strong: #60a5fa;
+
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+
+  --color-success: #15803d;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
+
+  --color-dark-page-bg: #020617;
+  --color-dark-panel-bg: rgb(255 255 255 / 0.05);
+  --color-dark-control-bg: #0f172a;
+  --color-dark-control-strong-bg: #020617;
+  --color-dark-text-main: #f1f5f9;
+  --color-dark-text-muted: #cbd5e1;
+  --color-dark-text-soft: #94a3b8;
+  --color-dark-border: rgb(255 255 255 / 0.1);
+  --color-dark-border-hover: rgb(255 255 255 / 0.3);
+  --color-dark-hover-bg: rgb(255 255 255 / 0.1);
+  --color-dark-danger-bg: rgb(239 68 68 / 0.1);
+  --color-dark-danger-border: rgb(248 113 113 / 0.3);
+  --color-dark-danger-text: #fecaca;
+  --color-dark-success-bg: rgb(16 185 129 / 0.1);
+  --color-dark-success-border: rgb(52 211 153 / 0.3);
+  --color-dark-success-text: #a7f3d0;
+
+  --color-reader-bg: #475569;
+  --color-reader-bg-soft: #64748b;
+  --color-reader-header-bg: rgba(51, 65, 85, 0.88);
+  --color-reader-panel-bg: rgba(30, 41, 59, 0.62);
+  --color-reader-panel-strong-bg: rgba(15, 23, 42, 0.55);
+  --color-reader-border: rgba(255, 255, 255, 0.16);
+  --color-reader-text-main: #f8fafc;
+  --color-reader-text-muted: #cbd5e1;
+  --color-reader-text-soft: #94a3b8;
+
+  --radius-card: 1rem;
+  --radius-card-large: 1.5rem;
+  --radius-control: 0.75rem;
+  --radius-control-sm: 0.5rem;
+
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-card-hover: 0 10px 24px rgb(15 23 42 / 0.10);
+}

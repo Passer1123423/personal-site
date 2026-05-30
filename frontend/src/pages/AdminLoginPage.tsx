@@ -42,50 +42,50 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-16 text-slate-900">
-      <section className="mx-auto max-w-md rounded-3xl border border-blue-100 bg-white p-8 shadow-xl shadow-blue-100/60">
-        <p className="text-sm text-blue-500">Personal Site</p>
-        <h1 className="mt-2 text-3xl font-semibold text-slate-950">登录账号</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-500">
-          登录后会进入你的用户主页。管理员后台可手动访问。
+    <main className="auth-page-shell px-6 py-16">
+      <section className="auth-card mx-auto max-w-md p-8">
+        <p className="text-sm link-accent">Personal Site</p>
+        <h1 className="mt-2 text-3xl font-semibold text-main">登录账号</h1>
+        <p className="mt-3 text-sm leading-6 text-soft">
+          登录后会进入你的用户主页。
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <label className="block">
-            <span className="text-sm text-slate-700">用户名</span>
+            <span className="text-sm text-muted">用户名</span>
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-blue-100 bg-blue-50/40 px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white"
+              className="auth-input mt-2 w-full px-4 py-3 transition"
               autoComplete="username"
               required
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-slate-700">密码</span>
+            <span className="text-sm text-muted">密码</span>
             <input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               type="password"
-              className="mt-2 w-full rounded-2xl border border-blue-100 bg-blue-50/40 px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white"
+              className="auth-input mt-2 w-full px-4 py-3 transition"
               autoComplete="current-password"
               required
             />
           </label>
 
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-soft">
             没有账号？{" "}
             <Link
               to="/register"
-              className="inline-block text-blue-600 underline underline-offset-4 transition hover:scale-110 hover:text-blue-500"
+              className="inline-block link-accent underline underline-offset-4 transition hover:scale-110"
             >
               注册
             </Link>
           </p>
 
           {errorMessage && (
-            <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <p className="message-error px-4 py-3 text-sm">
               {errorMessage}
             </p>
           )}
@@ -93,7 +93,7 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="auth-button-primary w-full px-5 py-3 font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? "登录中..." : "登录"}
           </button>

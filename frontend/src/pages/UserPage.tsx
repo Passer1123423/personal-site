@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getUserProfile, type PublicUserProfile } from "../api/users";
+import CommentPanel from "../components/CommentPanel";
 
 export default function UserPage() {
   const { username } = useParams();
@@ -35,9 +36,9 @@ export default function UserPage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
+      <main className="page-shell px-6 py-12">
         <section className="mx-auto max-w-5xl">
-          <p className="text-sm text-slate-400">正在加载用户信息...</p>
+          <p className="text-sm text-soft">正在加载用户信息...</p>
         </section>
       </main>
     );
@@ -45,16 +46,16 @@ export default function UserPage() {
 
   if (errorMessage || !profile) {
     return (
-      <main className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
+      <main className="page-shell px-6 py-12">
         <section className="mx-auto max-w-5xl">
           <Link
             to="/"
-            className="text-sm text-slate-400 transition hover:text-slate-100"
+            className="text-sm link-accent transition"
           >
             ← 返回首页
           </Link>
-          <h1 className="mt-8 text-3xl font-semibold">用户不存在</h1>
-          <p className="mt-3 text-sm text-slate-400">
+          <h1 className="mt-8 text-3xl font-semibold text-main">用户不存在</h1>
+          <p className="mt-3 text-sm text-soft">
             {errorMessage || "无法找到该用户。"}
           </p>
         </section>
@@ -63,58 +64,77 @@ export default function UserPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
+    <main className="page-shell px-6 py-12">
       <section className="mx-auto max-w-5xl">
         <Link
           to="/"
-          className="text-sm text-slate-400 transition hover:text-slate-100"
+          className="text-sm link-accent transition"
         >
           ← 返回首页
         </Link>
 
-        <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-8">
+        <section className="surface-card mt-8 p-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-center">
-            <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-800 text-3xl font-semibold text-slate-300">
+            <div className="badge-accent flex h-24 w-24 items-center justify-center text-3xl font-semibold">
               {profile.displayName.slice(0, 1).toUpperCase()}
             </div>
 
             <div>
-              <p className="text-sm text-slate-400">@{profile.username}</p>
-              <h1 className="mt-2 text-3xl font-semibold">
+              <p className="text-sm text-soft">@{profile.username}</p>
+              <h1 className="mt-2 text-3xl font-semibold text-main">
                 {profile.displayName}
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
                 {profile.bio || "这个用户还没有填写简介。"}
               </p>
 
-              <div className="mt-4 inline-flex rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">
-                {profile.role}
-              </div>
+              {profile.role === "admin" ? (
+                <Link
+                  to="/admin"
+                  className="badge-accent mt-4 inline-flex px-3 py-1 text-xs"
+                >
+                  {profile.role}
+                </Link>
+              ) : (
+                <div className="badge-accent mt-4 inline-flex px-3 py-1 text-xs">
+                  {profile.role}
+                </div>
+              )}
+
             </div>
           </div>
         </section>
 
         <section className="mt-8 grid gap-5 md:grid-cols-3">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold">作品</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-400">
+          <div className="surface-card p-6">
+            <h2 className="text-lg font-semibold text-main">作品</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">
               暂无公开作品。
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold">收藏</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-400">
+          <div className="surface-card p-6">
+            <h2 className="text-lg font-semibold text-main">收藏</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">
               收藏功能尚未开放。
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold">动态</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-400">
+          <div className="surface-card p-6">
+            <h2 className="text-lg font-semibold text-main">动态</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">
               动态功能尚未开放。
             </p>
           </div>
+        </section>
+
+        <section className="surface-card mt-8 p-6 max-sm:p-4">
+          <CommentPanel
+            targetType="user_page"
+            targetId={profile.id}
+            title="留言"
+            emptyText="还没有留言。"
+          />
         </section>
       </section>
     </main>

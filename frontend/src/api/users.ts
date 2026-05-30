@@ -1,6 +1,7 @@
-const API_BASE_URL = "http://127.0.0.1:18001";
+import { API_BASE_URL } from "./config";
 
 export type PublicUserProfile = {
+  id: string;
   username: string;
   displayName: string;
   avatarUrl: string | null;

@@ -1,0 +1,33 @@
+:root {
+  --font-sans:
+    "Segoe UI",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei UI",
+    "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    sans-serif;
+
+  --font-reading:
+    "Segoe UI",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei UI",
+    "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.page-shell,
+.admin-page-shell,
+.auth-page-shell {
+  font-family: var(--font-sans);
+}
+
+.novel-markdown {
+  font-family: var(--font-reading);
+}

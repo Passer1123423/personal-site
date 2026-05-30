@@ -10,8 +10,8 @@ function ProjectsPage() {
         title="项目实践"
       />
 
-      <p className="mb-8 max-w-3xl leading-7 text-slate-600">
-        这里用于整理我的物理计算、机器学习、网站开发和课程项目。后续每个项目可以继续扩展为独立详情页。
+      <p className="mb-8 max-w-3xl leading-7 text-muted">
+        GPT说这里用于整理我的物理计算、网站开发和课程项目。后续每个项目可以继续扩展为独立详情页。
       </p>
 
       <div className="grid gap-6 md:grid-cols-3">

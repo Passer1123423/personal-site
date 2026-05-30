@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from app.core.security import hash_password, verify_password
 from app.database import get_session
 from app.dependencies.auth import require_admin_user
-from app.models import User
+from app.models import SiteSetting, User, now_utc
 
 
 router = APIRouter(
@@ -40,6 +40,9 @@ class DeleteUserRequest(BaseModel):
     confirmUsername: str
     adminPassword: str
 
+class RegistrationSettingRequest(BaseModel):
+    enabled: bool
+
 def user_to_admin_item(user: User) -> dict:
     return {
         "id": user.id,
@@ -64,6 +67,41 @@ def list_admin_users(
 
     return [user_to_admin_item(user) for user in users]
 
+@router.get("/settings/registration")
+def get_registration_setting(
+    session: Session = Depends(get_session),
+):
+    setting = session.get(SiteSetting, "registration_enabled")
+
+    enabled = True if setting is None else setting.value == "true"
+
+    return {
+        "enabled": enabled,
+    }
+
+
+@router.patch("/settings/registration")
+def update_registration_setting(
+    payload: RegistrationSettingRequest,
+    session: Session = Depends(get_session),
+):
+    setting = session.get(SiteSetting, "registration_enabled")
+
+    if setting is None:
+        setting = SiteSetting(
+            key="registration_enabled",
+            value="true" if payload.enabled else "false",
+        )
+    else:
+        setting.value = "true" if payload.enabled else "false"
+        setting.updated_at = now_utc()
+
+    session.add(setting)
+    session.commit()
+
+    return {
+        "enabled": setting.value == "true",
+    }
 
 @router.post("")
 def create_admin_user(

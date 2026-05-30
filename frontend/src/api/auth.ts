@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:18001";
+import { API_BASE_URL } from "./config";
 
 const TOKEN_KEY = "personal_site_access_token";
 
@@ -23,6 +23,7 @@ export type RegisterParams = {
   username: string;
   displayName: string;
   password: string;
+  humanCheck: string
 };
 
 export async function login(username: string, password: string): Promise<LoginResponse> {
@@ -87,6 +88,7 @@ export async function register(params: RegisterParams): Promise<LoginResponse> {
       username: params.username,
       displayName: params.displayName,
       password: params.password,
+      humanCheck: params.humanCheck,
     }),
   });
 

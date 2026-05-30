@@ -1,6 +1,6 @@
 import { getAccessToken } from "./auth";
 
-const API_BASE_URL = "http://127.0.0.1:18001";
+import { API_BASE_URL } from "./config";
 
 export type AdminUser = {
   id: string;
@@ -125,4 +125,33 @@ export async function deleteAdminUser(
       body: JSON.stringify(params),
     },
   );
+}
+
+export async function getRegistrationSetting(): Promise<{ enabled: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/settings/registration`, {
+    headers: getAdminHeaders(),
+  })
+
+  if (!response.ok) {
+    throw new Error("读取注册设置失败")
+  }
+
+  return response.json()
+}
+
+export async function updateRegistrationSetting(enabled: boolean): Promise<{ enabled: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/settings/registration`, {
+    method: "PATCH",
+    headers: {
+      ...getAdminHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ enabled }),
+  })
+
+  if (!response.ok) {
+    throw new Error("更新注册设置失败")
+  }
+
+  return response.json()
 }

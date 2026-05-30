@@ -1,260 +1,46 @@
-# Project Docs
+# Personal Site Docs
 
-本文档集合描述当前项目的实际状态。文档应优先记录已经存在的代码、接口、字段和工作流；尚未实现的设想不要写成事实。
+本目录只保留当前项目事实、运行维护说明和仍有参考价值的历史记录。旧规划、临时审计和已经失效的设计说明不再放在主目录。
 
-## 当前技术栈
+## 先读顺序
 
-后端：
+1. `project-current-state.md`
+   - 当前技术栈、业务模块、页面和后端能力。
+   - 新会话先读这里，避免重复实现已经存在的能力。
 
-- FastAPI
-- SQLModel
-- SQLite
-- 静态文件由 FastAPI `StaticFiles` 挂载
+2. `api-reference.md`
+   - 当前后端已经注册的 API。
+   - 包括 public、auth、admin、author、上传和 buffer 接口。
 
-前端：
+3. `data-model.md`
+   - 当前 SQLModel 表结构和关键关系。
+   - 新增字段前先看这里，尤其注意 SQLite 迁移限制。
 
-- Vite
-- React
-- React Router
-- Tailwind CSS
+4. `operations-and-deployment.md`
+   - 本地运行、生产部署、环境变量、uploads、SQLite、备份和 systemd。
 
-## 当前目录结构
+5. `smoke-test.md`
+   - 部署或大改前后的最小手工检查清单。
 
-```txt
-backend/
-├── app/
-│   ├── main.py
-│   ├── database.py
-│   ├── models.py
-│   ├── seed.py
-│   ├── dependencies/
-│   │   └── auth.py
-│   ├── routers/
-│   │   ├── auth.py
-│   │   ├── comics.py
-│   │   ├── comic_admin.py
-│   │   ├── user_admin.py
-│   │   └── users.py
-│   └── services/
-│       └── comic_admin.py
-├── data/
-│   └── site.db
-├── scripts/
-│   ├── create_user.py
-│   ├── import_comic_chapter.py
-│   └── delete_comic_chapter.py
-└── uploads/
-    └── comics/
+6. `style-guide.md`
+   - 当前视觉 token、页面族风格和 UI 改动约束。
 
-frontend/
-├── package.json
-├── src/
-│   ├── App.tsx
-│   ├── api/
-│   │   ├── auth.ts
-│   │   ├── comics.ts
-│   │   ├── adminComics.ts
-│   │   ├── adminUsers.ts
-│   │   └── users.ts
-│   └── pages/
-│       ├── AdminHomePage.tsx
-│       ├── AdminComicsPage.tsx
-│       ├── AdminUsersPage.tsx
-│       ├── AdminLoginPage.tsx
-│       ├── RegisterPage.tsx
-│       ├── UserPage.tsx
-│       ├── ComicsPage.tsx
-│       ├── ComicSeriesPage.tsx
-│       └── ComicReaderPage.tsx
-└── dist/
+## 当前事实源
 
-docs/
-```
+- 前端：Vite + React + TypeScript + Tailwind。
+- 后端：FastAPI + SQLModel + SQLite。
+- 公共页面：Home、Works、Comics、Novels、User。
+- 用户系统：JWT 登录、`User` 模型、`POST /api/auth/login`、`GET /api/auth/me`。
+- 漫画系统：Series、Part、Chapter、Page；作者归属在 Part 层。
+- 小说系统：Novel、Chapter、Novel Reader、Author 小说后台。
+- 上传系统：Comic staging、Novel text buffer。
+- 后台：Admin、Author。
+- 部署：Linux + systemd + SQLite + uploads + 定时备份。
 
-## 后端入口
+## 文档维护规则
 
-后端入口是 `backend/app/main.py`。
-
-职责：
-
-- 创建 FastAPI app
-- 启动时调用 `create_db_and_tables()`
-- 注册 CORS
-- 挂载 `/uploads`
-- 注册认证 router
-- 注册公开用户 router
-- 注册公开漫画 router
-- 注册漫画 admin router
-- 注册用户 admin router
-- 提供 `/` 和 `/health`
-
-已注册 router：
-
-```txt
-app.include_router(users_router)
-app.include_router(comics_router)
-app.include_router(auth_router)
-app.include_router(comic_admin_router)
-app.include_router(user_admin_router)
-```
-
-## 数据库与静态资源
-
-数据库配置在 `backend/app/database.py`。
-
-当前 SQLite 文件：
-
-```txt
-backend/data/site.db
-```
-
-静态资源目录：
-
-```txt
-backend/uploads
-```
-
-浏览器访问路径：
-
-```txt
-/uploads/...
-```
-
-实际漫画页图片一般位于：
-
-```txt
-backend/uploads/comics/{series_slug}/{part_slug}/{chapter_slug}/{page_no}.{ext}
-```
-
-## 模型位置
-
-当前没有 `backend/app/models/` 目录。
-
-所有 SQLModel 表定义集中在：
-
-```txt
-backend/app/models.py
-```
-
-当前模型：
-
-- `Asset`
-- `User`
-- `ComicSeries`
-- `ComicPart`
-- `ComicChapter`
-- `ComicPage`
-- `ComicPartUserLink`
-
-## 当前可用页面
-
-公开页面：
-
-```txt
-/
-/projects
-/works
-/works/comics
-/works/comics/:seriesSlug
-/works/comics/:seriesSlug/:partSlug/:chapterSlug
-/register
-/users/:username
-/about
-```
-
-后台页面：
-
-```txt
-/admin
-/admin/comics
-/admin/users
-/admin/login
-```
-
-## 当前 API 分组
-
-公开漫画 API：
-
-```txt
-/api/comics
-```
-
-认证 API：
-
-```txt
-/api/auth
-```
-
-公开用户 API：
-
-```txt
-/api/users
-```
-
-漫画后台 API：
-
-```txt
-/api/admin/comics
-```
-
-用户后台 API：
-
-```txt
-/api/admin/users
-```
-
-前端当前 API base URL 写在：
-
-```txt
-frontend/src/api/comics.ts
-frontend/src/api/adminComics.ts
-frontend/src/api/auth.ts
-frontend/src/api/users.ts
-frontend/src/api/adminUsers.ts
-```
-
-当前值：
-
-```txt
-http://127.0.0.1:18001
-```
-
-如果后端实际运行端口变化，需要同步修改这些文件，或后续改成环境变量配置。
-
-## 当前模块状态
-
-漫画模块已经有前后端闭环：
-
-- 公开漫画列表
-- 系列详情
-- 章节阅读
-- 后台漫画树
-- 后台上传章节
-- 后台创建 series / part
-- 后台删除 series / part / chapter
-- 后台移动 chapter 顺序
-- 后台重命名 series / part / chapter
-- 后台设置 part owner
-- 上传图片落盘到 `backend/uploads/comics`
-- 数据索引保存到 SQLite
-
-用户与认证模块当前具备：
-
-- 注册 reader 用户
-- 登录并保存 bearer token
-- 获取当前用户
-- 公开用户主页
-- 管理员创建、编辑、停用、重置密码、删除用户
-
-项目页、首页、Works 页等已存在前端页面，但漫画以外的内容仍主要是静态展示或入口页。
-
-## 文档索引
-
-- `data-model.md`：当前数据库模型和字段命名
-- `api-design.md`：当前公开 API 和 admin API
-- `service-design.md`：`comic_admin.py` service 函数职责和签名
-- `admin-comics-current.md`：漫画后台当前实现链路
-- `content-workflow.md`：漫画内容上传、阅读、删除工作流
-- `page-design.md`：当前前端路由和页面状态
-- `storage-structure.md`：上传资源目录结构
-- `roadmap.md`：当前文档不展开长期展望，仅保留事实型待补齐项
+- 主目录文档只写当前代码事实和当前操作方式。
+- 阶段性审计、临时统计、一次性 follow-up 不放主目录；必要时放 `docs-archive/`。
+- 旧文档和代码冲突时，以代码为准。
+- 新增 API、模型、页面、部署变量后，同步更新对应文档。
+- 不把设想写成已实现。

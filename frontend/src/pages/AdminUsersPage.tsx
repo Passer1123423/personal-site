@@ -6,6 +6,8 @@ import {
   fetchAdminUsers,
   resetAdminUserPassword,
   updateAdminUser,
+  getRegistrationSetting,
+  updateRegistrationSetting,
   type AdminUser,
 } from "../api/adminUsers";
 import { clearAccessToken, getMe } from "../api/auth";
@@ -33,6 +35,9 @@ export default function AdminUsersPage() {
   const [newRole, setNewRole] = useState<UserRole>("reader");
   const [newBio, setNewBio] = useState("");
 
+  const [registrationEnabled, setRegistrationEnabled] = useState(true)
+  const [registrationSettingLoading, setRegistrationSettingLoading] = useState(false)
+
   useEffect(() => {
     async function checkLogin() {
       try {
@@ -55,12 +60,36 @@ export default function AdminUsersPage() {
   }, [navigate]);
 
   useEffect(() => {
+    getRegistrationSetting()
+      .then((data) => setRegistrationEnabled(data.enabled))
+      .catch((error) => {
+        console.error(error)
+      })
+  }, [])
+
+  useEffect(() => {
     if (!isAuthReady) {
       return;
     }
 
     loadUsers();
   }, [isAuthReady]);
+
+  async function handleToggleRegistration() {
+    const nextEnabled = !registrationEnabled
+
+    setRegistrationSettingLoading(true)
+
+    try {
+      const data = await updateRegistrationSetting(nextEnabled)
+      setRegistrationEnabled(data.enabled)
+    } catch (error) {
+      console.error(error)
+      alert("更新注册开关失败")
+    } finally {
+      setRegistrationSettingLoading(false)
+    }
+  }
 
   async function loadUsers() {
     setIsLoading(true);
@@ -235,28 +264,28 @@ export default function AdminUsersPage() {
 
   if (!isAuthReady) {
     return (
-      <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
+      <main className="admin-page-shell px-6 py-10">
         <section className="mx-auto max-w-6xl">
-          <p className="text-sm text-slate-400">正在检查登录状态...</p>
+          <p className="text-sm text-soft">正在检查登录状态...</p>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
+    <main className="admin-page-shell px-6 py-10">
       <section className="mx-auto max-w-6xl">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <Link
               to="/admin"
-              className="text-sm text-slate-400 transition hover:text-slate-100"
+              className="text-sm link-accent transition"
             >
               ← 返回后台
             </Link>
-            <p className="mt-5 text-sm text-slate-400">Admin Console</p>
-            <h1 className="mt-2 text-3xl font-semibold">用户管理</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-400">
+            <p className="mt-5 text-sm text-soft">Admin Console</p>
+            <h1 className="mt-2 text-3xl font-semibold text-main">用户管理</h1>
+            <p className="mt-3 text-sm leading-6 text-muted">
               创建用户、调整权限、停用账号、重置密码或删除测试账号。
             </p>
           </div>
@@ -264,71 +293,87 @@ export default function AdminUsersPage() {
           <button
             type="button"
             onClick={loadUsers}
-            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/30 hover:bg-white/10"
+            className="admin-button-secondary px-4 py-2 text-sm font-semibold transition"
           >
             刷新列表
           </button>
+
         </div>
 
         {message && (
-          <p className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          <p className="admin-message-success mt-6 px-4 py-3 text-sm">
             {message}
           </p>
         )}
 
         {errorMessage && (
-          <p className="mt-6 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <p className="admin-message-error mt-6 px-4 py-3 text-sm">
             {errorMessage}
           </p>
         )}
 
-        <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-xl font-semibold">创建用户</h2>
+        <section className="admin-section mt-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-main">创建用户</h2>
+
+            <button
+              type="button"
+              onClick={handleToggleRegistration}
+              disabled={registrationSettingLoading}
+              className={
+                registrationEnabled
+                  ? "message-success px-3 py-1 text-xs"
+                  : "admin-button-danger px-3 py-1 text-xs text-soft"
+              }
+            >
+              {registrationEnabled ? "已开放" : "已关闭"}
+            </button>
+          </div>
 
           <form
             onSubmit={handleCreateUser}
             className="mt-5 grid gap-4 md:grid-cols-2"
           >
             <label className="block">
-              <span className="text-sm text-slate-300">用户名</span>
+              <span className="text-sm text-muted">用户名</span>
               <input
                 value={newUsername}
                 onChange={(event) => setNewUsername(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none focus:border-white/30"
+                className="admin-input mt-2 w-full px-4 py-3"
                 placeholder="例如 test01"
                 required
               />
             </label>
 
             <label className="block">
-              <span className="text-sm text-slate-300">显示名</span>
+              <span className="text-sm text-muted">显示名</span>
               <input
                 value={newDisplayName}
                 onChange={(event) => setNewDisplayName(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none focus:border-white/30"
+                className="admin-input mt-2 w-full px-4 py-3"
                 placeholder="例如 测试用户"
                 required
               />
             </label>
 
             <label className="block">
-              <span className="text-sm text-slate-300">初始密码</span>
+              <span className="text-sm text-muted">初始密码</span>
               <input
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
                 type="password"
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none focus:border-white/30"
+                className="admin-input mt-2 w-full px-4 py-3"
                 placeholder="至少 6 位"
                 required
               />
             </label>
 
             <label className="block">
-              <span className="text-sm text-slate-300">角色</span>
+              <span className="text-sm text-muted">角色</span>
               <select
                 value={newRole}
                 onChange={(event) => setNewRole(event.target.value as UserRole)}
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none focus:border-white/30"
+                className="admin-select mt-2 w-full px-4 py-3"
               >
                 {ROLE_OPTIONS.map((role) => (
                   <option key={role} value={role}>
@@ -339,11 +384,11 @@ export default function AdminUsersPage() {
             </label>
 
             <label className="block md:col-span-2">
-              <span className="text-sm text-slate-300">简介</span>
+              <span className="text-sm text-muted">简介</span>
               <textarea
                 value={newBio}
                 onChange={(event) => setNewBio(event.target.value)}
-                className="mt-2 min-h-24 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none focus:border-white/30"
+                className="admin-textarea mt-2 min-h-24 w-full px-4 py-3"
                 placeholder="可以先留空"
               />
             </label>
@@ -351,7 +396,7 @@ export default function AdminUsersPage() {
             <div className="md:col-span-2">
               <button
                 type="submit"
-                className="rounded-2xl bg-white px-5 py-3 font-semibold text-slate-950 transition hover:bg-slate-200"
+                className="admin-button-primary px-5 py-3 font-semibold transition"
               >
                 创建用户
               </button>
@@ -359,17 +404,17 @@ export default function AdminUsersPage() {
           </form>
         </section>
 
-        <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6">
+        <section className="admin-section mt-8">
           <div className="flex items-center justify-between gap-4">
-            <h2 className="text-xl font-semibold">用户列表</h2>
+            <h2 className="text-xl font-semibold text-main">用户列表</h2>
             {isLoading && (
-              <span className="text-sm text-slate-400">加载中...</span>
+              <span className="text-sm text-soft">加载中...</span>
             )}
           </div>
 
           <div className="mt-5 overflow-x-auto">
             <table className="w-full min-w-[850px] border-separate border-spacing-y-3 text-left text-sm">
-              <thead className="text-slate-400">
+              <thead className="text-soft">
                 <tr>
                   <th className="px-4 py-2 font-medium">用户名</th>
                   <th className="px-4 py-2 font-medium">显示名</th>
@@ -382,19 +427,19 @@ export default function AdminUsersPage() {
 
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} className="bg-slate-900/80">
+                  <tr key={user.id} className="admin-muted-panel">
                     <td className="rounded-l-2xl px-4 py-4 align-top">
-                      <div className="font-semibold text-slate-100">
+                      <div className="font-semibold text-main">
                         {user.username}
                       </div>
                       {user.username === currentUsername && (
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-1 text-xs text-soft">
                           当前登录
                         </div>
                       )}
                     </td>
 
-                    <td className="px-4 py-4 align-top text-slate-200">
+                    <td className="px-4 py-4 align-top text-muted">
                       {editingUsername === user.username ? (
                         <div className="flex items-center gap-2">
                           <input
@@ -409,14 +454,14 @@ export default function AdminUsersPage() {
                                   cancelEditDisplayName();
                                 }
                               }}
-                              className="w-40 rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-white/30"
+                              className="admin-input w-40 px-3 py-2 text-sm"
                               autoFocus
                             />
 
                           <button
                             type="button"
                             onClick={() => saveDisplayName(user)}
-                            className="rounded-lg border border-emerald-400/30 px-2 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/10"
+                            className="admin-button-secondary px-2 py-1 text-xs font-semibold transition"
                             title="保存"
                           >
                             ✓
@@ -425,7 +470,7 @@ export default function AdminUsersPage() {
                           <button
                             type="button"
                             onClick={cancelEditDisplayName}
-                            className="rounded-lg border border-red-400/30 px-2 py-1 text-xs font-semibold text-red-200 transition hover:bg-red-500/10"
+                            className="admin-button-danger px-2 py-1 text-xs font-semibold transition"
                             title="取消"
                           >
                             ×
@@ -435,11 +480,11 @@ export default function AdminUsersPage() {
                         <button
                           type="button"
                           onClick={() => startEditDisplayName(user)}
-                          className="group inline-flex items-center gap-2 text-left text-slate-200"
+                          className="group inline-flex items-center gap-2 text-left text-muted"
                           title="修改显示名"
                         >
                           <span className="group-hover:underline">{user.displayName}</span>
-                          <span className="text-xs text-slate-500 transition group-hover:text-slate-300">
+                          <span className="text-xs text-soft transition group-hover:text-muted">
                             ✎
                           </span>
                         </button>
@@ -453,7 +498,7 @@ export default function AdminUsersPage() {
                           handleChangeRole(user, event.target.value as UserRole)
                         }
                         disabled={user.username === currentUsername}
-                        className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="admin-select px-3 py-2 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {ROLE_OPTIONS.map((role) => (
                           <option key={role} value={role}>
@@ -467,15 +512,15 @@ export default function AdminUsersPage() {
                       <span
                         className={
                           user.isActive
-                            ? "rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200"
-                            : "rounded-full bg-slate-500/10 px-3 py-1 text-xs text-slate-300"
+                            ? "message-success px-3 py-1 text-xs"
+                            : "admin-muted-panel px-3 py-1 text-xs text-soft"
                         }
                       >
                         {user.isActive ? "启用" : "停用"}
                       </span>
                     </td>
 
-                    <td className="max-w-xs px-4 py-4 align-top text-slate-400">
+                    <td className="max-w-xs px-4 py-4 align-top text-soft">
                       {user.bio || "—"}
                     </td>
 
@@ -485,7 +530,7 @@ export default function AdminUsersPage() {
                           type="button"
                           onClick={() => handleToggleActive(user)}
                           disabled={user.username === currentUsername}
-                          className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:border-white/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="admin-button-secondary px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {user.isActive ? "停用" : "启用"}
                         </button>
@@ -493,7 +538,7 @@ export default function AdminUsersPage() {
                         <button
                           type="button"
                           onClick={() => handleResetPassword(user)}
-                          className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:border-white/30 hover:bg-white/10"
+                          className="admin-button-secondary px-3 py-2 text-xs font-semibold transition"
                         >
                           重置密码
                         </button>
@@ -502,7 +547,7 @@ export default function AdminUsersPage() {
                           type="button"
                           onClick={() => handleDeleteUser(user)}
                           disabled={user.username === currentUsername}
-                          className="rounded-xl border border-red-400/30 px-3 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="admin-button-danger px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           删除
                         </button>
@@ -515,7 +560,7 @@ export default function AdminUsersPage() {
                   <tr>
                     <td
                       colSpan={6}
-                      className="rounded-2xl bg-slate-900/80 px-4 py-8 text-center text-slate-400"
+                      className="admin-muted-panel px-4 py-8 text-center text-soft"
                     >
                       暂无用户
                     </td>

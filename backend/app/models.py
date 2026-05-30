@@ -3,7 +3,7 @@ models.py
 
 这个文件负责定义数据库表结构。
 
-当前阶段只定义漫画模块需要的 5 张表：
+其中定义漫画模块需要的 5 张表：
 
 1. Asset
    上传资源表。存图片、封面等文件信息。
@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Column, Index, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -154,6 +154,79 @@ class User(SQLModel, table=True):
 
     avatar_asset_id: str | None = Field(default=None, foreign_key="asset.id")
     bio: str = ""
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+class SiteSetting(SQLModel, table=True):
+    __tablename__ = "site_setting"
+
+    key: str = Field(primary_key=True)
+    value: str
+    updated_at: datetime = Field(default_factory=now_utc)
+
+class Comment(SQLModel, table=True):
+    """
+    通用评论表。
+
+    一条 Comment 可以挂在不同类型的目标对象下面，例如：
+
+    1. user_page      用户个人页留言
+    2. novel          小说详情页评论
+    3. novel_chapter  小说章节底部小评
+    4. comic_part     未来漫画分部评论
+    5. comic_chapter  未来漫画章节评论
+
+    具体挂载目标由 target_type + target_id 决定。
+    """
+
+    __tablename__ = "comment"
+
+    __table_args__ = (
+        Index("ix_comment_target", "target_type", "target_id"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    # 评论挂载目标类型。
+    #
+    # 第一版建议只开放：
+    # user_page / novel / novel_chapter
+    #
+    # 后续可以扩展到：
+    # comic_part / comic_chapter
+    target_type: str = Field(index=True)
+
+    # 评论挂载目标 ID。
+    #
+    # 例如：
+    # target_type = "user_page" 时，这里存被留言用户的 user.id
+    # target_type = "novel" 时，这里存 novel.id
+    # target_type = "novel_chapter" 时，这里存 novel_chapter.id
+    target_id: str = Field(index=True)
+
+    # 发表评论的用户。
+    #
+    # 第一版建议要求登录后才能评论，因此这里设为必填。
+    user_id: str = Field(foreign_key="user.id", index=True)
+
+    # 评论正文。
+    #
+    # 长度限制建议放在 service/router 层校验；
+    # 数据库层用 Text，避免 SQLite 下字符串长度约束不可靠。
+    content: str = Field(sa_column=Column(Text, nullable=False))
+
+    # 回复关系。
+    #
+    # 第一版前端可以先不用，只显示一级评论。
+    # 先加这个字段，后面要做回复时不用再改表。
+    parent_id: str | None = Field(default=None, foreign_key="comment.id", index=True)
+
+    # 软删除。
+    #
+    # 删除评论时不物理删除记录，而是标记为 deleted。
+    # 这样以后如果有回复结构，不会因为父评论消失导致结构断裂。
+    is_deleted: bool = Field(default=False, index=True)
 
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
@@ -457,3 +530,97 @@ class ComicPartUserLink(SQLModel, table=True):
     role: str = "owner"
 
     created_at: datetime = Field(default_factory=now_utc)
+
+class ComicUploadImage(SQLModel, table=True):
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    user_id: str = Field(foreign_key="user.id", index=True)
+
+    original_filename: str
+    stored_filename: str
+    storage_path: str
+
+    content_type: str | None = None
+    size_bytes: int
+
+    display_order: int = 0
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+class Novel(SQLModel, table=True):
+    __tablename__ = "novel"
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    slug: str = Field(index=True, unique=True)
+    title: str
+    summary: str = ""
+
+    cover_asset_id: Optional[str] = Field(default=None, foreign_key="asset.id")
+
+    display_order: int = Field(default=0, index=True)
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+
+class NovelChapter(SQLModel, table=True):
+    __tablename__ = "novel_chapter"
+
+    __table_args__ = (
+        UniqueConstraint("novel_id", "slug", name="uq_novel_chapter_novel_slug"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    novel_id: str = Field(foreign_key="novel.id", index=True)
+
+    slug: str = Field(index=True)
+    title: str
+
+    content: str = Field(default="", sa_column=Column(Text, nullable=False))
+
+    display_order: int = Field(default=0, index=True)
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+
+class NovelUserLink(SQLModel, table=True):
+    __tablename__ = "novel_user_link"
+
+    __table_args__ = (
+        UniqueConstraint("novel_id", "user_id", name="uq_novel_user"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    novel_id: str = Field(index=True, foreign_key="novel.id")
+    user_id: str = Field(index=True, foreign_key="user.id")
+
+    role: str = "owner"
+
+    created_at: datetime = Field(default_factory=now_utc)
+
+class NovelTextBuffer(SQLModel, table=True):
+    __tablename__ = "novel_text_buffer"
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    user_id: str = Field(foreign_key="user.id", index=True)
+
+    novel_id: str = Field(foreign_key="novel.id", index=True)
+
+    # 编辑已有章节时有 chapter_id
+    # 新建章节正文缓冲时可以为空
+    chapter_id: str | None = Field(default=None, foreign_key="novel_chapter.id", index=True)
+
+    # markdown / plain_text
+    content_type: str = Field(default="markdown", index=True)
+
+    # 缓冲区正文
+    content: str = Field(default="", sa_column=Column(Text, nullable=False))
+
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)

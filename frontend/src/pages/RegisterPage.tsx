@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [humanCheck, setHumanCheck] = useState("")
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,6 +30,7 @@ export default function RegisterPage() {
         username: username.trim(),
         displayName: displayName.trim(),
         password,
+        humanCheck,
       });
 
       saveAccessToken(result.accessToken);
@@ -41,21 +43,21 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-16 text-slate-900">
-      <section className="mx-auto max-w-md rounded-3xl border border-blue-100 bg-white p-8 shadow-xl shadow-blue-100/60">
-        <p className="text-sm text-blue-500">Personal Site</p>
-        <h1 className="mt-2 text-3xl font-semibold text-slate-950">注册账号</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-500">
+    <main className="auth-page-shell px-6 py-16">
+      <section className="auth-card mx-auto max-w-md p-8">
+        <p className="text-sm link-accent">Personal Site</p>
+        <h1 className="mt-2 text-3xl font-semibold text-main">注册账号</h1>
+        <p className="mt-3 text-sm leading-6 text-soft">
           注册后默认为 reader 账号。作者或管理员权限需要站长手动调整。
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <label className="block">
-            <span className="text-sm text-slate-700">用户名</span>
+            <span className="text-sm text-muted">用户名</span>
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-blue-100 bg-blue-50/40 px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white"
+              className="auth-input mt-2 w-full px-4 py-3 transition"
               autoComplete="username"
               placeholder="用于登录和个人主页地址"
               required
@@ -63,44 +65,54 @@ export default function RegisterPage() {
           </label>
 
           <label className="block">
-            <span className="text-sm text-slate-700">显示名</span>
+            <span className="text-sm text-muted">昵称</span>
             <input
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-blue-100 bg-blue-50/40 px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white"
-              placeholder="可以以后修改"
+              className="auth-input mt-2 w-full px-4 py-3 transition"
+              placeholder="可以以后改"
               required
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-slate-700">密码</span>
+            <span className="text-sm text-muted">设置密码</span>
             <input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               type="password"
-              className="mt-2 w-full rounded-2xl border border-blue-100 bg-blue-50/40 px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white"
+              className="auth-input mt-2 w-full px-4 py-3 transition"
               autoComplete="new-password"
-              placeholder="至少 6 位"
+              placeholder="我也不知道为什么要至少 6 位"
               required
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-slate-700">确认密码</span>
+            <span className="text-sm text-muted">确认密码</span>
             <input
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               type="password"
-              className="mt-2 w-full rounded-2xl border border-blue-100 bg-blue-50/40 px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white"
+              className="auth-input mt-2 w-full px-4 py-3 transition"
               autoComplete="new-password"
               placeholder="再次输入密码"
               required
             />
           </label>
 
+          <label className="block">
+            <span className="text-sm text-muted">以防万一还是问一嘴：你是人类吗？请输入“是”</span>
+            <input
+              value={humanCheck}
+              onChange={(event) => setHumanCheck(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-main outline-none focus:border-cyan-300"
+              placeholder="是"
+            />
+          </label>
+
           {errorMessage && (
-            <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <p className="message-error px-4 py-3 text-sm">
               {errorMessage}
             </p>
           )}
@@ -108,17 +120,17 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="auth-button-primary w-full px-5 py-3 font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? "注册中..." : "注册"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-soft">
           已有账号？{" "}
           <Link
             to="/admin/login"
-            className="inline-block text-blue-600 underline underline-offset-4 transition hover:scale-110 hover:text-blue-500"
+            className="inline-block link-accent underline underline-offset-4 transition hover:scale-110"
           >
             去登录
           </Link>

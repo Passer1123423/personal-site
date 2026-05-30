@@ -31,6 +31,12 @@ from app.services.comic_admin import (
     list_owner_candidates,
     get_part_owner,
     set_part_owner,
+    reset_series_summary,
+    reset_part_summary,
+    set_series_cover,
+    set_part_cover,
+    get_or_create_series,
+    get_or_create_part
 )
 
 class MoveChapterRequest(BaseModel):
@@ -43,8 +49,12 @@ class RenameTitleRequest(BaseModel):
 class RenameChapterRequest(BaseModel):
     customTitle: str | None = None
 
+class SummaryRequest(BaseModel):
+    summary: str | None = ""
+
 class SetPartOwnerRequest(BaseModel):
     username: str | None = None
+
 def user_to_owner_item(user: User | None):
     if not user:
         return None
@@ -56,6 +66,17 @@ def user_to_owner_item(user: User | None):
         "role": user.role,
         "avatarUrl": None,
     }
+
+class CreateComicSeriesRequest(BaseModel):
+    slug: str
+    title: str | None = None
+    summary: str | None = None
+
+
+class CreateComicPartRequest(BaseModel):
+    slug: str
+    title: str | None = None
+    summary: str | None = None
 
 router = APIRouter(
     prefix="/api/admin/comics",
@@ -112,6 +133,10 @@ def get_admin_comics_tree(session: Session = Depends(get_session)):
                     "id": part.id,
                     "slug": part.slug,
                     "title": part.title,
+                    "summary": part.summary,
+                    "coverUrl": session.get(Asset, part.cover_asset_id).url
+                    if part.cover_asset_id and session.get(Asset, part.cover_asset_id)
+                    else None,
                     "visibility": part.visibility,
                     "displayOrder": part.display_order,
                     "owner": user_to_owner_item(owner),
@@ -124,6 +149,10 @@ def get_admin_comics_tree(session: Session = Depends(get_session)):
                 "id": series.id,
                 "slug": series.slug,
                 "title": series.title,
+                "summary": series.summary,
+                "coverUrl": session.get(Asset, series.cover_asset_id).url
+                if series.cover_asset_id and session.get(Asset, series.cover_asset_id)
+                else None,
                 "visibility": series.visibility,
                 "displayOrder": series.display_order,
                 "parts": part_items,
@@ -367,4 +396,256 @@ def set_admin_comic_part_owner(
         "seriesSlug": series_slug,
         "partSlug": part_slug,
         "owner": user_to_owner_item(owner),
+    }
+
+@router.patch("/{series_slug}/summary")
+def update_admin_comic_series_summary(
+    series_slug: str,
+    payload: SummaryRequest,
+    session: Session = Depends(get_session),
+):
+    try:
+        series = reset_series_summary(
+            session=session,
+            series_slug=series_slug,
+            summary=payload.summary,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": series.id,
+        "slug": series.slug,
+        "title": series.title,
+        "summary": series.summary,
+        "visibility": series.visibility,
+        "displayOrder": series.display_order,
+    }
+
+
+@router.patch("/{series_slug}/{part_slug}/summary")
+def update_admin_comic_part_summary(
+    series_slug: str,
+    part_slug: str,
+    payload: SummaryRequest,
+    session: Session = Depends(get_session),
+):
+    try:
+        part = reset_part_summary(
+            session=session,
+            series_slug=series_slug,
+            part_slug=part_slug,
+            summary=payload.summary,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": part.id,
+        "slug": part.slug,
+        "title": part.title,
+        "summary": part.summary,
+        "visibility": part.visibility,
+        "displayOrder": part.display_order,
+    }
+
+
+@router.post("/{series_slug}/cover")
+async def upload_admin_comic_series_cover(
+    series_slug: str,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        original_name = file.filename or "cover"
+        suffix = Path(original_name).suffix.lower()
+
+        if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的文件类型：{original_name}",
+            )
+
+        source_path = temp_path / f"cover{suffix}"
+
+        with source_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        try:
+            series = set_series_cover(
+                session=session,
+                series_slug=series_slug,
+                source_path=source_path,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": series.id,
+        "slug": series.slug,
+        "title": series.title,
+        "summary": series.summary,
+        "coverUrl": session.get(Asset, series.cover_asset_id).url,
+        "visibility": series.visibility,
+        "displayOrder": series.display_order,
+    }
+
+
+@router.post("/{series_slug}/{part_slug}/cover")
+async def upload_admin_comic_part_cover(
+    series_slug: str,
+    part_slug: str,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        original_name = file.filename or "cover"
+        suffix = Path(original_name).suffix.lower()
+
+        if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的文件类型：{original_name}",
+            )
+
+        source_path = temp_path / f"cover{suffix}"
+
+        with source_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        try:
+            part = set_part_cover(
+                session=session,
+                series_slug=series_slug,
+                part_slug=part_slug,
+                source_path=source_path,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "id": part.id,
+        "slug": part.slug,
+        "title": part.title,
+        "summary": part.summary,
+        "coverUrl": session.get(Asset, part.cover_asset_id).url,
+        "visibility": part.visibility,
+        "displayOrder": part.display_order,
+    }
+
+@router.post("/series/create")
+def create_comic_series(
+    payload: CreateComicSeriesRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
+):
+    series_slug = payload.slug.strip()
+
+    if not series_slug:
+        raise HTTPException(
+            status_code=400,
+            detail="series slug 不能为空",
+        )
+
+    existing_series = session.exec(
+        select(ComicSeries).where(ComicSeries.slug == series_slug)
+    ).first()
+
+    if existing_series:
+        raise HTTPException(
+            status_code=409,
+            detail="这个 series slug 已存在，slug 是不可更改的唯一识别码，请换一个",
+        )
+
+    series = get_or_create_series(
+        session=session,
+        series_slug=series_slug,
+        series_title=payload.title,
+        series_summary=payload.summary,
+    )
+
+    return {
+        "id": series.id,
+        "slug": series.slug,
+        "title": series.title,
+        "summary": series.summary,
+        "visibility": series.visibility,
+        "displayOrder": series.display_order,
+    }
+
+@router.post("/{series_slug}/part/create")
+def create_comic_part(
+    series_slug: str,
+    payload: CreateComicPartRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
+):
+    clean_series_slug = series_slug.strip()
+    part_slug = payload.slug.strip()
+
+    if not part_slug:
+        raise HTTPException(
+            status_code=400,
+            detail="part slug 不能为空",
+        )
+
+    series = session.exec(
+        select(ComicSeries).where(ComicSeries.slug == clean_series_slug)
+    ).first()
+
+    if not series:
+        raise HTTPException(
+            status_code=404,
+            detail="series 不存在，不能在不存在的 series 下新建 part",
+        )
+
+    existing_part = session.exec(
+        select(ComicPart)
+        .where(ComicPart.series_id == series.id)
+        .where(ComicPart.slug == part_slug)
+    ).first()
+
+    if existing_part:
+        raise HTTPException(
+            status_code=409,
+            detail="这个 part slug 已存在，slug 是不可更改的唯一识别码，请换一个",
+        )
+
+    part = get_or_create_part(
+        session=session,
+        series=series,
+        part_slug=part_slug,
+        part_title=payload.title,
+        part_summary=payload.summary,
+    )
+
+    existing_link = session.exec(
+        select(ComicPartUserLink)
+        .where(ComicPartUserLink.part_id == part.id)
+        .where(ComicPartUserLink.user_id == current_user.id)
+    ).first()
+
+    if not existing_link:
+        link = ComicPartUserLink(
+            part_id=part.id,
+            user_id=current_user.id,
+            role="owner",
+        )
+        session.add(link)
+        session.commit()
+
+    session.refresh(part)
+
+    return {
+        "id": part.id,
+        "slug": part.slug,
+        "title": part.title,
+        "summary": part.summary,
+        "visibility": part.visibility,
+        "displayOrder": part.display_order,
+        "owner": user_to_owner_item(current_user),
     }

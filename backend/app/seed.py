@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 """
 seed.py
 
@@ -54,7 +56,7 @@ def seed_demo_comic():
         ).first()
 
         if existing_series:
-            print("测试漫画数据已经存在，不重复插入。")
+            logger.info("测试漫画数据已经存在，不重复插入。")
             return
 
         # 1. 创建封面资源。
@@ -182,10 +184,10 @@ def seed_demo_comic():
         # commit 才是真正提交到数据库。
         session.commit()
 
-        print("测试漫画数据插入完成。")
-        print(f"ComicSeries id: {series.id}")
-        print(f"ComicPart id: {part.id}")
-        print(f"ComicChapter id: {chapter.id}")
+        logger.info("测试漫画数据插入完成。")
+        logger.info(f"ComicSeries id: {series.id}")
+        logger.info(f"ComicPart id: {part.id}")
+        logger.info(f"ComicChapter id: {chapter.id}")
 
 
 if __name__ == "__main__":

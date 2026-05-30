@@ -7,7 +7,7 @@ function ProjectsSection() {
     <section id="projects" className="mx-auto max-w-6xl px-6 py-16">
       <SectionTitle
         eyebrow="Projects"
-        title="精选项目"
+        title="假装项目"
         actionText="查看全部 →"
         actionHref="#projects"
       />

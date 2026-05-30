@@ -1,3 +1,5 @@
+import os
+import logging
 from pathlib import Path
 from shutil import copy2
 from uuid import uuid4
@@ -15,13 +17,18 @@ from app.models import (
     ComicPage,
     User,
     ComicPartUserLink,
+    now_utc,
 )
 
 import re
 
+logger = logging.getLogger(__name__)
+
 # ===== 文件识别 =====
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-UPLOADS_ROOT = Path("uploads/comics")
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", BACKEND_DIR / "uploads")).resolve()
+UPLOADS_ROOT = UPLOADS_DIR / "comics"
 
 def guess_mime_type(path: Path) -> str:
     suffix = path.suffix.lower()
@@ -39,11 +46,18 @@ def guess_mime_type(path: Path) -> str:
         return "image/gif"
     return "application/octet-stream"
 
-def list_image_files(source_dir: Path) -> list[Path]:
+from collections.abc import Sequence
+from pathlib import Path
+
+
+def list_image_files(
+    source_dir: Path,
+    ordered_file_names: Sequence[str] | None = None,
+) -> list[Path]:
     if not source_dir.exists():
         raise FileNotFoundError(f"导入目录不存在：{source_dir}")
 
-    files = []
+    files: list[Path] = []
 
     for path in source_dir.iterdir():
         if not path.is_file():
@@ -57,14 +71,35 @@ def list_image_files(source_dir: Path) -> list[Path]:
 
         files.append(path)
 
-    files.sort(key=lambda path: path.stat().st_mtime)
-
     if not files:
         raise ValueError(f"导入目录中没有图片文件：{source_dir}")
 
-    print("将导入以下图片：")
+    if ordered_file_names is None:
+        files.sort(key=lambda path: path.stat().st_mtime)
+    else:
+        file_map = {path.name: path for path in files}
+
+        ordered_names = list(ordered_file_names)
+
+        if not ordered_names:
+            raise ValueError("没有选择要发布的图片")
+
+        if len(set(ordered_names)) != len(ordered_names):
+            raise ValueError("图片顺序列表中存在重复文件")
+
+        missing_names = [
+            name for name in ordered_names
+            if name not in file_map
+        ]
+
+        if missing_names:
+            raise ValueError(f"以下图片不存在或不是合法图片：{missing_names}")
+
+        files = [file_map[name] for name in ordered_names]
+
+    logger.info("将导入以下图片：")
     for index, path in enumerate(files, start=1):
-        print(f"{index}. {path.name}")
+        logger.info(f"{index}. {path.name}")
 
     return files
 
@@ -262,7 +297,7 @@ def get_or_create_part(
         return part
 
     if display_order is None:
-        statement = select(func.max(ComicPart.display_order)).where(ComicPart.series_id==series)
+        statement = select(func.max(ComicPart.display_order)).where(ComicPart.series_id==series.id)
         max_order = session.exec(statement).one()
 
         if max_order is None:
@@ -404,8 +439,9 @@ def import_comic_chapter_from_dir(
     uploads_root: Path | None = UPLOADS_ROOT,
     series_display_order: int | None = None,
     part_display_order: int | None=None,
+    ordered_file_names: Sequence[str] | None = None,
 ):
-    image_files = list_image_files(source_dir)
+    image_files = list_image_files(source_dir=source_dir,ordered_file_names=ordered_file_names,)
 
     series = get_or_create_series(
         session,
@@ -474,9 +510,9 @@ def delete_chapter_files(
 
     if chapter_dir.exists():
         rmtree(chapter_dir)
-        print(f"已删除目录：{chapter_dir}")
+        logger.info(f"已删除目录：{chapter_dir}")
     else:
-        print(f"目录不存在：{chapter_dir}")
+        logger.warning(f"目录不存在：{chapter_dir}")
 
 def reorder_chapters(session: Session, part_id: str):#重排part下的chapter display order
     statement = (
@@ -508,7 +544,7 @@ def delete_chapter(
         chapter_slug=chapter_slug,
     )
 
-    print(f"准备删除：{chapter.title} ({chapter.slug})")
+    logger.info(f"准备删除：{chapter.title} ({chapter.slug})")
 
     page_statement = (
         select(ComicPage)
@@ -530,7 +566,7 @@ def delete_chapter(
 
     session.commit()
 
-    print(f"已删除 {len(pages)} 个 comic_page")
+    logger.info(f"已删除 {len(pages)} 个 comic_page")
 
     for asset_id in asset_ids:
         asset = session.get(Asset, asset_id)
@@ -538,17 +574,17 @@ def delete_chapter(
             session.delete(asset)
     session.commit()
 
-    print(f"已删除 {len(asset_ids)} 个 asset")
+    logger.info(f"已删除 {len(asset_ids)} 个 asset")
 
     part_id = chapter.part_id
     session.delete(chapter)
     session.commit()
 
-    print("已删除 chapter")
+    logger.info("已删除 chapter")
 
     reorder_chapters(session, part_id)
 
-    print("删除完成")
+    logger.info("删除完成")
 
 def delete_part(
     session: Session,
@@ -578,14 +614,14 @@ def delete_part(
         asset = session.get(Asset, part.cover_asset_id)
 
         if asset:
-            print("检测到part封面")
+            logger.info("检测到part封面")
             session.delete(asset)
-            print("part封面已删除")
+            logger.info("part封面已删除")
 
     part_title = part.title
     session.delete(part)
     session.commit()
-    print(f"已删除part{part_title}")
+    logger.info(f"已删除part{part_title}")
 
 def delete_series(
     session: Session,
@@ -612,14 +648,14 @@ def delete_series(
         asset = session.get(Asset, series.cover_asset_id)
 
         if asset:
-            print("检测到series封面")
+            logger.info("检测到series封面")
             session.delete(asset)
-            print("series封面已删除")
+            logger.info("series封面已删除")
 
     series_title = series.title
     session.delete(series)
     session.commit()
-    print(f"已删除series{series_title}")
+    logger.info(f"已删除series{series_title}")
 
 # ===== 顺序 =====
 def update_chapter_order_title(title: str, new_order: int) -> str:
@@ -806,6 +842,51 @@ def rename_chapter(
 
     return chapter
 
+# ===== 简介 =====
+def reset_series_summary(
+    session: Session,
+    series_slug: str,
+    summary: str | None = None,
+) -> ComicSeries:
+    series = get_series(
+        session=session,
+        series_slug=series_slug,
+    )
+
+    series.summary = (summary or "").strip()
+    series.updated_at = now_utc()
+
+    session.add(series)
+    session.commit()
+    session.refresh(series)
+
+    return series
+
+
+def reset_part_summary(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    summary: str | None = None,
+) -> ComicPart:
+    part = get_part(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+    )
+
+    part.summary = (summary or "").strip()
+    part.updated_at = now_utc()
+
+    session.add(part)
+    session.commit()
+    session.refresh(part)
+
+    return part
+
+# ===== 封面 =====
+
+
 # ===== Part Owner =====
 def list_owner_candidates(session: Session) -> list[User]:
     statement = (
@@ -834,6 +915,32 @@ def get_part_owner(
         return None
 
     return session.get(User, link.user_id)
+
+def get_owner_parts(
+    session: Session,
+    user: User,
+) -> list[ComicPart]:
+    existing_links = session.exec(
+        select(ComicPartUserLink)
+        .where(ComicPartUserLink.user_id == user.id)
+        .where(ComicPartUserLink.role == "owner")
+    ).all()
+
+    if not existing_links:
+        return []
+
+    part_list = []
+
+    for link in existing_links:
+        statement = select(ComicPart).where(ComicPart.id == link.part_id)
+        part = session.exec(statement).first()
+
+        if not part:
+            raise ValueError(f"ComicPartUserLink表中用户id{user.id}存在非法part_id")
+
+        part_list.append(part)
+
+    return part_list
 
 
 def set_part_owner(
@@ -887,3 +994,234 @@ def set_part_owner(
     session.refresh(user)
 
     return user
+
+# ===== 封面 =====
+def copy_series_cover_to_uploads(
+    source_path: Path,
+    series_slug: str,
+    upload_root: Path,
+) -> tuple[Path, str]:
+    if not source_path.exists():
+        raise FileNotFoundError(f"封面文件不存在：{source_path}")
+
+    if not source_path.is_file():
+        raise ValueError(f"封面路径不是文件：{source_path}")
+
+    if ":Zone.Identifier" in source_path.name:
+        raise ValueError(f"非法文件名：{source_path.name}")
+
+    suffix = source_path.suffix.lower()
+
+    if suffix not in IMAGE_EXTENSIONS:
+        raise ValueError(f"不支持的封面格式：{source_path.name}")
+
+    target_dir = upload_root / series_slug / "cover"
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{uuid4()}{suffix}"
+    target_path = target_dir / filename
+
+    copy2(source_path, target_path)
+
+    asset_url = (
+        f"/uploads/comics/"
+        f"{series_slug}/"
+        f"cover/"
+        f"{filename}"
+    )
+
+    return target_path, asset_url
+
+
+def copy_part_cover_to_uploads(
+    source_path: Path,
+    series_slug: str,
+    part_slug: str,
+    upload_root: Path,
+) -> tuple[Path, str]:
+    if not source_path.exists():
+        raise FileNotFoundError(f"封面文件不存在：{source_path}")
+
+    if not source_path.is_file():
+        raise ValueError(f"封面路径不是文件：{source_path}")
+
+    if ":Zone.Identifier" in source_path.name:
+        raise ValueError(f"非法文件名：{source_path.name}")
+
+    suffix = source_path.suffix.lower()
+
+    if suffix not in IMAGE_EXTENSIONS:
+        raise ValueError(f"不支持的封面格式：{source_path.name}")
+
+    target_dir = upload_root / series_slug / part_slug / "cover"
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{uuid4()}{suffix}"
+    target_path = target_dir / filename
+
+    copy2(source_path, target_path)
+
+    asset_url = (
+        f"/uploads/comics/"
+        f"{series_slug}/"
+        f"{part_slug}/"
+        f"cover/"
+        f"{filename}"
+    )
+
+    return target_path, asset_url
+
+
+def create_cover_asset(
+    session: Session,
+    asset_url: str,
+    source_path: Path,
+) -> Asset:
+    asset = Asset(
+        id=str(uuid4()),
+        filename=Path(asset_url).name,
+        original_name=source_path.name,
+        mime_type=guess_mime_type(source_path),
+        size=source_path.stat().st_size,
+        url=asset_url,
+        usage="comic_cover",
+    )
+
+    session.add(asset)
+    session.commit()
+    session.refresh(asset)
+
+    return asset
+
+
+def get_asset_upload_path(asset: Asset) -> Path | None:
+    prefix = "/uploads/comics/"
+
+    if not asset.url.startswith(prefix):
+        return None
+
+    relative_path = Path(asset.url.removeprefix(prefix))
+
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise ValueError("asset 文件路径非法")
+
+    return UPLOADS_ROOT / relative_path
+
+
+def delete_asset_file(asset: Asset) -> None:
+    file_path = get_asset_upload_path(asset)
+
+    if file_path is None:
+        return
+
+    if file_path.exists():
+        file_path.unlink()
+
+
+def delete_cover_asset(
+    session: Session,
+    asset_id: str | None,
+) -> None:
+    if not asset_id:
+        return
+
+    asset = session.get(Asset, asset_id)
+
+    if not asset:
+        return
+
+    delete_asset_file(asset)
+
+    session.delete(asset)
+    session.commit()
+
+
+def set_series_cover(
+    session: Session,
+    series_slug: str,
+    source_path: Path,
+    uploads_root: Path | None = UPLOADS_ROOT,
+) -> ComicSeries:
+    if uploads_root is None:
+        raise ValueError("uploads_root 不能为空")
+
+    series = get_series(
+        session=session,
+        series_slug=series_slug,
+    )
+
+    old_cover_asset_id = series.cover_asset_id
+
+    _, asset_url = copy_series_cover_to_uploads(
+        source_path=source_path,
+        series_slug=series.slug,
+        upload_root=uploads_root,
+    )
+
+    asset = create_cover_asset(
+        session=session,
+        asset_url=asset_url,
+        source_path=source_path,
+    )
+
+    series.cover_asset_id = asset.id
+    series.updated_at = now_utc()
+
+    session.add(series)
+    session.commit()
+    session.refresh(series)
+
+    if old_cover_asset_id and old_cover_asset_id != asset.id:
+        delete_cover_asset(
+            session=session,
+            asset_id=old_cover_asset_id,
+        )
+
+    return series
+
+
+def set_part_cover(
+    session: Session,
+    series_slug: str,
+    part_slug: str,
+    source_path: Path,
+    uploads_root: Path | None = UPLOADS_ROOT,
+) -> ComicPart:
+    if uploads_root is None:
+        raise ValueError("uploads_root 不能为空")
+
+    part = get_part(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+    )
+
+    old_cover_asset_id = part.cover_asset_id
+
+    _, asset_url = copy_part_cover_to_uploads(
+        source_path=source_path,
+        series_slug=series_slug,
+        part_slug=part.slug,
+        upload_root=uploads_root,
+    )
+
+    asset = create_cover_asset(
+        session=session,
+        asset_url=asset_url,
+        source_path=source_path,
+    )
+
+    part.cover_asset_id = asset.id
+    part.updated_at = now_utc()
+
+    session.add(part)
+    session.commit()
+    session.refresh(part)
+
+    if old_cover_asset_id and old_cover_asset_id != asset.id:
+        delete_cover_asset(
+            session=session,
+            asset_id=old_cover_asset_id,
+        )
+
+    return part
