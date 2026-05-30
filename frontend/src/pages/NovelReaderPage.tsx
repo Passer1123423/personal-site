@@ -322,100 +322,96 @@ function NovelReaderPage() {
               </p>
             </header>
 
-            <article className="novel-reader-content">
-              <div className="novel-markdown novel-reader-markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {readerData.chapter.content || "本章暂无正文。"}
-                </ReactMarkdown>
-              </div>
-            </article>
+            <div className="novel-reader-body">
+              <article className="novel-reader-content">
+                <div className="novel-markdown novel-reader-markdown">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {readerData.chapter.content || "本章暂无正文。"}
+                  </ReactMarkdown>
+                </div>
+              </article>
 
-            <aside className="novel-reader-sidebar">
-              <div className="novel-reader-toc">
-                <p className="novel-reader-toc-title text-sm font-semibold text-main">
-                  目录
-                </p>
+              <aside className="novel-reader-sidebar">
+                <div className="novel-reader-toc">
+                  <p className="novel-reader-toc-title text-sm font-semibold text-main">
+                    目录
+                  </p>
 
-                <div className="novel-reader-toc-list mt-4 space-y-2">
-                  {chapters.length <= 10
-                    ? chapters.map((chapter) => {
-                        const isCurrent = chapter.slug === chapterSlug;
+                  <div className="novel-reader-toc-list mt-4 space-y-2">
+                    {chapters.length <= 10
+                      ? chapters.map((chapter) => {
+                          const isCurrent = chapter.slug === chapterSlug;
 
-                        return (
-                          <Link
-                            key={chapter.id}
-                            to={`/works/novels/${readerData.novel.slug}/${chapter.slug}`}
-                            className={[
-                              "novel-toc-link",
-                              isCurrent ? "novel-toc-link-active" : "",
-                            ].join(" ")}
-                          >
-                            {chapter.title}
-                          </Link>
-                        );
-                      })
-                    : chapterGroups.map((group) => {
-                        const isOpen =
-                          openChapterGroups[group.groupIndex] ?? false;
-
-                        return (
-                          <div
-                            key={group.groupIndex}
-                            className="border-b border-[var(--color-border-soft)] pb-2 last:border-b-0"
-                          >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                toggleChapterGroup(group.groupIndex)
-                              }
-                              className="flex w-full items-center justify-between px-1 py-1.5 text-left text-sm font-semibold text-main"
+                          return (
+                            <Link
+                              key={chapter.id}
+                              to={`/works/novels/${readerData.novel.slug}/${chapter.slug}`}
+                              className={[
+                                "novel-toc-link",
+                                isCurrent ? "novel-toc-link-active" : "",
+                              ].join(" ")}
                             >
-                              <span>
-                                第 {group.startOrder}–{group.endOrder} 章
-                              </span>
-                              <span className="text-xs text-soft">
-                                {isOpen ? "收起" : "展开"}
-                              </span>
-                            </button>
+                              {chapter.title}
+                            </Link>
+                          );
+                        })
+                      : chapterGroups.map((group) => {
+                          const isOpen = openChapterGroups[group.groupIndex] ?? false;
 
-                            {isOpen && (
-                              <div className="mt-1 space-y-0.5 pl-2">
-                                {group.chapters.map((chapter) => {
-                                  const isCurrent =
-                                    chapter.slug === chapterSlug;
+                          return (
+                            <div
+                              key={group.groupIndex}
+                              className="border-b border-[var(--color-border-soft)] pb-2 last:border-b-0"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => toggleChapterGroup(group.groupIndex)}
+                                className="flex w-full items-center justify-between px-1 py-1.5 text-left text-sm font-semibold text-main"
+                              >
+                                <span>
+                                  第 {group.startOrder}–{group.endOrder} 章
+                                </span>
+                                <span className="text-xs text-soft">
+                                  {isOpen ? "收起" : "展开"}
+                                </span>
+                              </button>
 
-                                  return (
-                                    <Link
-                                      key={chapter.id}
-                                      to={`/works/novels/${readerData.novel.slug}/${chapter.slug}`}
-                                      className={[
-                                        "novel-toc-link",
-                                        isCurrent
-                                          ? "novel-toc-link-active"
-                                          : "",
-                                      ].join(" ")}
-                                    >
-                                      {chapter.title}
-                                    </Link>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                              {isOpen && (
+                                <div className="mt-1 space-y-0.5 pl-2">
+                                  {group.chapters.map((chapter) => {
+                                    const isCurrent = chapter.slug === chapterSlug;
+
+                                    return (
+                                      <Link
+                                        key={chapter.id}
+                                        to={`/works/novels/${readerData.novel.slug}/${chapter.slug}`}
+                                        className={[
+                                          "novel-toc-link",
+                                          isCurrent ? "novel-toc-link-active" : "",
+                                        ].join(" ")}
+                                      >
+                                        {chapter.title}
+                                      </Link>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                  </div>
+
+                  <div className="novel-reader-toc-footer">
+                    <Link
+                      to={`/works/novels/${readerData.novel.slug}`}
+                      className="text-sm font-semibold link-accent"
+                    >
+                      返回详情页
+                    </Link>
+                  </div>
                 </div>
-
-                <div className="novel-reader-toc-footer">
-                  <Link
-                    to={`/works/novels/${readerData.novel.slug}`}
-                    className="text-sm font-semibold link-accent"
-                  >
-                    返回详情页
-                  </Link>
-                </div>
-              </div>
-            </aside>
+              </aside>
+            </div>
 
             <footer className="novel-reader-footer">
               {previousChapter ? (

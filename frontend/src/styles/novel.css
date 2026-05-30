@@ -291,6 +291,7 @@
 .novel-preview-prose p {
   text-indent: 2em;
 }
+
 .novel-markdown blockquote p,
 .novel-reader-prose blockquote p,
 .novel-preview-prose blockquote p,
@@ -341,6 +342,12 @@
   grid-column: 1 / -1;
   border-bottom: 1px solid var(--color-border-soft);
   padding: 1.75rem 2.25rem 1.5rem;
+}
+
+.novel-reader-body {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
 }
 
 .novel-reader-content {
@@ -436,6 +443,10 @@
   .novel-reader-frame {
     grid-template-columns: 1fr;
     overflow: hidden;
+  }
+
+  .novel-reader-body {
+    grid-template-columns: 1fr;
   }
 
   .novel-reader-header {
