@@ -21,6 +21,7 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminComicsPage from "./pages/AdminComicsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminNovelsPage from "./pages/AdminNovelsPage";
+import AdminInteractionsPage from "./pages/AdminInteractionsPage";
 
 import NovelsPage from './pages/NovelsPage'
 import NovelDetailPage from './pages/NovelDetailPage'
@@ -102,6 +103,7 @@ function App() {
         <Route path="/admin/comics" element={<AdminComicsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/novels" element={<AdminNovelsPage />} />
+        <Route path="/admin/interactions" element={<AdminInteractionsPage />} />
       </Routes>
 
       <Footer />

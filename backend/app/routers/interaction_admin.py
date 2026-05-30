@@ -8,6 +8,7 @@ from app.services.interactions import (
     admin_hard_delete_comment,
     admin_soft_delete_comment,
     get_comment_detail,
+    list_admin_comments,
     list_comment_tree,
 )
 
@@ -16,6 +17,38 @@ router = APIRouter(
     prefix="/api/admin/interactions",
     tags=["admin-interactions"],
 )
+
+
+@router.get("/comments")
+def admin_list_comments(
+    keyword: str | None = Query(default=None),
+    target_type: str | None = Query(default=None),
+    target_id: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    include_deleted: bool = Query(default=True),
+    only_deleted: bool = Query(default=False),
+    has_replies: bool | None = Query(default=None),
+    sort: str = Query(default="newest"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
+):
+    _ = current_user
+
+    return list_admin_comments(
+        session,
+        keyword=keyword,
+        target_type=target_type,
+        target_id=target_id,
+        user_id=user_id,
+        include_deleted=include_deleted,
+        only_deleted=only_deleted,
+        has_replies=has_replies,
+        sort=sort,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/comments/tree")

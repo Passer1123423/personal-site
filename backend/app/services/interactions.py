@@ -16,7 +16,6 @@ ACTIVE_COMMENT_TARGET_TYPES = {
     "user_page",
     "novel",
     "novel_chapter",
-    # 先预留。即使前端暂时不用，后端目标校验已经能支持。
     "comic_part",
     "comic_chapter",
 }
@@ -55,16 +54,12 @@ def validate_comment_target(
 
     if target_type == "user_page":
         target = session.get(User, target_id)
-
     elif target_type == "novel":
         target = session.get(Novel, target_id)
-
     elif target_type == "novel_chapter":
         target = session.get(NovelChapter, target_id)
-
     elif target_type == "comic_part":
         target = session.get(ComicPart, target_id)
-
     elif target_type == "comic_chapter":
         target = session.get(ComicChapter, target_id)
 
@@ -169,7 +164,6 @@ def list_comment_tree(
     root_limit = clamp_comment_limit(limit)
     root_offset = max(0, offset)
 
-    # 按单条评论定位时：返回这条评论在所属 target 下的子树。
     if comment_id:
         anchor = get_comment_or_404(session, comment_id)
 
@@ -296,6 +290,10 @@ def create_comment(
                 detail="不能回复已删除的评论",
             )
 
+        # 后端保护：子评论的子评论统一挂到一级评论下面。
+        if parent.parent_id:
+            parent_id = parent.parent_id
+
     comment = Comment(
         target_type=target_type,
         target_id=target_id,
@@ -386,3 +384,134 @@ def admin_hard_delete_comment(
 
     session.delete(comment)
     session.commit()
+
+
+def serialize_admin_comment_list_item(
+    comment: Comment,
+    *,
+    users_by_id: dict[str, User],
+    reply_count: int,
+    reveal_deleted_content: bool = True,
+) -> dict:
+    user = users_by_id.get(comment.user_id)
+
+    content = comment.content
+    if comment.is_deleted and not reveal_deleted_content:
+        content = ""
+
+    return {
+        "id": comment.id,
+        "target_type": comment.target_type,
+        "target_id": comment.target_id,
+        "user_id": comment.user_id,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "display_name": user.display_name,
+            "role": user.role,
+        } if user else None,
+        "content": content,
+        "parent_id": comment.parent_id,
+        "is_deleted": comment.is_deleted,
+        "reply_count": reply_count,
+        "created_at": comment.created_at,
+        "updated_at": comment.updated_at,
+    }
+
+
+def list_admin_comments(
+    session: Session,
+    *,
+    keyword: str | None = None,
+    target_type: str | None = None,
+    target_id: str | None = None,
+    user_id: str | None = None,
+    include_deleted: bool = True,
+    only_deleted: bool = False,
+    has_replies: bool | None = None,
+    sort: str = "newest",
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    page_limit = clamp_comment_limit(limit)
+    page_offset = max(0, offset)
+
+    query = select(Comment)
+
+    clean_keyword = keyword.strip() if keyword else ""
+    if clean_keyword:
+        query = query.where(Comment.content.contains(clean_keyword))
+
+    if target_type:
+        query = query.where(Comment.target_type == target_type)
+
+    if target_id:
+        query = query.where(Comment.target_id == target_id)
+
+    if user_id:
+        query = query.where(Comment.user_id == user_id)
+
+    if only_deleted:
+        query = query.where(Comment.is_deleted == True)  # noqa: E712
+    elif not include_deleted:
+        query = query.where(Comment.is_deleted == False)  # noqa: E712
+
+    comments = session.exec(query).all()
+
+    comment_ids = [comment.id for comment in comments]
+    reply_counts_by_id = {comment_id: 0 for comment_id in comment_ids}
+
+    if comment_ids:
+        children = session.exec(
+            select(Comment).where(col(Comment.parent_id).in_(comment_ids))
+        ).all()
+
+        for child in children:
+            if child.parent_id in reply_counts_by_id:
+                reply_counts_by_id[child.parent_id] += 1
+
+    if has_replies is True:
+        comments = [
+            comment
+            for comment in comments
+            if reply_counts_by_id.get(comment.id, 0) > 0
+        ]
+    elif has_replies is False:
+        comments = [
+            comment
+            for comment in comments
+            if reply_counts_by_id.get(comment.id, 0) == 0
+        ]
+
+    if sort == "oldest":
+        comments.sort(key=lambda comment: comment.created_at)
+    elif sort == "reply_count_desc":
+        comments.sort(
+            key=lambda comment: (
+                reply_counts_by_id.get(comment.id, 0),
+                comment.created_at,
+            ),
+            reverse=True,
+        )
+    else:
+        comments.sort(key=lambda comment: comment.created_at, reverse=True)
+
+    total = len(comments)
+    page_comments = comments[page_offset: page_offset + page_limit]
+
+    users_by_id = load_users_for_comments(session, page_comments)
+
+    return {
+        "items": [
+            serialize_admin_comment_list_item(
+                comment,
+                users_by_id=users_by_id,
+                reply_count=reply_counts_by_id.get(comment.id, 0),
+                reveal_deleted_content=True,
+            )
+            for comment in page_comments
+        ],
+        "total": total,
+        "limit": page_limit,
+        "offset": page_offset,
+    }

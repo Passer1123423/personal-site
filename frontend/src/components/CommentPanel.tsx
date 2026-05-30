@@ -791,7 +791,7 @@ export default function CommentPanel({
               <AutoResizeTextarea
                 value={content}
                 onChange={setContent}
-                placeholder="这里需要一条查重率0%的评论"
+                placeholder="这里需要一条AI率100%的评论"
                 minRows={1}
                 maxRows={6}
               />
