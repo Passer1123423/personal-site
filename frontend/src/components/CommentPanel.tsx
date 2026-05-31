@@ -296,13 +296,17 @@ function ReplyNode({
       )}
 
       <div className="flex gap-3">
-        <CommentAvatar comment={comment} small />
+        <Link to={`/users/${comment.user.username}`}>
+          <CommentAvatar comment={comment} small />
+        </Link>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-medium text-[var(--color-text-muted)]">
-              {getCommentUserName(comment)}
-            </span>
+            <Link to={`/users/${comment.user.username}`}>
+              <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
+                {getCommentUserName(comment)}
+              </span>
+            </Link>
 
             {comment.user?.role === "admin" && (
               <span className="rounded px-1.5 py-0.5 text-[10px] leading-none text-[var(--color-accent)] ring-1 ring-[var(--color-accent-border)]">
@@ -386,13 +390,17 @@ function CommentNode({
   return (
     <article className="border-b border-[var(--color-border-soft)] py-5 last:border-b-0">
       <div className="flex gap-3">
-        <CommentAvatar comment={comment} />
+        <Link to={`/users/${comment.user.username}`}>
+          <CommentAvatar comment={comment} />
+        </Link>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-medium text-[var(--color-text-muted)]">
-              {getCommentUserName(comment)}
-            </span>
+            <Link to={`/users/${comment.user.username}`}>
+              <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
+                {getCommentUserName(comment)}
+              </span>
+            </Link>
 
             {comment.user?.role === "admin" && (
               <span className="rounded px-1.5 py-0.5 text-[10px] leading-none text-[var(--color-accent)] ring-1 ring-[var(--color-accent-border)]">
