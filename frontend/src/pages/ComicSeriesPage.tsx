@@ -8,6 +8,7 @@ import {
   type ComicSeriesDetail,
 } from "../api/comics";
 import CreatorBookCard from "../components/creator/CreatorBookCard";
+import CommentPanel from "../components/CommentPanel.tsx";
 
 function EmptyCover({ title }: { title: string }) {
   return (
@@ -79,10 +80,7 @@ function PartSection({
     (a, b) => a.displayOrder - b.displayOrder,
   );
 
-  const firstChapter = sortedChapters[0] ?? null;
-  const mobileCardHref = firstChapter
-    ? `/works/comics/${seriesSlug}/${part.slug}/${firstChapter.slug}`
-    : `/works/comics/${seriesSlug}`;
+  const partHref = `/works/comics/${seriesSlug}/${part.slug}`;
 
   return (
     <article ref={partRef} className="scroll-mt-24">
@@ -93,7 +91,7 @@ function PartSection({
               title={part.title}
               summary={part.summary}
               coverUrl={part.coverUrl}
-              href={mobileCardHref}
+              href={partHref}
               meta={
                 sortedChapters.length > 0
                   ? `${sortedChapters.length} 章`
@@ -153,12 +151,13 @@ function PartSection({
 
       <div className="hidden md:block">
         <article className="overflow-hidden rounded-xl border border-[var(--color-border-soft)] bg-white shadow-sm">
-          <button
-            type="button"
+          <div
             className="group grid w-full min-h-32 text-left transition hover:bg-[var(--color-panel-soft-bg)] sm:grid-cols-[150px_minmax(0,1fr)] md:grid-cols-[132px_minmax(0,1fr)]"
-            onClick={() => setIsOpen((value) => !value)}
           >
-            <div className="hidden h-full min-h-32 overflow-hidden border-r border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] sm:block">
+            <Link
+              to={partHref}
+              className="hidden h-full min-h-32 overflow-hidden border-r border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] sm:block"
+            >
               {coverUrl ? (
                 <img
                   src={coverUrl}
@@ -168,13 +167,21 @@ function PartSection({
               ) : (
                 <EmptyCover title={part.title} />
               )}
-            </div>
+            </Link>
 
-            <div className="flex min-w-0 items-center justify-between gap-4 px-5 py-4">
+            <div
+              className="flex min-w-0 items-center justify-between gap-4 px-5 py-4"
+              onClick={() => setIsOpen((value) => !value)}
+            >
               <div className="min-w-0">
-                <h2 className="truncate text-xl font-bold text-main group-hover:underline group-hover:underline-offset-4">
-                  {part.title}
-                </h2>
+                <Link
+                  to={partHref}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <h2 className="truncate text-xl font-bold text-main group-hover:underline group-hover:underline-offset-4">
+                    {part.title}
+                  </h2>
+                </Link>
 
                 {part.summary ? (
                   <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-muted">
@@ -187,11 +194,14 @@ function PartSection({
                 )}
               </div>
 
-              <span className="shrink-0 text-xl font-light text-soft transition group-hover:text-muted">
+              <button
+                type="button"
+                className="shrink-0 text-xl font-light text-soft transition group-hover:text-muted"
+              >
                 {isOpen ? "−" : "+"}
-              </span>
+              </button>
             </div>
-          </button>
+          </div>
 
           {isOpen && (
             <div className="border-t border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] px-4 py-4">
