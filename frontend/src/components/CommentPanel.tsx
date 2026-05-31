@@ -7,6 +7,7 @@ import {
   listCommentTree,
   type CommentItem,
 } from "../api/interactions";
+import { formatChinaDateTimeToMinute } from "../utils/time";
 
 type CommentPanelProps = {
   targetType: string;
@@ -126,22 +127,6 @@ function AutoResizeTextarea({
       rows={minRows}
     />
   );
-}
-
-function formatCommentTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day} ${hour}:${minute}`;
 }
 
 function getCommentUserName(comment: CommentItem) {
@@ -329,7 +314,7 @@ function ReplyNode({
           <CommentContent comment={comment} />
 
           <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-soft">
-            <span>{formatCommentTime(comment.created_at)}</span>
+            <span>{formatChinaDateTimeToMinute(comment.created_at)}</span>
 
             {!comment.is_deleted && currentUser && (
               <button
@@ -419,7 +404,7 @@ function CommentNode({
           <CommentContent comment={comment} />
 
           <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-soft">
-            <span>{formatCommentTime(comment.created_at)}</span>
+            <span>{formatChinaDateTimeToMinute(comment.created_at)}</span>
 
             {!comment.is_deleted && currentUser && (
               <button

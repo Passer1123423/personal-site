@@ -10,10 +10,7 @@ import {
   type NovelReaderData,
 } from "../api/novels";
 import CommentPanel from "../components/CommentPanel.tsx";
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString();
-}
+import { formatChinaDateTimeToMinute } from "../utils/time";
 
 function getSavedScrollY(storageKey: string) {
   const savedValue = localStorage.getItem(storageKey);
@@ -318,7 +315,7 @@ function NovelReaderPage() {
 
               <p className="mt-4 text-sm text-soft">
                 第 {readerData.chapter.displayOrder} 章 · 更新于{" "}
-                {formatDate(readerData.chapter.updatedAt)}
+                {formatChinaDateTimeToMinute(readerData.chapter.updatedAt)}
               </p>
             </header>
 
