@@ -129,7 +129,7 @@ function AutoResizeTextarea({
   );
 }
 
-function getCommentUserName(comment: CommentItem) {
+function getCommentDisplayName(comment: CommentItem) {
   if (!comment.user) {
     return "未知用户";
   }
@@ -137,8 +137,12 @@ function getCommentUserName(comment: CommentItem) {
   return comment.user.display_name || comment.user.username;
 }
 
+function getCommentUsername(comment: CommentItem) {
+  return comment.user?.username ?? null;
+}
+
 function getInitial(comment: CommentItem) {
-  const name = getCommentUserName(comment);
+  const name = getCommentDisplayName(comment);
   return name.slice(0, 1).toUpperCase();
 }
 
@@ -274,6 +278,7 @@ function ReplyNode({
   onDelete,
 }: ReplyNodeProps) {
   const { comment, replyToComment } = item;
+  const commentUsername = getCommentUsername(comment);
   const canDelete = Boolean(
     currentUser && currentUser.id === comment.user_id && !comment.is_deleted,
   );
@@ -296,17 +301,27 @@ function ReplyNode({
       )}
 
       <div className="flex gap-3">
-        <Link to={`/users/${comment.user.username}`}>
+        {commentUsername ? (
+          <Link to={`/users/${commentUsername}`}>
+            <CommentAvatar comment={comment} small />
+          </Link>
+        ) : (
           <CommentAvatar comment={comment} small />
-        </Link>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <Link to={`/users/${comment.user.username}`}>
+            {commentUsername ? (
+              <Link to={`/users/${commentUsername}`}>
+                <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
+                  {getCommentDisplayName(comment)}
+                </span>
+              </Link>
+            ) : (
               <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
-                {getCommentUserName(comment)}
+                {getCommentDisplayName(comment)}
               </span>
-            </Link>
+            )}
 
             {comment.user?.role === "admin" && (
               <span className="rounded px-1.5 py-0.5 text-[10px] leading-none text-[var(--color-accent)] ring-1 ring-[var(--color-accent-border)]">
@@ -376,6 +391,7 @@ function CommentNode({
   expandedReplyIds,
   onToggleRepliesExpanded,
   }: CommentNodeProps) {
+  const commentUsername = getCommentUsername(comment);
   const canDelete = Boolean(
     currentUser && currentUser.id === comment.user_id && !comment.is_deleted,
   );
@@ -390,17 +406,27 @@ function CommentNode({
   return (
     <article className="border-b border-[var(--color-border-soft)] py-5 last:border-b-0">
       <div className="flex gap-3">
-        <Link to={`/users/${comment.user.username}`}>
+        {commentUsername ? (
+          <Link to={`/users/${commentUsername}`}>
+            <CommentAvatar comment={comment} />
+          </Link>
+        ) : (
           <CommentAvatar comment={comment} />
-        </Link>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <Link to={`/users/${comment.user.username}`}>
+            {commentUsername ? (
+              <Link to={`/users/${commentUsername}`}>
+                <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
+                  {getCommentDisplayName(comment)}
+                </span>
+              </Link>
+            ) : (
               <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
-                {getCommentUserName(comment)}
+                {getCommentDisplayName(comment)}
               </span>
-            </Link>
+            )}
 
             {comment.user?.role === "admin" && (
               <span className="rounded px-1.5 py-0.5 text-[10px] leading-none text-[var(--color-accent)] ring-1 ring-[var(--color-accent-border)]">

@@ -152,51 +152,51 @@ function PartSection({
       </div>
 
       <div className="hidden md:block">
-        <article className="overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-sm">
+        <article className="overflow-hidden rounded-xl border border-[var(--color-border-soft)] bg-white shadow-sm">
           <button
             type="button"
-            className="group grid w-full min-h-44 text-left transition hover:bg-[var(--color-panel-soft-bg)] sm:grid-cols-[150px_minmax(0,1fr)] md:grid-cols-[170px_minmax(0,1fr)]"
+            className="group grid w-full min-h-32 text-left transition hover:bg-[var(--color-panel-soft-bg)] sm:grid-cols-[150px_minmax(0,1fr)] md:grid-cols-[132px_minmax(0,1fr)]"
             onClick={() => setIsOpen((value) => !value)}
           >
-            <div className="hidden h-full min-h-44 overflow-hidden border-r border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] sm:block">
+            <div className="hidden h-full min-h-32 overflow-hidden border-r border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] sm:block">
               {coverUrl ? (
                 <img
                   src={coverUrl}
                   alt={part.title}
-                  className="h-full min-h-44 w-full object-cover"
+                  className="h-full min-h-32 w-full object-cover"
                 />
               ) : (
                 <EmptyCover title={part.title} />
               )}
             </div>
 
-            <div className="flex min-w-0 items-center justify-between gap-5 px-6 py-5">
+            <div className="flex min-w-0 items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
-                <h2 className="truncate text-2xl font-bold text-main group-hover:underline group-hover:underline-offset-4">
+                <h2 className="truncate text-xl font-bold text-main group-hover:underline group-hover:underline-offset-4">
                   {part.title}
                 </h2>
 
                 {part.summary ? (
-                  <p className="mt-3 line-clamp-2 max-w-4xl text-sm leading-7 text-muted">
+                  <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-muted">
                     {part.summary}
                   </p>
                 ) : (
-                  <p className="mt-3 text-sm leading-7 text-soft">
+                  <p className="mt-2 text-sm leading-6 text-soft">
                     暂无分部简介。
                   </p>
                 )}
               </div>
 
-              <span className="shrink-0 text-2xl font-light text-soft transition group-hover:text-muted">
+              <span className="shrink-0 text-xl font-light text-soft transition group-hover:text-muted">
                 {isOpen ? "−" : "+"}
               </span>
             </div>
           </button>
 
           {isOpen && (
-            <div className="border-t border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] px-5 py-5">
+            <div className="border-t border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] px-4 py-4">
               {sortedChapters.length > 0 ? (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                   {sortedChapters.map((chapter) => (
                     <ChapterGridItem
                       key={chapter.id}
@@ -321,8 +321,8 @@ function ComicSeriesPage() {
   );
 
   return (
-    <main className="page-shell min-h-[100dvh] px-4 py-8 md:px-6 md:py-14">
-      <section className="mx-auto max-w-7xl">
+    <main className="page-shell min-h-[100dvh] px-4 py-8 md:px-8 md:py-8">
+      <section className="mx-auto max-w-[1120px]">
         <Link to="/works/comics" className="link-accent text-sm font-semibold">
           ← 返回漫画存档
         </Link>
@@ -380,43 +380,43 @@ function ComicSeriesPage() {
           </p>
         </section>
 
-        <section className="mt-8 hidden overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-sm md:block">
-          <div className="grid gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
-            <div className="relative min-h-96 border-b border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] lg:border-b-0 lg:border-r">
+        <section className="mt-6 hidden overflow-hidden rounded-xl border border-[var(--color-border-soft)] bg-white shadow-sm md:block">
+          <div className="grid gap-0 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="relative min-h-72 border-b border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] lg:border-b-0 lg:border-r">
               {coverUrl ? (
                 <img
                   src={coverUrl}
                   alt={series.title}
-                  className="h-full min-h-96 w-full object-cover"
+                  className="h-full min-h-72 w-full object-cover"
                 />
               ) : (
                 <EmptyCover title={series.title} />
               )}
             </div>
 
-            <div className="flex flex-col justify-between p-9">
+            <div className="flex flex-col justify-between p-6">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] link-accent">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] link-accent">
                   Comic Series
                 </p>
 
-                <h1 className="mt-4 text-4xl font-bold leading-tight text-main">
+                <h1 className="mt-3 text-3xl font-bold leading-tight text-main">
                   {series.title}
                 </h1>
 
                 {series.summary ? (
-                  <p className="mt-6 max-w-3xl text-base leading-8 text-muted">
+                  <p className="mt-4 max-w-3xl text-sm leading-7 text-muted">
                     {series.summary}
                   </p>
                 ) : (
-                  <p className="mt-6 max-w-3xl text-base leading-8 text-soft">
+                  <p className="mt-4 max-w-3xl text-sm leading-7 text-soft">
                     暂无系列简介。
                   </p>
                 )}
               </div>
 
-              <div className="mt-8 border-t border-[var(--color-border-soft)] pt-5">
-                <p className="text-sm leading-7 text-soft">
+              <div className="mt-6 border-t border-[var(--color-border-soft)] pt-4">
+                <p className="text-sm leading-6 text-soft">
                   选择下方分部展开目录，点击章节进入阅读。
                 </p>
               </div>
@@ -424,25 +424,25 @@ function ComicSeriesPage() {
           </div>
         </section>
 
-        <section className="mt-8 md:mt-12">
-          <div className="mb-4 border-b border-[var(--color-border-soft)] pb-4 md:mb-6 md:border-b-0 md:pb-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em]">
+        <section className="mt-8 md:mt-8">
+          <div className="mb-4 border-b border-[var(--color-border-soft)] pb-4 md:mb-5 md:border-b-0 md:pb-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] link-accent md:tracking-[0.22em]">
               Contents
             </p>
 
-            <h2 className="mt-2 text-xl font-bold text-main md:text-2xl">
+            <h2 className="mt-2 text-xl font-bold text-main">
               分部目录
             </h2>
 
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted md:mt-3 md:leading-7">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
               每个分部可以展开查看章节。左侧目录可以快速跳转到对应分部。
             </p>
           </div>
 
           {sortedParts.length > 0 ? (
-            <div className="grid gap-5 md:gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="grid gap-5 lg:grid-cols-[190px_minmax(0,1fr)]">
               <aside className="hidden lg:block">
-                <div className="sticky top-24 overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-sm">
+                <div className="sticky top-24 overflow-hidden rounded-xl border border-[var(--color-border-soft)] bg-white shadow-sm">
                   <button
                     type="button"
                     className="flex w-full items-center justify-between border-b border-[var(--color-border-soft)] px-4 py-3 text-left"
@@ -478,7 +478,7 @@ function ComicSeriesPage() {
                 </div>
               </aside>
 
-              <div className="space-y-0 md:space-y-6">
+              <div className="space-y-0 md:space-y-4">
                 {sortedParts.map((part, index) => (
                   <PartSection
                     key={part.id}
