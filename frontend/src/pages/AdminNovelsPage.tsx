@@ -17,6 +17,7 @@ import {
   type AdminNovelOwner,
 } from "../api/adminNovels";
 import { clearAccessToken, getMe } from "../api/auth";
+import { formatChinaDateTimeToMinute } from "../utils/time";
 
 type MoveDirection = "up" | "down";
 
@@ -40,10 +41,6 @@ function MessageArea({
       )}
     </>
   );
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
 }
 
 function getChapterPrefix(chapter: AdminNovelChapter) {
@@ -1007,7 +1004,7 @@ export default function AdminNovelsPage() {
                             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-soft">
                               <span>{chapter.slug}</span>
                               <span>
-                                更新于 {formatDateTime(chapter.updatedAt)}
+                                更新于 {formatChinaDateTimeToMinute(chapter.updatedAt)}
                               </span>
                             </div>
                           </div>

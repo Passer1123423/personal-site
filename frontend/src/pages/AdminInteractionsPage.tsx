@@ -16,6 +16,7 @@ import SearchablePicker, {
 import { fetchAdminUsers, type AdminUser } from "../api/adminUsers";
 import { fetchAdminNovelsTree, type AdminNovel } from "../api/adminNovels";
 import { fetchAdminComicsTree, type AdminComicSeries } from "../api/adminComics";
+import { formatChinaDateTimeToMinute } from "../utils/time";
 
 type SortMode = "newest" | "oldest" | "reply_count_desc";
 
@@ -94,22 +95,6 @@ function buildComicChapterOptions(seriesList: AdminComicSeries[]): SearchablePic
   );
 }
 
-function formatTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day} ${hour}:${minute}`;
-}
-
 function getUserLabel(comment: AdminCommentItem) {
   if (!comment.user) {
     return "未知用户";
@@ -149,7 +134,9 @@ function CommentContextNode({
         <span className="text-xs font-medium text-main">
           {getUserLabel(node)}
         </span>
-        <span className="text-[11px] text-soft">{formatTime(node.created_at)}</span>
+        <span className="text-[11px] text-soft">
+          {formatChinaDateTimeToMinute(node.created_at)}
+        </span>
       </div>
 
       <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">
@@ -618,7 +605,9 @@ export default function AdminInteractionsPage() {
                           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-soft">
                             <span>{comment.target_type}</span>
                             <span className="max-w-[260px] truncate">{comment.target_id}</span>
-                            <span>{formatTime(comment.created_at)}</span>
+                            <span>
+                              {formatChinaDateTimeToMinute(comment.created_at)}
+                            </span>
                             <span>回复 {comment.reply_count}</span>
                           </div>
                         </div>
@@ -683,7 +672,7 @@ export default function AdminInteractionsPage() {
                       {getUserLabel(selectedComment)}
                     </span>
                     <span className="text-xs text-soft">
-                      {formatTime(selectedComment.created_at)}
+                      {formatChinaDateTimeToMinute(selectedComment.created_at)}
                     </span>
                   </div>
 

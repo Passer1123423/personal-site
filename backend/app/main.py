@@ -24,6 +24,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.database import create_db_and_tables
 from app.routers.users import router as users_router
+from app.routers.user_profile import router as user_profile_router
 from app.routers.auth import router as auth_router
 from app.routers.user_admin import router as user_admin_router
 
@@ -119,6 +120,7 @@ app.mount(
 # 所以最终接口路径是：
 #   GET /api/comics
 app.include_router(users_router)
+app.include_router(user_profile_router)
 app.include_router(auth_router)
 app.include_router(user_admin_router)
 app.include_router(comics_router)

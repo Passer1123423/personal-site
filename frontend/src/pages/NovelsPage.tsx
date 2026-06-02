@@ -4,10 +4,7 @@ import { Link } from "react-router";
 import CreatorBookCard from "../components/creator/CreatorBookCard";
 import { getMe, type AuthUser } from "../api/auth";
 import { getNovelList, type NovelListItem } from "../api/novels";
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString();
-}
+import { formatChinaDate } from "../utils/time";
 
 function NovelCoverOnly({ novel }: { novel: NovelListItem }) {
   if (novel.coverUrl) {
@@ -59,7 +56,7 @@ function FeaturedNovelCard({ novel }: { novel: NovelListItem }) {
 
           <div className="mt-3 flex flex-col gap-1 border-t border-[var(--color-border-soft)] pt-2 md:mt-5 md:flex-row md:items-center md:justify-between md:gap-3 md:pt-3">
             <span className="min-w-0 truncate text-xs text-soft">
-              更新于 {formatDate(novel.updatedAt)}
+              更新于 {formatChinaDate(novel.updatedAt)}
             </span>
 
             <span className="shrink-0 text-xs font-semibold link-accent md:text-sm">
@@ -227,7 +224,7 @@ function NovelsPage() {
                       summary={novel.summary}
                       coverUrl={novel.coverUrl}
                       href={`/works/novels/${novel.slug}`}
-                      meta={`更新于 ${formatDate(novel.updatedAt)}`}
+                      meta={`更新于 ${formatChinaDate(novel.updatedAt)}`}
                     />
                   ))}
                 </div>

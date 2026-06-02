@@ -6,6 +6,7 @@ from app.core.security import hash_password, verify_password
 from app.database import get_session
 from app.dependencies.auth import require_admin_user
 from app.models import SiteSetting, User, now_utc
+from app.services.user_profile import get_avatar_url
 
 
 router = APIRouter(
@@ -43,14 +44,14 @@ class DeleteUserRequest(BaseModel):
 class RegistrationSettingRequest(BaseModel):
     enabled: bool
 
-def user_to_admin_item(user: User) -> dict:
+def user_to_admin_item(session: Session, user: User) -> dict:
     return {
         "id": user.id,
         "username": user.username,
         "displayName": user.display_name,
         "role": user.role,
         "isActive": user.is_active,
-        "avatarUrl": None,
+        "avatarUrl": get_avatar_url(session, user),
         "bio": user.bio,
         "createdAt": user.created_at,
         "updatedAt": user.updated_at,
@@ -65,7 +66,7 @@ def list_admin_users(
         select(User).order_by(User.created_at)
     ).all()
 
-    return [user_to_admin_item(user) for user in users]
+    return [user_to_admin_item(session, user) for user in users]
 
 @router.get("/settings/registration")
 def get_registration_setting(
@@ -158,7 +159,7 @@ def create_admin_user(
     session.commit()
     session.refresh(user)
 
-    return user_to_admin_item(user)
+    return user_to_admin_item(session, user)
 
 
 @router.patch("/{username}")
@@ -204,7 +205,7 @@ def update_admin_user(
     session.commit()
     session.refresh(user)
 
-    return user_to_admin_item(user)
+    return user_to_admin_item(session, user)
 
 
 @router.patch("/{username}/password")
@@ -235,7 +236,7 @@ def reset_admin_user_password(
     session.commit()
     session.refresh(user)
 
-    return user_to_admin_item(user)
+    return user_to_admin_item(session, user)
 
 
 @router.delete("/{username}")

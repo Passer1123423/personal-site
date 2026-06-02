@@ -14,6 +14,7 @@ import {
   type ComicReaderData,
   type ComicSeriesDetail,
 } from "../api/comics";
+import CommentPanel from "../components/CommentPanel.tsx";
 
 type ChapterNavItem = {
   slug: string;
@@ -486,6 +487,14 @@ function ComicReaderPage() {
               已是最后一话
             </span>
           )}
+        </div>
+        <div className="mx-auto max-w-[920px] pb-8">
+          <CommentPanel
+            targetType="comic_chapter"
+            targetId={readerData.chapter.id}
+            title="本话小评"
+            emptyText="还没有评论。"
+          />
         </div>
       </section>
 

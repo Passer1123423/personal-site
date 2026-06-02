@@ -7,6 +7,8 @@ import {
   listCommentTree,
   type CommentItem,
 } from "../api/interactions";
+import { formatChinaDateTimeToMinute } from "../utils/time";
+import { resolveAssetUrl } from "../api/userProfile";
 
 type CommentPanelProps = {
   targetType: string;
@@ -128,23 +130,7 @@ function AutoResizeTextarea({
   );
 }
 
-function formatCommentTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day} ${hour}:${minute}`;
-}
-
-function getCommentUserName(comment: CommentItem) {
+function getCommentDisplayName(comment: CommentItem) {
   if (!comment.user) {
     return "未知用户";
   }
@@ -152,9 +138,25 @@ function getCommentUserName(comment: CommentItem) {
   return comment.user.display_name || comment.user.username;
 }
 
+function getCommentUsername(comment: CommentItem) {
+  return comment.user?.username ?? null;
+}
+
 function getInitial(comment: CommentItem) {
-  const name = getCommentUserName(comment);
+  const name = getCommentDisplayName(comment);
   return name.slice(0, 1).toUpperCase();
+}
+
+function getCommentAvatarUrl(comment: CommentItem) {
+  const user = comment.user as
+    | {
+        avatarUrl?: string | null;
+        avatar_url?: string | null;
+      }
+    | null
+    | undefined;
+
+  return resolveAssetUrl(user?.avatarUrl ?? user?.avatar_url ?? null);
 }
 
 function getCurrentUserName(user: AuthUser) {
@@ -196,12 +198,32 @@ function CommentAvatar({
   comment: CommentItem;
   small?: boolean;
 }) {
+  const avatarUrl = getCommentAvatarUrl(comment);
+  const sizeClass = small ? "h-8 w-8 text-xs" : "h-11 w-11 text-sm";
+
+  if (avatarUrl) {
+    return (
+      <div
+        className={[
+          "shrink-0 overflow-hidden rounded-full border border-[var(--color-border-soft)] bg-white",
+          sizeClass,
+        ].join(" ")}
+      >
+        <img
+          src={avatarUrl}
+          alt={getCommentDisplayName(comment)}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={[
         "flex shrink-0 items-center justify-center rounded-full",
         "bg-[var(--color-accent-soft)] font-semibold text-[var(--color-accent)]",
-        small ? "h-8 w-8 text-xs" : "h-11 w-11 text-sm",
+        sizeClass,
       ].join(" ")}
     >
       {getInitial(comment)}
@@ -289,6 +311,7 @@ function ReplyNode({
   onDelete,
 }: ReplyNodeProps) {
   const { comment, replyToComment } = item;
+  const commentUsername = getCommentUsername(comment);
   const canDelete = Boolean(
     currentUser && currentUser.id === comment.user_id && !comment.is_deleted,
   );
@@ -303,7 +326,7 @@ function ReplyNode({
   return (
     <article className="group relative pt-3">
       {replyToComment && (
-        <div className="pointer-events-none absolute left-11 top-2 z-20 hidden max-w-[min(420px,80vw)] rounded-lg border border-[var(--color-border-soft)] bg-white/95 px-3 py-2 text-xs text-muted shadow-lg backdrop-blur group-hover:block">
+        <div className="pointer-events-none absolute left-11 top-2 z-20 hidden max-w-[min(420px,80vw)] rounded-lg border border-[var(--color-border-soft)] bg-white/80 px-3 py-2 text-xs text-muted shadow-md backdrop-blur group-hover:block hidden">
           <div className="truncate">
             回复：{replyToText}
           </div>
@@ -311,13 +334,27 @@ function ReplyNode({
       )}
 
       <div className="flex gap-3">
-        <CommentAvatar comment={comment} small />
+        {commentUsername ? (
+          <Link to={`/users/${commentUsername}`}>
+            <CommentAvatar comment={comment} small />
+          </Link>
+        ) : (
+          <CommentAvatar comment={comment} small />
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-medium text-[var(--color-text-muted)]">
-              {getCommentUserName(comment)}
-            </span>
+            {commentUsername ? (
+              <Link to={`/users/${commentUsername}`}>
+                <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
+                  {getCommentDisplayName(comment)}
+                </span>
+              </Link>
+            ) : (
+              <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
+                {getCommentDisplayName(comment)}
+              </span>
+            )}
 
             {comment.user?.role === "admin" && (
               <span className="rounded px-1.5 py-0.5 text-[10px] leading-none text-[var(--color-accent)] ring-1 ring-[var(--color-accent-border)]">
@@ -329,7 +366,7 @@ function ReplyNode({
           <CommentContent comment={comment} />
 
           <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-soft">
-            <span>{formatCommentTime(comment.created_at)}</span>
+            <span>{formatChinaDateTimeToMinute(comment.created_at)}</span>
 
             {!comment.is_deleted && currentUser && (
               <button
@@ -387,6 +424,7 @@ function CommentNode({
   expandedReplyIds,
   onToggleRepliesExpanded,
   }: CommentNodeProps) {
+  const commentUsername = getCommentUsername(comment);
   const canDelete = Boolean(
     currentUser && currentUser.id === comment.user_id && !comment.is_deleted,
   );
@@ -401,13 +439,27 @@ function CommentNode({
   return (
     <article className="border-b border-[var(--color-border-soft)] py-5 last:border-b-0">
       <div className="flex gap-3">
-        <CommentAvatar comment={comment} />
+        {commentUsername ? (
+          <Link to={`/users/${commentUsername}`}>
+            <CommentAvatar comment={comment} />
+          </Link>
+        ) : (
+          <CommentAvatar comment={comment} />
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-medium text-[var(--color-text-muted)]">
-              {getCommentUserName(comment)}
-            </span>
+            {commentUsername ? (
+              <Link to={`/users/${commentUsername}`}>
+                <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
+                  {getCommentDisplayName(comment)}
+                </span>
+              </Link>
+            ) : (
+              <span className="text-sm font-medium text-[var(--color-text-muted)] hover:underline hover:underline-offset-4">
+                {getCommentDisplayName(comment)}
+              </span>
+            )}
 
             {comment.user?.role === "admin" && (
               <span className="rounded px-1.5 py-0.5 text-[10px] leading-none text-[var(--color-accent)] ring-1 ring-[var(--color-accent-border)]">
@@ -419,7 +471,7 @@ function CommentNode({
           <CommentContent comment={comment} />
 
           <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-soft">
-            <span>{formatCommentTime(comment.created_at)}</span>
+            <span>{formatChinaDateTimeToMinute(comment.created_at)}</span>
 
             {!comment.is_deleted && currentUser && (
               <button

@@ -3,17 +3,18 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models import User
+from app.services.user_profile import get_avatar_url
 
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
-def user_to_public_profile(user: User) -> dict:
+def user_to_public_profile(session: Session, user: User) -> dict:
     return {
         "id": user.id,
         "username": user.username,
         "displayName": user.display_name,
-        "avatarUrl": None,
+        "avatarUrl": get_avatar_url(session, user),
         "bio": user.bio,
         "role": user.role,
         "series": [],
@@ -35,4 +36,4 @@ def get_user_profile(
             detail="用户不存在",
         )
 
-    return user_to_public_profile(user)
+    return user_to_public_profile(session, user)

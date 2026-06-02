@@ -10,10 +10,7 @@ import {
   type NovelDetail,
 } from "../api/novels";
 import CommentPanel from "../components/CommentPanel.tsx";
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString();
-}
+import { formatChinaDate } from "../utils/time";
 
 function NovelCover({ novel }: { novel: NovelDetail }) {
   const coverUrl = resolveAssetUrl(novel.coverUrl);
@@ -174,7 +171,7 @@ function NovelDetailPage() {
 
                   <div>
                     <p className="font-semibold text-main">最近更新</p>
-                    <p className="mt-0.5 md:mt-1">{formatDate(novel.updatedAt)}</p>
+                    <p className="mt-0.5 md:mt-1">{formatChinaDate(novel.updatedAt)}</p>
                   </div>
 
                   <div className="hidden md:block">
@@ -223,7 +220,7 @@ function NovelDetailPage() {
                           </p>
 
                           <p className="mt-1 text-xs text-soft">
-                            更新于 {formatDate(chapter.updatedAt)}
+                            更新于 {formatChinaDate(chapter.updatedAt)}
                           </p>
                         </div>
 

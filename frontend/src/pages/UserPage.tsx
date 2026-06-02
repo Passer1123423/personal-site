@@ -1,14 +1,72 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { getMe, type AuthUser } from "../api/auth";
 import { getUserProfile, type PublicUserProfile } from "../api/users";
+import { resolveAssetUrl } from "../api/userProfile";
 import CommentPanel from "../components/CommentPanel";
+
+function getInitial(name: string | null | undefined) {
+  const value = (name || "").trim();
+
+  if (!value) {
+    return "?";
+  }
+
+  return value.slice(0, 1).toUpperCase();
+}
+
+function UserAvatar({ profile }: { profile: PublicUserProfile }) {
+  const avatarUrl = resolveAssetUrl(profile.avatarUrl);
+
+  if (avatarUrl) {
+    return (
+      <div className="h-24 w-24 overflow-hidden rounded-full border border-[var(--color-border)] bg-white/60">
+        <img
+          src={avatarUrl}
+          alt={profile.displayName}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="badge-accent flex h-24 w-24 items-center justify-center rounded-full text-3xl font-semibold">
+      {getInitial(profile.displayName)}
+    </div>
+  );
+}
 
 export default function UserPage() {
   const { username } = useParams();
 
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    async function loadCurrentUser() {
+      try {
+        const data = await getMe();
+        setCurrentUser(data);
+      } catch {
+        setCurrentUser(null);
+      }
+    }
+
+    loadCurrentUser();
+
+    function handleAuthChanged() {
+      loadCurrentUser();
+    }
+
+    window.addEventListener("auth-changed", handleAuthChanged);
+
+    return () => {
+      window.removeEventListener("auth-changed", handleAuthChanged);
+    };
+  }, []);
 
   useEffect(() => {
     async function loadProfile() {
@@ -63,6 +121,8 @@ export default function UserPage() {
     );
   }
 
+  const isOwnPage = currentUser?.username === profile.username;
+
   return (
     <main className="page-shell px-6 py-12">
       <section className="mx-auto max-w-5xl">
@@ -75,15 +135,25 @@ export default function UserPage() {
 
         <section className="surface-card mt-8 p-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-center">
-            <div className="badge-accent flex h-24 w-24 items-center justify-center text-3xl font-semibold">
-              {profile.displayName.slice(0, 1).toUpperCase()}
-            </div>
+            <UserAvatar profile={profile} />
 
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-sm text-soft">@{profile.username}</p>
-              <h1 className="mt-2 text-3xl font-semibold text-main">
-                {profile.displayName}
-              </h1>
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h1 className="text-3xl font-semibold text-main">
+                  {profile.displayName}
+                </h1>
+
+                {isOwnPage && (
+                  <Link
+                    to="/settings/profile"
+                    className="rounded-xl border border-[var(--color-border)] px-4 py-2 text-sm text-main transition hover:bg-[var(--color-panel-soft-bg)]"
+                  >
+                    编辑资料
+                  </Link>
+                )}
+              </div>
+
               <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
                 {profile.bio || "这个用户还没有填写简介。"}
               </p>
