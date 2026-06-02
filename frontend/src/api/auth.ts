@@ -11,6 +11,7 @@ export type AuthUser = {
   avatarUrl: string | null;
   bio: string;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type LoginResponse = {
@@ -23,7 +24,7 @@ export type RegisterParams = {
   username: string;
   displayName: string;
   password: string;
-  humanCheck: string
+  humanCheck: string;
 };
 
 export async function login(username: string, password: string): Promise<LoginResponse> {
@@ -75,6 +76,10 @@ export function getAccessToken(): string | null {
 
 export function clearAccessToken() {
   localStorage.removeItem(TOKEN_KEY);
+  window.dispatchEvent(new Event("auth-changed"));
+}
+
+export function notifyAuthChanged() {
   window.dispatchEvent(new Event("auth-changed"));
 }
 

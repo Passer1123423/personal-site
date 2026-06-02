@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { clearAccessToken, getMe, type AuthUser } from "../api/auth";
+import { resolveAssetUrl } from "../api/userProfile";
 
 function AvatarPlaceholder({
   user,
@@ -12,10 +13,12 @@ function AvatarPlaceholder({
   user: AuthUser;
   sizeClass?: string;
 }) {
-  if (user.avatarUrl) {
+  const avatarUrl = resolveAssetUrl(user.avatarUrl);
+
+  if (avatarUrl) {
     return (
       <img
-        src={user.avatarUrl}
+        src={avatarUrl}
         alt={user.displayName || user.username}
         className={`${sizeClass} rounded-full object-cover`}
       />
@@ -166,6 +169,14 @@ export default function NavbarUserMenu() {
                 管理后台
               </Link>
             )}
+
+            <Link
+              to={"/settings/profile"}
+              className="block rounded-xl px-3 py-2 text-sm text-main transition hover:bg-[var(--color-panel-soft-bg)] hover:pl-4"
+              onClick={() => setOpen(false)}
+            >
+              进入设置
+            </Link>
 
             <button
               type="button"

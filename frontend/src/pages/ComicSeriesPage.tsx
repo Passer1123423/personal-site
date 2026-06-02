@@ -8,7 +8,6 @@ import {
   type ComicSeriesDetail,
 } from "../api/comics";
 import CreatorBookCard from "../components/creator/CreatorBookCard";
-import CommentPanel from "../components/CommentPanel.tsx";
 
 function EmptyCover({ title }: { title: string }) {
   return (

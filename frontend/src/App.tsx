@@ -8,6 +8,7 @@ import WorksPage from './pages/WorksPage'
 
 import RegisterPage from "./pages/RegisterPage";
 import UserPage from "./pages/UserPage";
+import UserSettingsPage from "./pages/UserSettingsPage";
 
 import ComicReaderPage from './pages/ComicReaderPage'
 import ComicsPage from './pages/ComicsPage'
@@ -53,6 +54,7 @@ function App() {
         <Route path="/works" element={<WorksPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/users/:username" element={<UserPage />} />
+        <Route path="/settings/profile" element={<UserSettingsPage />} />
 
         <Route path="/works/comics" element={<ComicsPage />} />
         <Route path="/works/comics/:seriesSlug" element={<ComicSeriesPage />} />

@@ -8,6 +8,7 @@ import {
   type CommentItem,
 } from "../api/interactions";
 import { formatChinaDateTimeToMinute } from "../utils/time";
+import { resolveAssetUrl } from "../api/userProfile";
 
 type CommentPanelProps = {
   targetType: string;
@@ -146,6 +147,18 @@ function getInitial(comment: CommentItem) {
   return name.slice(0, 1).toUpperCase();
 }
 
+function getCommentAvatarUrl(comment: CommentItem) {
+  const user = comment.user as
+    | {
+        avatarUrl?: string | null;
+        avatar_url?: string | null;
+      }
+    | null
+    | undefined;
+
+  return resolveAssetUrl(user?.avatarUrl ?? user?.avatar_url ?? null);
+}
+
 function getCurrentUserName(user: AuthUser) {
   return user.displayName || user.username;
 }
@@ -185,12 +198,32 @@ function CommentAvatar({
   comment: CommentItem;
   small?: boolean;
 }) {
+  const avatarUrl = getCommentAvatarUrl(comment);
+  const sizeClass = small ? "h-8 w-8 text-xs" : "h-11 w-11 text-sm";
+
+  if (avatarUrl) {
+    return (
+      <div
+        className={[
+          "shrink-0 overflow-hidden rounded-full border border-[var(--color-border-soft)] bg-white",
+          sizeClass,
+        ].join(" ")}
+      >
+        <img
+          src={avatarUrl}
+          alt={getCommentDisplayName(comment)}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={[
         "flex shrink-0 items-center justify-center rounded-full",
         "bg-[var(--color-accent-soft)] font-semibold text-[var(--color-accent)]",
-        small ? "h-8 w-8 text-xs" : "h-11 w-11 text-sm",
+        sizeClass,
       ].join(" ")}
     >
       {getInitial(comment)}
@@ -293,7 +326,7 @@ function ReplyNode({
   return (
     <article className="group relative pt-3">
       {replyToComment && (
-        <div className="pointer-events-none absolute left-11 top-2 z-20 hidden max-w-[min(420px,80vw)] rounded-lg border border-[var(--color-border-soft)] bg-white/95 px-3 py-2 text-xs text-muted shadow-lg backdrop-blur group-hover:block">
+        <div className="pointer-events-none absolute left-11 top-2 z-20 hidden max-w-[min(420px,80vw)] rounded-lg border border-[var(--color-border-soft)] bg-white/80 px-3 py-2 text-xs text-muted shadow-md backdrop-blur group-hover:block hidden">
           <div className="truncate">
             回复：{replyToText}
           </div>

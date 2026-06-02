@@ -12,10 +12,9 @@ from app.core.security import (
     hash_password,
 )
 from app.dependencies.auth import require_current_user
-
+from app.services.user_profile import user_to_public_dict
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
 
 class LoginRequest(BaseModel):
     username: str
@@ -59,17 +58,8 @@ def is_registration_enabled(session: Session) -> bool:
 
     return setting.value == "true"
 
-def user_to_public(user: User) -> dict:
-    return {
-        "id": user.id,
-        "username": user.username,
-        "displayName": user.display_name,
-        "role": user.role,
-        "isActive": user.is_active,
-        "avatarUrl": None,
-        "bio": user.bio,
-        "createdAt": user.created_at,
-    }
+def user_to_public(session: Session, user: User) -> dict:
+    return user_to_public_dict(session, user)
 
 @router.post("/register")
 def register(
@@ -141,7 +131,7 @@ def register(
     return {
         "accessToken": access_token,
         "tokenType": "bearer",
-        "user": user_to_public(user),
+        "user": user_to_public(session, user),
     }
 
 @router.post("/login")
@@ -176,11 +166,12 @@ def login(
     return {
         "accessToken": access_token,
         "tokenType": "bearer",
-        "user": user_to_public(user),
+        "user": user_to_public(session, user),
     }
 
 @router.get("/me")
 def get_me(
     current_user: User = Depends(require_current_user),
+    session: Session = Depends(get_session),
 ):
-    return user_to_public(current_user)
+    return user_to_public(session, current_user)
