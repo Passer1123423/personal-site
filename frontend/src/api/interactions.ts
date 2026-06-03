@@ -6,6 +6,8 @@ export type CommentUser = {
   username: string;
   display_name: string | null;
   role: string;
+  avatar_url?: string | null;
+  avatarUrl?: string | null;
 };
 
 export type CommentItem = {

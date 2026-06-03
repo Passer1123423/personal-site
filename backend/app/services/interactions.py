@@ -11,6 +11,7 @@ from app.models import (
     now_utc,
 )
 
+from app.services.user_profile import get_avatar_url
 
 ACTIVE_COMMENT_TARGET_TYPES = {
     "user_page",
@@ -73,6 +74,7 @@ def validate_comment_target(
 def serialize_comment(
     comment: Comment,
     *,
+    session: Session,
     users_by_id: dict[str, User],
     reveal_deleted_content: bool,
 ) -> dict:
@@ -92,6 +94,7 @@ def serialize_comment(
             "username": user.username,
             "display_name": user.display_name,
             "role": user.role,
+            "avatar_url": get_avatar_url(session, user),
         } if user else None,
         "content": content,
         "parent_id": comment.parent_id,
@@ -105,6 +108,7 @@ def serialize_comment(
 def build_comment_tree(
     comments: list[Comment],
     *,
+    session: Session,
     users_by_id: dict[str, User],
     reveal_deleted_content: bool,
     root_limit: int,
@@ -113,6 +117,7 @@ def build_comment_tree(
     items = [
         serialize_comment(
             comment,
+            session=session,
             users_by_id=users_by_id,
             reveal_deleted_content=reveal_deleted_content,
         )
@@ -183,6 +188,7 @@ def list_comment_tree(
 
         all_roots = build_comment_tree(
             comments,
+            session=session,
             users_by_id=users_by_id,
             reveal_deleted_content=reveal_deleted_content,
             root_limit=MAX_COMMENT_QUERY_LIMIT,
@@ -223,6 +229,7 @@ def list_comment_tree(
 
     return build_comment_tree(
         comments,
+        session=session,
         users_by_id=users_by_id,
         reveal_deleted_content=reveal_deleted_content,
         root_limit=root_limit,
@@ -241,6 +248,7 @@ def get_comment_detail(
 
     return serialize_comment(
         comment,
+        session=session,
         users_by_id=users_by_id,
         reveal_deleted_content=reveal_deleted_content,
     )
