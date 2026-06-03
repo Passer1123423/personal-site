@@ -23,6 +23,7 @@ class CommentCreateRequest(BaseModel):
     target_id: str = Field(min_length=1)
     content: str = Field(min_length=1, max_length=1000)
     parent_id: str | None = None
+    reply_to_id: str | None = None
 
 
 @router.get("/comments/tree")
@@ -57,6 +58,7 @@ def post_comment(
         target_id=payload.target_id,
         content=payload.content,
         parent_id=payload.parent_id,
+        reply_to_id=payload.reply_to_id,
     )
 
 

@@ -11,6 +11,7 @@ from app.models import (
     now_utc,
 )
 
+from app.services.user_profile import get_avatar_url
 
 ACTIVE_COMMENT_TARGET_TYPES = {
     "user_page",
@@ -73,6 +74,7 @@ def validate_comment_target(
 def serialize_comment(
     comment: Comment,
     *,
+    session: Session,
     users_by_id: dict[str, User],
     reveal_deleted_content: bool,
 ) -> dict:
@@ -92,9 +94,11 @@ def serialize_comment(
             "username": user.username,
             "display_name": user.display_name,
             "role": user.role,
+            "avatar_url": get_avatar_url(session, user),
         } if user else None,
         "content": content,
         "parent_id": comment.parent_id,
+        "reply_to_id": comment.reply_to_id,
         "is_deleted": comment.is_deleted,
         "created_at": comment.created_at,
         "updated_at": comment.updated_at,
@@ -105,6 +109,7 @@ def serialize_comment(
 def build_comment_tree(
     comments: list[Comment],
     *,
+    session: Session,
     users_by_id: dict[str, User],
     reveal_deleted_content: bool,
     root_limit: int,
@@ -113,6 +118,7 @@ def build_comment_tree(
     items = [
         serialize_comment(
             comment,
+            session=session,
             users_by_id=users_by_id,
             reveal_deleted_content=reveal_deleted_content,
         )
@@ -183,6 +189,7 @@ def list_comment_tree(
 
         all_roots = build_comment_tree(
             comments,
+            session=session,
             users_by_id=users_by_id,
             reveal_deleted_content=reveal_deleted_content,
             root_limit=MAX_COMMENT_QUERY_LIMIT,
@@ -223,6 +230,7 @@ def list_comment_tree(
 
     return build_comment_tree(
         comments,
+        session=session,
         users_by_id=users_by_id,
         reveal_deleted_content=reveal_deleted_content,
         root_limit=root_limit,
@@ -241,6 +249,7 @@ def get_comment_detail(
 
     return serialize_comment(
         comment,
+        session=session,
         users_by_id=users_by_id,
         reveal_deleted_content=reveal_deleted_content,
     )
@@ -254,6 +263,7 @@ def create_comment(
     target_id: str,
     content: str,
     parent_id: str | None = None,
+    reply_to_id: str | None = None,
 ) -> dict:
     validate_comment_target(
         session,
@@ -275,6 +285,9 @@ def create_comment(
             detail=f"评论内容不能超过 {MAX_COMMENT_LENGTH} 字",
         )
 
+    final_parent_id = parent_id
+    final_reply_to_id = reply_to_id
+
     if parent_id:
         parent = get_comment_or_404(session, parent_id)
 
@@ -290,16 +303,47 @@ def create_comment(
                 detail="不能回复已删除的评论",
             )
 
-        # 后端保护：子评论的子评论统一挂到一级评论下面。
-        if parent.parent_id:
-            parent_id = parent.parent_id
+        # 所有回复统一归到一级评论下面。
+        final_parent_id = parent.parent_id or parent.id
+
+        # 如果前端没传 reply_to_id，兼容旧逻辑：认为实际回复目标就是 parent_id。
+        if not final_reply_to_id:
+            final_reply_to_id = parent.id
+
+        reply_to = get_comment_or_404(session, final_reply_to_id)
+
+        if reply_to.target_type != target_type or reply_to.target_id != target_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="回复目标必须属于同一个评论区",
+            )
+
+        if reply_to.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="不能回复已删除的评论",
+            )
+
+        reply_to_root_id = reply_to.parent_id or reply_to.id
+
+        if reply_to_root_id != final_parent_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="回复目标不属于同一个一级评论",
+            )
+    elif reply_to_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="reply_to_id 不能单独使用",
+        )
 
     comment = Comment(
         target_type=target_type,
         target_id=target_id,
         user_id=user.id,
         content=clean_content,
-        parent_id=parent_id,
+        parent_id=final_parent_id,
+        reply_to_id=final_reply_to_id,
         is_deleted=False,
         created_at=now_utc(),
         updated_at=now_utc(),

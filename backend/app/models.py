@@ -221,6 +221,16 @@ class Comment(SQLModel, table=True):
     # 第一版前端可以先不用，只显示一级评论。
     # 先加这个字段，后面要做回复时不用再改表。
     parent_id: str | None = Field(default=None, foreign_key="comment.id", index=True)
+    # 实际回复目标。
+    #
+    # parent_id 用来把回复归到同一个一级评论下面；
+    # reply_to_id 用来记录用户真正点击回复的是哪一条评论。
+    #
+    # 例如：
+    # A 是一级评论
+    # B 回复 A：parent_id=A.id, reply_to_id=A.id
+    # C 回复 B：parent_id=A.id, reply_to_id=B.id
+    reply_to_id: str | None = Field(default=None, foreign_key="comment.id", index=True)
 
     # 软删除。
     #

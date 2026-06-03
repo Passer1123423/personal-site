@@ -6,6 +6,8 @@ export type CommentUser = {
   username: string;
   display_name: string | null;
   role: string;
+  avatar_url?: string | null;
+  avatarUrl?: string | null;
 };
 
 export type CommentItem = {
@@ -16,6 +18,7 @@ export type CommentItem = {
   user: CommentUser | null;
   content: string;
   parent_id: string | null;
+  reply_to_id: string | null;
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
@@ -27,6 +30,7 @@ export type CreateCommentParams = {
   targetId: string;
   content: string;
   parentId?: string | null;
+  replyToId?: string | null;
 };
 
 export type ListCommentTreeParams = {
@@ -119,11 +123,12 @@ export async function createComment(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      target_type: params.targetType,
-      target_id: params.targetId,
-      content: params.content,
-      parent_id: params.parentId ?? null,
-    }),
+    target_type: params.targetType,
+    target_id: params.targetId,
+    content: params.content,
+    parent_id: params.parentId ?? null,
+    reply_to_id: params.replyToId ?? null,
+  }),
   });
 
   if (!response.ok) {
