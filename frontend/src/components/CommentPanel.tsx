@@ -21,6 +21,7 @@ type CommentPanelProps = {
 type ReplyTarget = {
   commentId: string;
   parentId: string;
+  replyToId: string;
   mentionUsername: string | null;
 };
 
@@ -176,19 +177,43 @@ function parseLeadingMention(content: string) {
   };
 }
 
-function flattenReplies(children: CommentItem[], directParent: CommentItem): FlatReply[] {
-  const result: FlatReply[] = [];
+function collectCommentMap(root: CommentItem) {
+  const map = new Map<string, CommentItem>();
+
+  function visit(comment: CommentItem) {
+    map.set(comment.id, comment);
+    comment.children.forEach(visit);
+  }
+
+  visit(root);
+
+  return map;
+}
+
+function collectReplies(children: CommentItem[]): CommentItem[] {
+  const result: CommentItem[] = [];
 
   children.forEach((child) => {
-    result.push({
-      comment: child,
-      replyToComment: directParent,
-    });
-
-    result.push(...flattenReplies(child.children, child));
+    result.push(child);
+    result.push(...collectReplies(child.children));
   });
 
   return result;
+}
+
+function flattenReplies(rootComment: CommentItem): FlatReply[] {
+  const commentMap = collectCommentMap(rootComment);
+  const replies = collectReplies(rootComment.children);
+
+  return replies.map((reply) => {
+    const replyToId = reply.reply_to_id ?? reply.parent_id;
+    const replyToComment = replyToId ? commentMap.get(replyToId) ?? rootComment : rootComment;
+
+    return {
+      comment: reply,
+      replyToComment,
+    };
+  });
 }
 
 function CommentAvatar({
@@ -312,6 +337,10 @@ function ReplyNode({
 }: ReplyNodeProps) {
   const { comment, replyToComment } = item;
   const commentUsername = getCommentUsername(comment);
+  const shouldShowReplyTarget = replyToComment
+    ? replyToComment.id !== rootCommentId
+    : false;
+
   const canDelete = Boolean(
     currentUser && currentUser.id === comment.user_id && !comment.is_deleted,
   );
@@ -325,8 +354,8 @@ function ReplyNode({
 
   return (
     <article className="group relative pt-3">
-      {replyToComment && (
-        <div className="pointer-events-none absolute left-11 top-2 z-20 hidden max-w-[min(420px,80vw)] rounded-lg border border-[var(--color-border-soft)] bg-white/80 px-3 py-2 text-xs text-muted shadow-md backdrop-blur group-hover:block hidden">
+      {shouldShowReplyTarget && (
+        <div className="pointer-events-none absolute left-11 top-2 z-20 hidden max-w-[min(420px,80vw)] rounded-lg border border-[var(--color-border-soft)] bg-white/95 px-3 py-2 text-xs text-muted shadow-lg backdrop-blur group-hover:block">
           <div className="truncate">
             回复：{replyToText}
           </div>
@@ -376,6 +405,7 @@ function ReplyNode({
                   onStartReply({
                     commentId: comment.id,
                     parentId: rootCommentId,
+                    replyToId: comment.id,
                     mentionUsername: comment.user?.username ?? null,
                   })
                 }
@@ -429,7 +459,7 @@ function CommentNode({
     currentUser && currentUser.id === comment.user_id && !comment.is_deleted,
   );
   const isReplying = replyTarget?.commentId === comment.id;
-  const replies = flattenReplies(comment.children, comment);
+  const replies = flattenReplies(comment);
 
   const shouldCollapseReplies = replies.length > 3;
   const repliesCollapsed =
@@ -481,6 +511,7 @@ function CommentNode({
                   onStartReply({
                     commentId: comment.id,
                     parentId: comment.id,
+                    replyToId: comment.id,
                     mentionUsername: null,
                   })
                 }
@@ -771,6 +802,7 @@ export default function CommentPanel({
         targetId,
         content: finalContent,
         parentId: replyTarget.parentId,
+        replyToId: replyTarget.replyToId,
       });
 
       setReplyTarget(null);
