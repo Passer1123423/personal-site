@@ -618,6 +618,8 @@ export default function CommentPanel({
     return content.trim().length > 0 && !isSubmitting;
   }, [content, isSubmitting]);
 
+  const currentUserAvatarUrl = resolveAssetUrl(currentUser?.avatarUrl);
+
   function showError(message: string) {
     setErrorMessage(message);
   }
@@ -864,9 +866,19 @@ export default function CommentPanel({
       >
         {currentUser ? (
           <div className="flex gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-sm font-semibold text-[var(--color-accent)]">
-              {getCurrentUserName(currentUser).slice(0, 1).toUpperCase()}
-            </div>
+            {currentUserAvatarUrl ? (
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[var(--color-border-soft)] bg-white">
+                <img
+                  src={currentUserAvatarUrl}
+                  alt={getCurrentUserName(currentUser)}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-sm font-semibold text-[var(--color-accent)]">
+                {getCurrentUserName(currentUser).slice(0, 1).toUpperCase()}
+              </div>
+            )}
 
             <div className="min-w-0 flex-1">
               <AutoResizeTextarea
