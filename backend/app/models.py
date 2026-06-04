@@ -241,6 +241,35 @@ class Comment(SQLModel, table=True):
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
 
+class CommentImage(SQLModel, table=True):
+    """
+    评论图片关系表。
+
+    图片文件本身仍然存 Asset 表。
+    这里仅记录某条评论关联了哪些图片，以及图片显示顺序。
+
+    第一版规则：
+    1. 只有父级评论可以带图片；
+    2. 一条父级评论最多 9 张图片；
+    3. 软删除评论时不删除这里的记录；
+    4. 硬删除评论时需要同步删除这里的记录、对应 Asset 和磁盘文件。
+    """
+
+    __tablename__ = "comment_image"
+
+    __table_args__ = (
+        UniqueConstraint("comment_id", "display_order", name="uq_comment_image_order"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    comment_id: str = Field(foreign_key="comment.id", index=True)
+    asset_id: str = Field(foreign_key="asset.id", index=True)
+
+    display_order: int = Field(default=0, index=True)
+
+    created_at: datetime = Field(default_factory=now_utc)
+
 class ComicSeries(SQLModel, table=True):
     """
     漫画系列表。

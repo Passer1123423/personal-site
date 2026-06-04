@@ -18,6 +18,7 @@ export type AdminCommentItem = {
   parent_id: string | null;
   is_deleted: boolean;
   reply_count: number;
+  image_count?: number;
   created_at: string;
   updated_at: string;
 };
