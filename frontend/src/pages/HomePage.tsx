@@ -17,8 +17,8 @@ const festivalStats = [
 
 const festivalRituals = [
   '向鸡神封面图进行三次注目礼',
-  '在蓬莱仙岛完成朋友聚集仪式',
-  '确认 SaBa 帮生日祝福广播正常运行',
+  '在蓬莱仙岛完成SaBa聚集仪式',
+  '确认 SaBa 节祝福广播正常运行',
 ]
 
 function HomePage() {
@@ -49,7 +49,7 @@ function HomePage() {
                 </span>
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-8 text-slate-700 sm:text-lg">
-                今日本站临时切换为蓬莱仙岛庆典模式。鸡神封面图已升格为主视觉，SaBa帮成员将在此完成集结、祝福广播、神秘组件巡礼和一点点完全没有长期维护压力的节日胡闹。
+                今日本站临时切换为蓬莱仙岛庆典模式。鸡神封面图已升格为主视觉，SaBa帮成员将在此完成集结、祝福广播、神秘组件巡礼和一点点完全没有长期维护压力的节日胡闹。可见的，今天的页面可能会有一点点卡。
               </p>
             </div>
 
