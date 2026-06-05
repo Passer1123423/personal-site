@@ -504,13 +504,25 @@ def list_comment_tree(
             for node in nodes:
                 if node["id"] == target_comment_id:
                     return node
+
                 found = find_node(node["children"], target_comment_id)
                 if found:
                     return found
+
             return None
 
-        node = find_node(all_roots, comment_id)
-        return [node] if node else []
+        def find_root_containing_node(
+                roots: list[dict],
+                target_comment_id: str,
+        ) -> dict | None:
+            for root in roots:
+                if find_node([root], target_comment_id):
+                    return root
+
+            return None
+
+        root = find_root_containing_node(all_roots, comment_id)
+        return [root] if root else []
 
     query = select(Comment)
 

@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../api/config";
 import { clearAccessToken, getMe } from "../api/auth";
 import {
+  adminGetCommentDetail,
   adminGetCommentTreeByCommentId,
   adminHardDeleteComment,
   adminListComments,
   adminSoftDeleteComment,
+  type AdminCommentImageItem,
   type AdminCommentItem,
   type AdminCommentTreeItem,
 } from "../api/adminInteractions";
@@ -111,14 +114,67 @@ function getContentPreview(comment: AdminCommentItem) {
   return comment.content || "空评论";
 }
 
+function resolveAssetUrl(url: string) {
+  if (!url) {
+    return "";
+  }
+
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  return `${API_BASE_URL}${url}`;
+}
+
+function AdminCommentImages({
+  images,
+  onPreview,
+}: {
+  images?: AdminCommentImageItem[];
+  onPreview: (url: string) => void;
+}) {
+  const visibleImages = images ?? [];
+
+  if (visibleImages.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-1.5">
+      {visibleImages.map((image) => {
+        const imageUrl = resolveAssetUrl(image.url);
+
+        return (
+          <button
+            key={image.id}
+            type="button"
+            className="aspect-square cursor-zoom-in overflow-hidden rounded-lg border border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] transition hover:border-[var(--color-accent-border-strong)] hover:brightness-95"
+            onClick={() => onPreview(imageUrl)}
+            title={image.original_name}
+          >
+            <img
+              src={imageUrl}
+              alt={image.original_name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function CommentContextNode({
   node,
   activeId,
   depth = 0,
+  onPreviewImage,
 }: {
   node: AdminCommentTreeItem;
   activeId: string;
   depth?: number;
+  onPreviewImage: (url: string) => void;
 }) {
   return (
     <div
@@ -144,6 +200,11 @@ function CommentContextNode({
         {node.content || "该评论已删除"}
       </p>
 
+      <AdminCommentImages
+        images={node.images}
+        onPreview={onPreviewImage}
+      />
+
       {node.children.length > 0 && (
         <div className="mt-2 space-y-2">
           {node.children.map((child) => (
@@ -152,6 +213,7 @@ function CommentContextNode({
               node={child}
               activeId={activeId}
               depth={depth + 1}
+              onPreviewImage={onPreviewImage}
             />
           ))}
         </div>
@@ -168,6 +230,7 @@ export default function AdminInteractionsPage() {
   const [total, setTotal] = useState(0);
   const [selectedComment, setSelectedComment] = useState<AdminCommentItem | null>(null);
   const [contextTree, setContextTree] = useState<AdminCommentTreeItem[]>([]);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const [keyword, setKeyword] = useState("");
   const [targetType, setTargetType] = useState("");
@@ -283,7 +346,12 @@ export default function AdminInteractionsPage() {
     setErrorMessage("");
 
     try {
-      const tree = await adminGetCommentTreeByCommentId(comment.id);
+      const [detail, tree] = await Promise.all([
+        adminGetCommentDetail(comment.id),
+        adminGetCommentTreeByCommentId(comment.id),
+      ]);
+
+      setSelectedComment(detail);
       setContextTree(tree);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "加载上下文失败");
@@ -609,6 +677,11 @@ export default function AdminInteractionsPage() {
                               {formatChinaDateTimeToMinute(comment.created_at)}
                             </span>
                             <span>回复 {comment.reply_count}</span>
+                            {Number(comment.image_count ?? 0) > 0 && (
+                              <span className="rounded bg-[var(--color-accent-soft)] px-2 py-0.5 text-[var(--color-accent)]">
+                                图片 {comment.image_count}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -680,6 +753,11 @@ export default function AdminInteractionsPage() {
                     {selectedComment.content || "该评论已删除"}
                   </p>
 
+                  <AdminCommentImages
+                    images={selectedComment.images}
+                    onPreview={setPreviewImageUrl}
+                  />
+
                   <div className="mt-4 space-y-1 text-xs text-soft">
                     <p>ID：{selectedComment.id}</p>
                     <p>target：{selectedComment.target_type}</p>
@@ -703,6 +781,7 @@ export default function AdminInteractionsPage() {
                           key={node.id}
                           node={node}
                           activeId={selectedComment.id}
+                          onPreviewImage={setPreviewImageUrl}
                         />
                       ))}
                     </div>
@@ -712,6 +791,32 @@ export default function AdminInteractionsPage() {
             )}
           </aside>
         </div>
+
+        {previewImageUrl && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-2 sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setPreviewImageUrl(null)}
+          >
+            <button
+              type="button"
+              className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded border border-white/20 bg-black/30 text-white/80 hover:bg-black/50 hover:text-white"
+              onClick={() => setPreviewImageUrl(null)}
+              aria-label="关闭图片预览"
+            >
+              <span className="-translate-y-px text-xl leading-none">×</span>
+            </button>
+
+            <img
+              src={previewImageUrl}
+              alt="评论图片预览"
+              className="max-h-full max-w-full cursor-default rounded-xl object-contain shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            />
+          </div>
+        )}
+
       </section>
     </main>
   );
