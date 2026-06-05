@@ -34,6 +34,19 @@ export type AuthorNovelBuffer = {
   updatedAt: string;
 };
 
+export type AuthorNovelChapterImage = {
+  id: string;
+  assetId: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  markdown: string;
+  displayOrder: number;
+  createdAt: string;
+};
+
 export type MoveDirection = "up" | "down";
 
 function getAuthHeaders(): HeadersInit {
@@ -185,6 +198,56 @@ export async function updateAuthorNovelChapterContent(params: {
   );
 
   return readJsonOrThrow<AuthorNovelChapter>(response);
+}
+
+export async function fetchAuthorNovelChapterImages(params: {
+  novelSlug: string;
+  chapterSlug: string;
+}) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/novels/${params.novelSlug}/${params.chapterSlug}/images`,
+    {
+      headers: getAuthHeaders(),
+    },
+  );
+
+  return readJsonOrThrow<AuthorNovelChapterImage[]>(response);
+}
+
+export async function uploadAuthorNovelChapterImage(params: {
+  novelSlug: string;
+  chapterSlug: string;
+  file: File;
+}) {
+  const formData = new FormData();
+  formData.append("file", params.file);
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/novels/${params.novelSlug}/${params.chapterSlug}/images`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: formData,
+    },
+  );
+
+  return readJsonOrThrow<AuthorNovelChapterImage>(response);
+}
+
+export async function deleteAuthorNovelChapterImage(params: {
+  novelSlug: string;
+  chapterSlug: string;
+  imageId: string;
+}) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/novels/${params.novelSlug}/${params.chapterSlug}/images/${params.imageId}`,
+    {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  return readJsonOrThrow<AuthorNovelChapterImage[]>(response);
 }
 
 export async function moveAuthorNovelChapter(params: {

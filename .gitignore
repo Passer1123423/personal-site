@@ -32,3 +32,24 @@ uploads/
 
 # system
 .DS_Store
+
+# environment files
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+*.Identifier
+
+# logs
+*.log
+backend/backups/
+
+# JetBrains IDE files
+.idea/
+docs/.idea/

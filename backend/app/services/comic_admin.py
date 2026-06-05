@@ -19,6 +19,7 @@ from app.models import (
     ComicPartUserLink,
     now_utc,
 )
+from app.services.interactions import hard_delete_comments_for_target
 
 import re
 
@@ -546,6 +547,16 @@ def delete_chapter(
 
     logger.info(f"准备删除：{chapter.title} ({chapter.slug})")
 
+    deleted_comments = hard_delete_comments_for_target(
+        session,
+        target_type="comic_chapter",
+        target_id=chapter.id,
+        commit=False,
+    )
+
+    if deleted_comments:
+        logger.info(f"已删除漫画章节评论 {deleted_comments} 条")
+
     page_statement = (
         select(ComicPage)
         .where(ComicPage.chapter_id == chapter.id)
@@ -593,6 +604,16 @@ def delete_part(
 ):
     part = get_part(session=session, series_slug=series_slug, part_slug=part_slug)
 
+    deleted_part_comments = hard_delete_comments_for_target(
+        session,
+        target_type="comic_part",
+        target_id=part.id,
+        commit=False,
+    )
+
+    if deleted_part_comments:
+        logger.info(f"已删除漫画 part 评论 {deleted_part_comments} 条")
+
     statement = select(ComicChapter).where(ComicChapter.part_id == part.id)
     chapters = session.exec(statement).all()
 
@@ -617,6 +638,16 @@ def delete_part(
             logger.info("检测到part封面")
             session.delete(asset)
             logger.info("part封面已删除")
+
+    links = session.exec(
+        select(ComicPartUserLink).where(ComicPartUserLink.part_id == part.id)
+    ).all()
+
+    for link in links:
+        session.delete(link)
+
+    if links:
+        logger.info(f"已删除 {len(links)} 个 comic_part_user_link")
 
     part_title = part.title
     session.delete(part)

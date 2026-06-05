@@ -10,6 +10,17 @@ export type CommentUser = {
   avatarUrl?: string | null;
 };
 
+export type CommentImageItem = {
+  id: string;
+  asset_id: string;
+  url: string;
+  original_name: string;
+  mime_type: string;
+  size: number;
+  display_order: number;
+  created_at: string;
+};
+
 export type CommentItem = {
   id: string;
   target_type: string;
@@ -17,6 +28,7 @@ export type CommentItem = {
   user_id: string;
   user: CommentUser | null;
   content: string;
+  images?: CommentImageItem[];
   parent_id: string | null;
   reply_to_id: string | null;
   is_deleted: boolean;
@@ -31,6 +43,7 @@ export type CreateCommentParams = {
   content: string;
   parentId?: string | null;
   replyToId?: string | null;
+  images?: File[];
 };
 
 export type ListCommentTreeParams = {
@@ -116,19 +129,29 @@ export async function createComment(
 ): Promise<CommentItem> {
   const token = getRequiredToken();
 
+  const formData = new FormData();
+  formData.append("target_type", params.targetType);
+  formData.append("target_id", params.targetId);
+  formData.append("content", params.content);
+
+  if (params.parentId) {
+    formData.append("parent_id", params.parentId);
+  }
+
+  if (params.replyToId) {
+    formData.append("reply_to_id", params.replyToId);
+  }
+
+  params.images?.forEach((file) => {
+    formData.append("images", file);
+  });
+
   const response = await fetch(`${API_BASE_URL}/api/interactions/comments`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-    target_type: params.targetType,
-    target_id: params.targetId,
-    content: params.content,
-    parent_id: params.parentId ?? null,
-    reply_to_id: params.replyToId ?? null,
-  }),
+    body: formData,
   });
 
   if (!response.ok) {

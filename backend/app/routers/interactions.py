@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlmodel import Session
 
 from app.database import get_session
@@ -16,15 +16,6 @@ router = APIRouter(
     prefix="/api/interactions",
     tags=["interactions"],
 )
-
-
-class CommentCreateRequest(BaseModel):
-    target_type: str = Field(min_length=1, max_length=50)
-    target_id: str = Field(min_length=1)
-    content: str = Field(min_length=1, max_length=1000)
-    parent_id: str | None = None
-    reply_to_id: str | None = None
-
 
 @router.get("/comments/tree")
 def read_comment_tree(
@@ -44,21 +35,26 @@ def read_comment_tree(
         offset=offset,
     )
 
-
 @router.post("/comments")
-def post_comment(
-    payload: CommentCreateRequest,
+async def post_comment(
+    target_type: str = Form(..., min_length=1, max_length=50),
+    target_id: str = Form(..., min_length=1),
+    content: str = Form(..., min_length=1, max_length=1000),
+    parent_id: str | None = Form(default=None),
+    reply_to_id: str | None = Form(default=None),
+    images: list[UploadFile] = File(default=[]),
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
-    return create_comment(
+    return await create_comment(
         session,
         user=current_user,
-        target_type=payload.target_type,
-        target_id=payload.target_id,
-        content=payload.content,
-        parent_id=payload.parent_id,
-        reply_to_id=payload.reply_to_id,
+        target_type=target_type,
+        target_id=target_id,
+        content=content,
+        parent_id=parent_id,
+        reply_to_id=reply_to_id,
+        image_files=images,
     )
 
 

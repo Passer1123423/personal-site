@@ -8,6 +8,17 @@ export type AdminCommentUser = {
   role: string;
 };
 
+export type AdminCommentImageItem = {
+  id: string;
+  asset_id: string;
+  url: string;
+  original_name: string;
+  mime_type: string;
+  size: number;
+  display_order: number;
+  created_at: string;
+};
+
 export type AdminCommentItem = {
   id: string;
   target_type: string;
@@ -15,9 +26,11 @@ export type AdminCommentItem = {
   user_id: string;
   user: AdminCommentUser | null;
   content: string;
+  images?: AdminCommentImageItem[];
   parent_id: string | null;
   is_deleted: boolean;
   reply_count: number;
+  image_count?: number;
   created_at: string;
   updated_at: string;
 };
@@ -127,6 +140,27 @@ export async function adminGetCommentTreeByCommentId(
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response, "加载评论上下文失败"));
+  }
+
+  return response.json();
+}
+
+export async function adminGetCommentDetail(
+  commentId: string,
+): Promise<AdminCommentItem> {
+  const token = getRequiredToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/admin/interactions/comments/${commentId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "加载评论详情失败"));
   }
 
   return response.json();

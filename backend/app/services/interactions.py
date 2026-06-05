@@ -1,8 +1,14 @@
-from fastapi import HTTPException, status
+import os
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import HTTPException, UploadFile, status
 from sqlmodel import Session, col, select
 
 from app.models import (
+    Asset,
     Comment,
+    CommentImage,
     ComicChapter,
     ComicPart,
     Novel,
@@ -24,6 +30,21 @@ ACTIVE_COMMENT_TARGET_TYPES = {
 MAX_COMMENT_LENGTH = 1000
 MAX_COMMENT_QUERY_LIMIT = 200
 
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+IMAGE_MIME_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+}
+
+MAX_COMMENT_IMAGE_COUNT = 9
+MAX_COMMENT_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+MAX_COMMENT_IMAGE_TOTAL_SIZE_BYTES = 30 * 1024 * 1024
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", BACKEND_DIR / "uploads")).resolve()
+COMMENT_IMAGE_ROOT = UPLOADS_DIR / "interactions" / "comments"
 
 def clamp_comment_limit(limit: int) -> int:
     return max(1, min(limit, MAX_COMMENT_QUERY_LIMIT))
@@ -70,6 +91,371 @@ def validate_comment_target(
             detail="评论目标不存在",
         )
 
+def clean_original_filename(filename: str | None) -> str:
+    if not filename:
+        return "unnamed"
+
+    normalized = filename.replace("\\", "/")
+    name = Path(normalized).name.strip()
+
+    if not name:
+        return "unnamed"
+
+    return name
+
+
+def guess_mime_type_by_suffix(filename: str) -> str:
+    suffix = Path(filename).suffix.lower()
+
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+
+    if suffix == ".png":
+        return "image/png"
+
+    if suffix == ".webp":
+        return "image/webp"
+
+    if suffix == ".gif":
+        return "image/gif"
+
+    return "application/octet-stream"
+
+
+def validate_comment_image_filename(filename: str | None) -> str:
+    original_name = clean_original_filename(filename)
+
+    if ":Zone.Identifier" in original_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"非法文件名：{original_name}",
+        )
+
+    suffix = Path(original_name).suffix.lower()
+
+    if suffix not in IMAGE_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"评论图片只支持 jpg、jpeg、png、webp、gif：{original_name}",
+        )
+
+    return original_name
+
+
+def normalize_optional_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    clean_value = value.strip()
+    return clean_value or None
+
+
+def build_comment_image_dir(comment: Comment) -> Path:
+    return COMMENT_IMAGE_ROOT / comment.target_type / comment.target_id / comment.id
+
+
+def build_comment_image_url(comment: Comment, filename: str) -> str:
+    return (
+        f"/uploads/interactions/comments/"
+        f"{comment.target_type}/"
+        f"{comment.target_id}/"
+        f"{comment.id}/"
+        f"{filename}"
+    )
+
+
+def get_asset_file_path(asset: Asset) -> Path | None:
+    prefix = "/uploads/"
+
+    if not asset.url.startswith(prefix):
+        return None
+
+    relative_path = Path(asset.url.removeprefix(prefix))
+
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise ValueError("asset 文件路径非法")
+
+    return UPLOADS_DIR / relative_path
+
+
+def serialize_comment_image(image: CommentImage, asset: Asset | None) -> dict | None:
+    if not asset:
+        return None
+
+    return {
+        "id": image.id,
+        "asset_id": asset.id,
+        "url": asset.url,
+        "original_name": asset.original_name,
+        "mime_type": asset.mime_type,
+        "size": asset.size,
+        "display_order": image.display_order,
+        "created_at": image.created_at,
+    }
+
+
+def list_comment_images(
+    session: Session,
+    comment_id: str,
+) -> list[dict]:
+    images = session.exec(
+        select(CommentImage)
+        .where(CommentImage.comment_id == comment_id)
+        .order_by(CommentImage.display_order, CommentImage.created_at)
+    ).all()
+
+    result: list[dict] = []
+
+    for image in images:
+        asset = session.get(Asset, image.asset_id)
+        item = serialize_comment_image(image, asset)
+        if item:
+            result.append(item)
+
+    return result
+
+
+def count_comment_images(
+    session: Session,
+    comment_ids: list[str],
+) -> dict[str, int]:
+    counts = {comment_id: 0 for comment_id in comment_ids}
+
+    if not comment_ids:
+        return counts
+
+    images = session.exec(
+        select(CommentImage).where(col(CommentImage.comment_id).in_(comment_ids))
+    ).all()
+
+    for image in images:
+        if image.comment_id in counts:
+            counts[image.comment_id] += 1
+
+    return counts
+
+async def save_comment_images(
+    session: Session,
+    *,
+    comment: Comment,
+    image_files: list[UploadFile],
+) -> None:
+    if not image_files:
+        return
+
+    if comment.parent_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="只有父级评论可以带图片",
+        )
+
+    if len(image_files) > MAX_COMMENT_IMAGE_COUNT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"一条评论最多上传 {MAX_COMMENT_IMAGE_COUNT} 张图片",
+        )
+
+    image_dir = build_comment_image_dir(comment)
+    image_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_paths: list[Path] = []
+    total_size = 0
+
+    try:
+        for index, upload_file in enumerate(image_files, start=1):
+            original_name = validate_comment_image_filename(upload_file.filename)
+            suffix = Path(original_name).suffix.lower()
+            guessed_mime_type = guess_mime_type_by_suffix(original_name)
+            normalized_content_type = (
+                upload_file.content_type or guessed_mime_type
+            ).split(";")[0].strip().lower()
+
+            if normalized_content_type not in IMAGE_MIME_TYPES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"评论图片文件类型不合法：{original_name}",
+                )
+
+            filename = f"{index:02d}-{uuid4()}{suffix}"
+            target_path = image_dir / filename
+            written_size = 0
+
+            await upload_file.seek(0)
+
+            with target_path.open("wb") as f:
+                while True:
+                    chunk = await upload_file.read(1024 * 1024)
+
+                    if not chunk:
+                        break
+
+                    written_size += len(chunk)
+                    total_size += len(chunk)
+
+                    if written_size > MAX_COMMENT_IMAGE_SIZE_BYTES:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"单张评论图片不能超过 10MB：{original_name}",
+                        )
+
+                    if total_size > MAX_COMMENT_IMAGE_TOTAL_SIZE_BYTES:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="单条评论图片总大小不能超过 30MB",
+                        )
+
+                    f.write(chunk)
+
+            if written_size <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"评论图片不能为空：{original_name}",
+                )
+
+            saved_paths.append(target_path)
+
+            asset = Asset(
+                filename=filename,
+                original_name=original_name,
+                mime_type=normalized_content_type,
+                size=written_size,
+                url=build_comment_image_url(comment, filename),
+                usage="comment_image",
+            )
+
+            session.add(asset)
+            session.flush()
+
+            comment_image = CommentImage(
+                comment_id=comment.id,
+                asset_id=asset.id,
+                display_order=index,
+            )
+
+            session.add(comment_image)
+
+        session.flush()
+
+    except Exception:
+        for path in saved_paths:
+            if path.exists():
+                path.unlink()
+
+        if image_dir.exists() and not any(image_dir.iterdir()):
+            image_dir.rmdir()
+
+        raise
+
+
+def delete_comment_images(
+    session: Session,
+    *,
+    comment_id: str,
+) -> None:
+    images = session.exec(
+        select(CommentImage).where(CommentImage.comment_id == comment_id)
+    ).all()
+
+    touched_dirs: set[Path] = set()
+
+    for image in images:
+        asset = session.get(Asset, image.asset_id)
+
+        if asset:
+            file_path = get_asset_file_path(asset)
+
+            if file_path:
+                touched_dirs.add(file_path.parent)
+
+                if file_path.exists():
+                    file_path.unlink()
+
+            session.delete(asset)
+
+        session.delete(image)
+
+    for image_dir in sorted(touched_dirs, key=lambda path: len(path.parts), reverse=True):
+        current_dir = image_dir
+
+        # 最多向上清理到：
+        # uploads/interactions/comments/{target_type}/{target_id}
+        for _ in range(2):
+            if current_dir.exists() and current_dir.is_dir() and not any(current_dir.iterdir()):
+                current_dir.rmdir()
+                current_dir = current_dir.parent
+            else:
+                break
+
+def hard_delete_comments_for_target(
+    session: Session,
+    *,
+    target_type: str,
+    target_id: str,
+    commit: bool = False,
+) -> int:
+    comments = session.exec(
+        select(Comment)
+        .where(Comment.target_type == target_type)
+        .where(Comment.target_id == target_id)
+    ).all()
+
+    if not comments:
+        if commit:
+            session.commit()
+        return 0
+
+    comments_by_id = {comment.id: comment for comment in comments}
+
+    child_count_by_id = {comment.id: 0 for comment in comments}
+
+    for comment in comments:
+        if comment.parent_id and comment.parent_id in child_count_by_id:
+            child_count_by_id[comment.parent_id] += 1
+
+    ordered_comments: list[Comment] = []
+    remaining = set(comments_by_id.keys())
+
+    while remaining:
+        leaf_ids = [
+            comment_id
+            for comment_id in remaining
+            if child_count_by_id.get(comment_id, 0) == 0
+        ]
+
+        if not leaf_ids:
+            # 理论上正常评论树不应该走到这里。
+            # 如果数据异常形成环，就按创建时间倒序兜底，避免死循环。
+            fallback_comments = [
+                comments_by_id[comment_id]
+                for comment_id in remaining
+            ]
+            fallback_comments.sort(key=lambda comment: comment.created_at, reverse=True)
+            ordered_comments.extend(fallback_comments)
+            break
+
+        for comment_id in leaf_ids:
+            comment = comments_by_id[comment_id]
+            ordered_comments.append(comment)
+            remaining.remove(comment_id)
+
+            if comment.parent_id and comment.parent_id in child_count_by_id:
+                child_count_by_id[comment.parent_id] -= 1
+
+    deleted_count = 0
+
+    for comment in ordered_comments:
+        delete_comment_images(
+            session=session,
+            comment_id=comment.id,
+        )
+
+        session.delete(comment)
+        deleted_count += 1
+
+    if commit:
+        session.commit()
+
+    return deleted_count
 
 def serialize_comment(
     comment: Comment,
@@ -84,6 +470,11 @@ def serialize_comment(
     if comment.is_deleted and not reveal_deleted_content:
         content = ""
 
+    images = [] if comment.is_deleted and not reveal_deleted_content else list_comment_images(
+        session,
+        comment.id,
+    )
+
     return {
         "id": comment.id,
         "target_type": comment.target_type,
@@ -97,6 +488,7 @@ def serialize_comment(
             "avatar_url": get_avatar_url(session, user),
         } if user else None,
         "content": content,
+        "images": images,
         "parent_id": comment.parent_id,
         "reply_to_id": comment.reply_to_id,
         "is_deleted": comment.is_deleted,
@@ -200,13 +592,25 @@ def list_comment_tree(
             for node in nodes:
                 if node["id"] == target_comment_id:
                     return node
+
                 found = find_node(node["children"], target_comment_id)
                 if found:
                     return found
+
             return None
 
-        node = find_node(all_roots, comment_id)
-        return [node] if node else []
+        def find_root_containing_node(
+                roots: list[dict],
+                target_comment_id: str,
+        ) -> dict | None:
+            for root in roots:
+                if find_node([root], target_comment_id):
+                    return root
+
+            return None
+
+        root = find_root_containing_node(all_roots, comment_id)
+        return [root] if root else []
 
     query = select(Comment)
 
@@ -255,7 +659,7 @@ def get_comment_detail(
     )
 
 
-def create_comment(
+async def create_comment(
     session: Session,
     *,
     user: User,
@@ -264,7 +668,12 @@ def create_comment(
     content: str,
     parent_id: str | None = None,
     reply_to_id: str | None = None,
+    image_files: list[UploadFile] | None = None,
 ) -> dict:
+    parent_id = normalize_optional_id(parent_id)
+    reply_to_id = normalize_optional_id(reply_to_id)
+    image_files = image_files or []
+
     validate_comment_target(
         session,
         target_type=target_type,
@@ -290,6 +699,12 @@ def create_comment(
 
     if parent_id:
         parent = get_comment_or_404(session, parent_id)
+
+        if image_files:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="只有父级评论可以带图片",
+            )
 
         if parent.target_type != target_type or parent.target_id != target_id:
             raise HTTPException(
@@ -349,9 +764,22 @@ def create_comment(
         updated_at=now_utc(),
     )
 
-    session.add(comment)
-    session.commit()
-    session.refresh(comment)
+    try:
+        session.add(comment)
+        session.flush()
+
+        await save_comment_images(
+            session=session,
+            comment=comment,
+            image_files=image_files,
+        )
+
+        session.commit()
+        session.refresh(comment)
+
+    except Exception:
+        session.rollback()
+        raise
 
     return get_comment_detail(
         session,
@@ -426,6 +854,11 @@ def admin_hard_delete_comment(
             detail="该评论下还有回复，请先处理子评论",
         )
 
+    delete_comment_images(
+        session=session,
+        comment_id=comment.id,
+    )
+
     session.delete(comment)
     session.commit()
 
@@ -435,6 +868,7 @@ def serialize_admin_comment_list_item(
     *,
     users_by_id: dict[str, User],
     reply_count: int,
+    image_count: int = 0,
     reveal_deleted_content: bool = True,
 ) -> dict:
     user = users_by_id.get(comment.user_id)
@@ -458,6 +892,7 @@ def serialize_admin_comment_list_item(
         "parent_id": comment.parent_id,
         "is_deleted": comment.is_deleted,
         "reply_count": reply_count,
+        "image_count": image_count,
         "created_at": comment.created_at,
         "updated_at": comment.updated_at,
     }
@@ -504,6 +939,7 @@ def list_admin_comments(
 
     comment_ids = [comment.id for comment in comments]
     reply_counts_by_id = {comment_id: 0 for comment_id in comment_ids}
+    image_counts_by_id = count_comment_images(session, comment_ids)
 
     if comment_ids:
         children = session.exec(
@@ -551,6 +987,7 @@ def list_admin_comments(
                 comment,
                 users_by_id=users_by_id,
                 reply_count=reply_counts_by_id.get(comment.id, 0),
+                image_count=image_counts_by_id.get(comment.id, 0),
                 reveal_deleted_content=True,
             )
             for comment in page_comments
