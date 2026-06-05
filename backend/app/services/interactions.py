@@ -356,18 +356,106 @@ def delete_comment_images(
         select(CommentImage).where(CommentImage.comment_id == comment_id)
     ).all()
 
+    touched_dirs: set[Path] = set()
+
     for image in images:
         asset = session.get(Asset, image.asset_id)
 
         if asset:
             file_path = get_asset_file_path(asset)
 
-            if file_path and file_path.exists():
-                file_path.unlink()
+            if file_path:
+                touched_dirs.add(file_path.parent)
+
+                if file_path.exists():
+                    file_path.unlink()
 
             session.delete(asset)
 
         session.delete(image)
+
+    for image_dir in sorted(touched_dirs, key=lambda path: len(path.parts), reverse=True):
+        current_dir = image_dir
+
+        # 最多向上清理到：
+        # uploads/interactions/comments/{target_type}/{target_id}
+        for _ in range(2):
+            if current_dir.exists() and current_dir.is_dir() and not any(current_dir.iterdir()):
+                current_dir.rmdir()
+                current_dir = current_dir.parent
+            else:
+                break
+
+def hard_delete_comments_for_target(
+    session: Session,
+    *,
+    target_type: str,
+    target_id: str,
+    commit: bool = False,
+) -> int:
+    comments = session.exec(
+        select(Comment)
+        .where(Comment.target_type == target_type)
+        .where(Comment.target_id == target_id)
+    ).all()
+
+    if not comments:
+        if commit:
+            session.commit()
+        return 0
+
+    comments_by_id = {comment.id: comment for comment in comments}
+
+    child_count_by_id = {comment.id: 0 for comment in comments}
+
+    for comment in comments:
+        if comment.parent_id and comment.parent_id in child_count_by_id:
+            child_count_by_id[comment.parent_id] += 1
+
+    ordered_comments: list[Comment] = []
+    remaining = set(comments_by_id.keys())
+
+    while remaining:
+        leaf_ids = [
+            comment_id
+            for comment_id in remaining
+            if child_count_by_id.get(comment_id, 0) == 0
+        ]
+
+        if not leaf_ids:
+            # 理论上正常评论树不应该走到这里。
+            # 如果数据异常形成环，就按创建时间倒序兜底，避免死循环。
+            fallback_comments = [
+                comments_by_id[comment_id]
+                for comment_id in remaining
+            ]
+            fallback_comments.sort(key=lambda comment: comment.created_at, reverse=True)
+            ordered_comments.extend(fallback_comments)
+            break
+
+        for comment_id in leaf_ids:
+            comment = comments_by_id[comment_id]
+            ordered_comments.append(comment)
+            remaining.remove(comment_id)
+
+            if comment.parent_id and comment.parent_id in child_count_by_id:
+                child_count_by_id[comment.parent_id] -= 1
+
+    deleted_count = 0
+
+    for comment in ordered_comments:
+        delete_comment_images(
+            session=session,
+            comment_id=comment.id,
+        )
+
+        session.delete(comment)
+        deleted_count += 1
+
+    if commit:
+        session.commit()
+
+    return deleted_count
 
 def serialize_comment(
     comment: Comment,

@@ -7,6 +7,7 @@ from app.database import get_session
 from app.dependencies.auth import require_admin_user
 from app.models import SiteSetting, User, now_utc
 from app.services.user_profile import get_avatar_url
+from app.services.interactions import hard_delete_comments_for_target
 
 
 router = APIRouter(
@@ -274,10 +275,18 @@ def delete_admin_user(
             detail="用户不存在",
         )
 
+    deleted_user_page_comments = hard_delete_comments_for_target(
+        session,
+        target_type="user_page",
+        target_id=user.id,
+        commit=False,
+    )
+
     session.delete(user)
     session.commit()
 
     return {
         "deleted": True,
         "username": username,
+        "deletedUserPageComments": deleted_user_page_comments,
     }

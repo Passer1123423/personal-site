@@ -16,6 +16,7 @@ from app.models import (
     User,
     now_utc,
 )
+from app.services.interactions import hard_delete_comments_for_target
 
 
 logger = logging.getLogger(__name__)
@@ -846,6 +847,16 @@ def delete_chapter(
 
     logger.info(f"准备删除小说章节：{chapter.title} ({chapter.slug})")
 
+    deleted_comments = hard_delete_comments_for_target(
+        session,
+        target_type="novel_chapter",
+        target_id=chapter.id,
+        commit=False,
+    )
+
+    if deleted_comments:
+        logger.info(f"已删除小说章节评论 {deleted_comments} 条")
+
     session.delete(chapter)
     session.commit()
 
@@ -876,8 +887,29 @@ def delete_novel(
     statement = select(NovelChapter).where(NovelChapter.novel_id == novel.id)
     chapters = session.exec(statement).all()
 
+    deleted_novel_comments = hard_delete_comments_for_target(
+        session,
+        target_type="novel",
+        target_id=novel.id,
+        commit=False,
+    )
+
+    if deleted_novel_comments:
+        logger.info(f"已删除小说详情页评论 {deleted_novel_comments} 条")
+
+    deleted_chapter_comments = 0
+
     for chapter in chapters:
+        deleted_chapter_comments += hard_delete_comments_for_target(
+            session,
+            target_type="novel_chapter",
+            target_id=chapter.id,
+            commit=False,
+        )
         session.delete(chapter)
+
+    if deleted_chapter_comments:
+        logger.info(f"已删除小说章节评论 {deleted_chapter_comments} 条")
 
     logger.info(f"已删除 {len(chapters)} 个 novel chapter")
 

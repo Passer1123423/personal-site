@@ -625,6 +625,34 @@ class NovelChapter(SQLModel, table=True):
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
 
+class NovelChapterImage(SQLModel, table=True):
+    """
+    小说章节正文图片关系表。
+
+    图片文件本身仍然存 Asset 表。
+    这里仅记录某个 novel chapter 关联了哪些正文图片，以及显示顺序。
+
+    第一版规则：
+    1. 只支持已有 chapter 上传图片；
+    2. 每个 chapter 最多 20 张图片；
+    3. 图片通过 Markdown 链接插入正文；
+    4. 删除图片时同步删除这里的记录、对应 Asset 和磁盘文件。
+    """
+
+    __tablename__ = "novel_chapter_image"
+
+    __table_args__ = (
+        UniqueConstraint("chapter_id", "display_order", name="uq_novel_chapter_image_order"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    chapter_id: str = Field(foreign_key="novel_chapter.id", index=True)
+    asset_id: str = Field(foreign_key="asset.id", index=True)
+
+    display_order: int = Field(default=0, index=True)
+
+    created_at: datetime = Field(default_factory=now_utc)
 
 class NovelUserLink(SQLModel, table=True):
     __tablename__ = "novel_user_link"
