@@ -1,8 +1,16 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ImgHTMLAttributes,
+} from "react";
 import { Link, useParams } from "react-router";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { API_BASE_URL } from "../api/config";
 import {
   getNovelDetail,
   getNovelReaderData,
@@ -17,6 +25,42 @@ function getSavedScrollY(storageKey: string) {
   const savedScrollY = savedValue ? Number(savedValue) : 0;
 
   return Number.isFinite(savedScrollY) ? savedScrollY : 0;
+}
+
+function resolveMarkdownAssetUrl(src: string | undefined) {
+  if (!src) {
+    return "";
+  }
+
+  if (
+    src.startsWith("http://") ||
+    src.startsWith("https://") ||
+    src.startsWith("data:") ||
+    src.startsWith("blob:")
+  ) {
+    return src;
+  }
+
+  if (src.startsWith("/uploads/")) {
+    const baseUrl = API_BASE_URL.replace(/\/$/, "");
+    return `${baseUrl}${src}`;
+  }
+
+  return src;
+}
+
+function MarkdownImage({
+  src,
+  alt,
+  ...props
+}: ImgHTMLAttributes<HTMLImageElement>) {
+  return (
+    <img
+      {...props}
+      src={resolveMarkdownAssetUrl(src)}
+      alt={alt ?? ""}
+    />
+  );
 }
 
 function normalizePathname(value: string) {
@@ -322,7 +366,10 @@ function NovelReaderPage() {
             <div className="novel-reader-body">
               <article className="novel-reader-content">
                 <div className="novel-markdown novel-reader-markdown">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{ img: MarkdownImage }}
+                  >
                     {readerData.chapter.content || "本章暂无正文。"}
                   </ReactMarkdown>
                 </div>

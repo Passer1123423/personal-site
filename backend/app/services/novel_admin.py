@@ -12,11 +12,13 @@ from app.models import (
     Asset,
     Novel,
     NovelChapter,
+    NovelChapterImage,
     NovelUserLink,
     User,
     now_utc,
 )
 from app.services.interactions import hard_delete_comments_for_target
+from fastapi import UploadFile
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,16 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", BACKEND_DIR / "uploads")).resolve()
 UPLOADS_ROOT = UPLOADS_DIR / "novels"
+
+IMAGE_MIME_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+}
+
+MAX_NOVEL_CHAPTER_IMAGE_COUNT = 20
+MAX_NOVEL_CHAPTER_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 
 
 def guess_mime_type(path: Path) -> str:
@@ -45,6 +57,83 @@ def guess_mime_type(path: Path) -> str:
 
     return "application/octet-stream"
 
+def clean_original_filename(filename: str | None) -> str:
+    if not filename:
+        return "unnamed"
+
+    normalized = filename.replace("\\", "/")
+    name = Path(normalized).name.strip()
+
+    if not name:
+        return "unnamed"
+
+    return name
+
+
+def guess_mime_type_by_suffix(filename: str) -> str:
+    suffix = Path(filename).suffix.lower()
+
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+
+    if suffix == ".png":
+        return "image/png"
+
+    if suffix == ".webp":
+        return "image/webp"
+
+    if suffix == ".gif":
+        return "image/gif"
+
+    return "application/octet-stream"
+
+
+def validate_novel_chapter_image_filename(filename: str | None) -> str:
+    original_name = clean_original_filename(filename)
+
+    if ":Zone.Identifier" in original_name:
+        raise ValueError(f"非法文件名：{original_name}")
+
+    suffix = Path(original_name).suffix.lower()
+
+    if suffix not in IMAGE_EXTENSIONS:
+        raise ValueError(f"章节正文图片只支持 jpg、jpeg、png、webp、gif：{original_name}")
+
+    return original_name
+
+
+def get_novel_chapter_image_dir(
+    novel_slug: str,
+    chapter_slug: str,
+) -> Path:
+    return UPLOADS_ROOT / novel_slug / chapter_slug / "images"
+
+
+def build_novel_chapter_image_url(
+    novel_slug: str,
+    chapter_slug: str,
+    filename: str,
+) -> str:
+    return f"/uploads/novels/{novel_slug}/{chapter_slug}/images/{filename}"
+
+
+def build_novel_chapter_image_markdown(asset: Asset) -> str:
+    alt = Path(asset.original_name).stem or "图片"
+    return f"![{alt}]({asset.url})"
+
+
+def get_novel_chapter_asset_path(asset: Asset) -> Path | None:
+    prefix = "/uploads/novels/"
+
+    if not asset.url.startswith(prefix):
+        return None
+
+    relative_path = Path(asset.url.removeprefix(prefix))
+
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise ValueError("章节图片文件路径非法")
+
+    return UPLOADS_ROOT / relative_path
 
 # ===== 标题 =====
 def get_chapter_custom_title(title: str | None) -> str:
@@ -857,6 +946,16 @@ def delete_chapter(
     if deleted_comments:
         logger.info(f"已删除小说章节评论 {deleted_comments} 条")
 
+    deleted_images = delete_all_novel_chapter_images(
+        session=session,
+        novel=novel,
+        chapter=chapter,
+        commit=False,
+    )
+
+    if deleted_images:
+        logger.info(f"已删除小说章节正文图片 {deleted_images} 张")
+
     session.delete(chapter)
     session.commit()
 
@@ -938,6 +1037,329 @@ def delete_novel(
 
     logger.info(f"已删除 novel：{novel_title}")
 
+# ===== 章节正文图片 =====
+
+def serialize_novel_chapter_image(
+    image: NovelChapterImage,
+    asset: Asset,
+) -> dict:
+    return {
+        "id": image.id,
+        "assetId": asset.id,
+        "filename": asset.filename,
+        "originalName": asset.original_name,
+        "mimeType": asset.mime_type,
+        "size": asset.size,
+        "url": asset.url,
+        "markdown": build_novel_chapter_image_markdown(asset),
+        "displayOrder": image.display_order,
+        "createdAt": image.created_at,
+    }
+
+
+def list_novel_chapter_images(
+    session: Session,
+    novel_slug: str,
+    chapter_slug: str,
+) -> list[dict]:
+    novel = get_novel(
+        session=session,
+        novel_slug=novel_slug,
+    )
+
+    chapter = get_chapter(
+        session=session,
+        novel=novel,
+        chapter_slug=chapter_slug,
+    )
+
+    images = session.exec(
+        select(NovelChapterImage)
+        .where(NovelChapterImage.chapter_id == chapter.id)
+        .order_by(NovelChapterImage.display_order, NovelChapterImage.created_at)
+    ).all()
+
+    result: list[dict] = []
+
+    for image in images:
+        asset = session.get(Asset, image.asset_id)
+
+        if asset:
+            result.append(
+                serialize_novel_chapter_image(
+                    image=image,
+                    asset=asset,
+                )
+            )
+
+    return result
+
+
+def get_next_novel_chapter_image_order(
+    session: Session,
+    chapter: NovelChapter,
+) -> int:
+    images = session.exec(
+        select(NovelChapterImage)
+        .where(NovelChapterImage.chapter_id == chapter.id)
+        .order_by(NovelChapterImage.display_order)
+    ).all()
+
+    if not images:
+        return 1
+
+    return max(image.display_order for image in images) + 1
+
+
+def count_novel_chapter_images(
+    session: Session,
+    chapter: NovelChapter,
+) -> int:
+    images = session.exec(
+        select(NovelChapterImage)
+        .where(NovelChapterImage.chapter_id == chapter.id)
+    ).all()
+
+    return len(images)
+
+
+async def save_novel_chapter_image(
+    session: Session,
+    novel_slug: str,
+    chapter_slug: str,
+    upload_file: UploadFile,
+) -> dict:
+    novel = get_novel(
+        session=session,
+        novel_slug=novel_slug,
+    )
+
+    chapter = get_chapter(
+        session=session,
+        novel=novel,
+        chapter_slug=chapter_slug,
+    )
+
+    current_count = count_novel_chapter_images(
+        session=session,
+        chapter=chapter,
+    )
+
+    if current_count >= MAX_NOVEL_CHAPTER_IMAGE_COUNT:
+        raise ValueError(f"每个章节最多上传 {MAX_NOVEL_CHAPTER_IMAGE_COUNT} 张正文图片")
+
+    original_name = validate_novel_chapter_image_filename(upload_file.filename)
+    suffix = Path(original_name).suffix.lower()
+
+    guessed_mime_type = guess_mime_type_by_suffix(original_name)
+    normalized_content_type = (
+        upload_file.content_type or guessed_mime_type
+    ).split(";")[0].strip().lower()
+
+    if normalized_content_type not in IMAGE_MIME_TYPES:
+        raise ValueError(f"章节正文图片文件类型不合法：{original_name}")
+
+    image_dir = get_novel_chapter_image_dir(
+        novel_slug=novel.slug,
+        chapter_slug=chapter.slug,
+    )
+    image_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{uuid4()}{suffix}"
+    target_path = image_dir / filename
+    written_size = 0
+
+    try:
+        await upload_file.seek(0)
+
+        with target_path.open("wb") as f:
+            while True:
+                chunk = await upload_file.read(1024 * 1024)
+
+                if not chunk:
+                    break
+
+                written_size += len(chunk)
+
+                if written_size > MAX_NOVEL_CHAPTER_IMAGE_SIZE_BYTES:
+                    raise ValueError("单张章节正文图片不能超过 10MB")
+
+                f.write(chunk)
+
+        if written_size <= 0:
+            raise ValueError(f"上传文件为空：{original_name}")
+
+        asset_url = build_novel_chapter_image_url(
+            novel_slug=novel.slug,
+            chapter_slug=chapter.slug,
+            filename=filename,
+        )
+
+        asset = Asset(
+            filename=filename,
+            original_name=original_name,
+            mime_type=normalized_content_type,
+            size=written_size,
+            url=asset_url,
+            usage="novel_chapter_image",
+        )
+
+        session.add(asset)
+        session.flush()
+
+        image = NovelChapterImage(
+            chapter_id=chapter.id,
+            asset_id=asset.id,
+            display_order=get_next_novel_chapter_image_order(
+                session=session,
+                chapter=chapter,
+            ),
+        )
+
+        session.add(image)
+        session.commit()
+        session.refresh(image)
+        session.refresh(asset)
+
+        return serialize_novel_chapter_image(
+            image=image,
+            asset=asset,
+        )
+
+    except Exception:
+        session.rollback()
+
+        if target_path.exists():
+            target_path.unlink()
+
+        raise
+
+
+def compact_novel_chapter_image_orders(
+    session: Session,
+    chapter: NovelChapter,
+    commit: bool = True,
+) -> None:
+    images = session.exec(
+        select(NovelChapterImage)
+        .where(NovelChapterImage.chapter_id == chapter.id)
+        .order_by(NovelChapterImage.display_order, NovelChapterImage.created_at)
+    ).all()
+
+    changed = False
+
+    for index, image in enumerate(images, start=1):
+        if image.display_order != index:
+            image.display_order = index
+            session.add(image)
+            changed = True
+
+    if changed and commit:
+        session.commit()
+
+
+def delete_novel_chapter_image(
+    session: Session,
+    novel_slug: str,
+    chapter_slug: str,
+    image_id: str,
+) -> list[dict]:
+    novel = get_novel(
+        session=session,
+        novel_slug=novel_slug,
+    )
+
+    chapter = get_chapter(
+        session=session,
+        novel=novel,
+        chapter_slug=chapter_slug,
+    )
+
+    image = session.get(NovelChapterImage, image_id)
+
+    if not image or image.chapter_id != chapter.id:
+        raise ValueError("章节正文图片不存在")
+
+    asset = session.get(Asset, image.asset_id)
+
+    if asset:
+        file_path = get_novel_chapter_asset_path(asset)
+
+        if file_path and file_path.exists():
+            file_path.unlink()
+
+        session.delete(asset)
+
+    session.delete(image)
+    session.flush()
+
+    compact_novel_chapter_image_orders(
+        session=session,
+        chapter=chapter,
+        commit=False,
+    )
+
+    session.commit()
+
+    image_dir = get_novel_chapter_image_dir(
+        novel_slug=novel.slug,
+        chapter_slug=chapter.slug,
+    )
+
+    if image_dir.exists() and not any(image_dir.iterdir()):
+        image_dir.rmdir()
+
+    return list_novel_chapter_images(
+        session=session,
+        novel_slug=novel.slug,
+        chapter_slug=chapter.slug,
+    )
+
+
+def delete_all_novel_chapter_images(
+    session: Session,
+    novel: Novel,
+    chapter: NovelChapter,
+    commit: bool = True,
+) -> int:
+    images = session.exec(
+        select(NovelChapterImage)
+        .where(NovelChapterImage.chapter_id == chapter.id)
+    ).all()
+
+    deleted_count = 0
+
+    for image in images:
+        asset = session.get(Asset, image.asset_id)
+
+        if asset:
+            file_path = get_novel_chapter_asset_path(asset)
+
+            if file_path and file_path.exists():
+                file_path.unlink()
+
+            session.delete(asset)
+
+        session.delete(image)
+        deleted_count += 1
+
+    image_dir = get_novel_chapter_image_dir(
+        novel_slug=novel.slug,
+        chapter_slug=chapter.slug,
+    )
+
+    if image_dir.exists():
+        for path in image_dir.iterdir():
+            if path.is_file():
+                path.unlink()
+
+        if not any(image_dir.iterdir()):
+            image_dir.rmdir()
+
+    if commit:
+        session.commit()
+
+    return deleted_count
 
 # ===== 封面 =====
 def copy_novel_cover_to_uploads(

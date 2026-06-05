@@ -119,8 +119,8 @@
 
 .novel-preview-prose h2 {
   margin: 2.2rem 0 1rem;
-  padding-bottom: 0.45rem;
-  border-bottom: 1px solid var(--color-border-soft);
+  padding-bottom: 0;
+  border-bottom: 0;
   font-size: 1.25rem;
   line-height: 1.5;
   font-weight: 700;
@@ -202,9 +202,23 @@
 
 .novel-preview-prose img {
   display: block;
-  max-width: 100%;
+  width: auto;
+  max-width: min(100%, 760px);
+  max-height: 70vh;
   margin: 1.5rem auto;
   border-radius: 0.75rem;
+  object-fit: contain;
+}
+
+.novel-reader-markdown img,
+.novel-markdown img {
+  display: block;
+  width: auto;
+  max-width: min(100%, 820px);
+  max-height: 78vh;
+  margin: 1.5rem auto;
+  border-radius: 0.75rem;
+  object-fit: contain;
 }
 
 .novel-detail-frame {

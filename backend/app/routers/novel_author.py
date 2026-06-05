@@ -22,13 +22,16 @@ from app.services.novel_admin import (
     create_novel,
     delete_chapter,
     delete_novel,
+    delete_novel_chapter_image,
     get_chapter,
     get_novel,
     get_owner_novels,
+    list_novel_chapter_images,
     rename_chapter,
     rename_novel,
     reset_chapter_content,
     reset_novel_summary,
+    save_novel_chapter_image,
     set_novel_cover,
     set_novel_owner,
     shift_chapter,
@@ -493,6 +496,80 @@ def update_author_novel_chapter_content(
 
     return chapter_to_author_item(chapter)
 
+@router.get("/{novel_slug}/{chapter_slug}/images")
+def list_author_novel_chapter_images(
+    novel_slug: str,
+    chapter_slug: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_author_user),
+):
+    try:
+        require_owned_chapter(
+            session=session,
+            novel_slug=novel_slug,
+            chapter_slug=chapter_slug,
+            current_user=current_user,
+        )
+
+        return list_novel_chapter_images(
+            session=session,
+            novel_slug=novel_slug,
+            chapter_slug=chapter_slug,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{novel_slug}/{chapter_slug}/images")
+async def upload_author_novel_chapter_image(
+    novel_slug: str,
+    chapter_slug: str,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_author_user),
+):
+    try:
+        require_owned_chapter(
+            session=session,
+            novel_slug=novel_slug,
+            chapter_slug=chapter_slug,
+            current_user=current_user,
+        )
+
+        return await save_novel_chapter_image(
+            session=session,
+            novel_slug=novel_slug,
+            chapter_slug=chapter_slug,
+            upload_file=file,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/{novel_slug}/{chapter_slug}/images/{image_id}")
+def delete_author_novel_chapter_image(
+    novel_slug: str,
+    chapter_slug: str,
+    image_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_author_user),
+):
+    try:
+        require_owned_chapter(
+            session=session,
+            novel_slug=novel_slug,
+            chapter_slug=chapter_slug,
+            current_user=current_user,
+        )
+
+        return delete_novel_chapter_image(
+            session=session,
+            novel_slug=novel_slug,
+            chapter_slug=chapter_slug,
+            image_id=image_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 @router.patch("/{novel_slug}/{chapter_slug}/move")
 def move_author_novel_chapter(

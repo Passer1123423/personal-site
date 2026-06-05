@@ -1,9 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ImgHTMLAttributes,
+} from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { API_BASE_URL } from "../api/config";
 import { getMe } from "../api/auth";
+import NovelChapterImagePanel from "../components/creator/NovelChapterImagePanel";
 import {
   createAuthorNovelBuffer,
   deleteAuthorNovelBuffer,
@@ -95,6 +103,42 @@ function plainTextToPreviewMarkdown(content: string) {
     .join("\n\n");
 }
 
+function resolveMarkdownAssetUrl(src: string | undefined) {
+  if (!src) {
+    return "";
+  }
+
+  if (
+    src.startsWith("http://") ||
+    src.startsWith("https://") ||
+    src.startsWith("data:") ||
+    src.startsWith("blob:")
+  ) {
+    return src;
+  }
+
+  if (src.startsWith("/uploads/")) {
+    const baseUrl = API_BASE_URL.replace(/\/$/, "");
+    return `${baseUrl}${src}`;
+  }
+
+  return src;
+}
+
+function MarkdownImage({
+  src,
+  alt,
+  ...props
+}: ImgHTMLAttributes<HTMLImageElement>) {
+  return (
+    <img
+      {...props}
+      src={resolveMarkdownAssetUrl(src)}
+      alt={alt ?? ""}
+    />
+  );
+}
+
 function DisabledHintButton({
   children,
   reason,
@@ -156,6 +200,9 @@ export default function CreatorNovelChapterEditorPage() {
   const [buffer, setBuffer] = useState<AuthorNovelBuffer | null>(null);
   const [content, setContent] = useState("");
   const [contentMode, setContentMode] = useState<ContentMode>("markdown");
+
+  const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [imagePanelOpen, setImagePanelOpen] = useState(false);
 
   const [chapterSlugDraft, setChapterSlugDraft] = useState("");
   const [chapterTitleDraft, setChapterTitleDraft] = useState("");
@@ -221,6 +268,10 @@ export default function CreatorNovelChapterEditorPage() {
 
     return content;
   }, [content, contentMode]);
+
+  const canUseChapterImages = Boolean(
+    currentNovel && currentChapter && !isNewChapter,
+  );
 
   function getChapterSearchKeyword(novel: AuthorNovel) {
     return chapterSearchByNovel[novel.slug] ?? "";
@@ -371,6 +422,10 @@ export default function CreatorNovelChapterEditorPage() {
 
   useEffect(() => {
     loadEditorData();
+  }, [novelSlug, chapterSlug]);
+
+  useEffect(() => {
+    setImagePanelOpen(false);
   }, [novelSlug, chapterSlug]);
 
   useEffect(() => {
@@ -584,6 +639,36 @@ export default function CreatorNovelChapterEditorPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function insertMarkdownAtCursor(markdown: string) {
+    const insertion = `\n\n${markdown}\n\n`;
+    const textarea = editorTextareaRef.current;
+
+    if (!textarea) {
+      setContent((previous) => `${previous}${insertion}`);
+      setDirty(true);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    setContent((previous) => {
+      const before = previous.slice(0, start);
+      const after = previous.slice(end);
+
+      return `${before}${insertion}${after}`;
+    });
+
+    setDirty(true);
+
+    window.setTimeout(() => {
+      textarea.focus();
+
+      const nextCursorPosition = start + insertion.length;
+      textarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
+    }, 0);
   }
 
   function renderMessage(className = "mx-4 mt-4 px-4 py-3") {
@@ -901,8 +986,39 @@ export default function CreatorNovelChapterEditorPage() {
   function renderEditorBody() {
     return (
       <>
-        <div className="flex items-center justify-between border-b border-[var(--color-border-soft)] px-4 py-3">
-          {renderModeSwitcher()}
+        <div className="relative flex items-center justify-between border-b border-[var(--color-border-soft)] px-4 py-3">
+          <div className="flex items-center gap-2">
+            {renderModeSwitcher()}
+
+            <button
+              type="button"
+              className="inline-flex h-7 w-8 items-center justify-center rounded-md border border-[var(--color-border-soft)] bg-white text-sm leading-none text-soft hover:border-[var(--color-accent-border-strong)] hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={submitting || !canUseChapterImages}
+              title={
+                canUseChapterImages
+                  ? "管理章节图片"
+                  : "新建章节需要先发布后才能上传正文图片"
+              }
+              onClick={() => setImagePanelOpen((value) => !value)}
+            >
+              <span className="-translate-y-px leading-none">+</span>
+            </button>
+          </div>
+
+          {currentNovel && currentChapter && (
+            <NovelChapterImagePanel
+              novelSlug={currentNovel.slug}
+              chapterSlug={currentChapter.slug}
+              open={imagePanelOpen}
+              disabled={!canUseChapterImages}
+              onClose={() => setImagePanelOpen(false)}
+              onInsertMarkdown={(markdown) => {
+                insertMarkdownAtCursor(markdown);
+                setImagePanelOpen(false);
+              }}
+              onMessage={setMessage}
+            />
+          )}
 
           <button
             type="button"
@@ -917,6 +1033,7 @@ export default function CreatorNovelChapterEditorPage() {
 
         <div className="min-h-0 flex-1 overflow-hidden px-4 py-4">
           <textarea
+            ref={editorTextareaRef}
             className="admin-textarea h-full w-full resize-none px-4 py-4 font-mono text-sm leading-7"
             value={content}
             disabled={submitting}
@@ -940,7 +1057,10 @@ export default function CreatorNovelChapterEditorPage() {
       <>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
           <article className="novel-preview-prose">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{ img: MarkdownImage }}
+            >
               {previewContent || "暂无内容。"}
             </ReactMarkdown>
           </article>
@@ -1102,7 +1222,10 @@ export default function CreatorNovelChapterEditorPage() {
 
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                 <article className="novel-preview-prose">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{ img: MarkdownImage }}
+                  >
                     {previewContent || "暂无内容。"}
                   </ReactMarkdown>
                 </article>
