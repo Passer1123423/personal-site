@@ -75,7 +75,7 @@ function App() {
         <div className="grid gap-6 md:grid-cols-3">
           {[
             ["一维势垒穿透可视化", "数值求解能量本征态，展示波函数、概率密度与含时演化。"],
-            ["CGCNN 材料带隙预测", "基于晶体图卷积网络与传统机器学习的材料性质预测实践。"],
+            ["黄焖鸡项目：CGCNN 材料带隙预测", "基于晶体图卷积网络与传统机器学习的材料性质预测实践。"],
             ["个人网站系统", "用于项目展示、作品发布、文件上传与朋友协作更新。"],
           ].map(([title, desc]) => (
             <article
@@ -112,7 +112,7 @@ function App() {
       </section>
 
       <footer id="about" className="mx-auto max-w-6xl px-6 py-10 text-sm text-slate-500">
-        © 2026 Xie Juntai. Built with React, Vite and Tailwind CSS.
+        © 2026 Xie Juntao. Built with React, Vite and Tailwind CSS.
       </footer>
     </main>
   )

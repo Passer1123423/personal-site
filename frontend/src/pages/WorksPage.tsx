@@ -37,7 +37,7 @@ function WorksPage() {
               <p className="mt-2 leading-6">
                 鸡神投影：在线
                 <br />
-                SaBa帮档案：开放
+                SaBa帮历史：开放
                 <br />
                 蓬莱仙岛通行：允许
               </p>
@@ -67,12 +67,12 @@ function WorksPage() {
                 </span>
 
                 <h2 className="mt-5 text-2xl font-black text-main md:text-4xl">
-                  小说随笔 · 岛民传说馆
+                  小说随笔 · 鸡神神谕
                 </h2>
 
                 <p className="mt-4 max-w-md text-sm leading-7 text-muted md:text-base md:leading-8">
                   原本只是记录小说和随笔。今天临时升级为蓬莱仙岛口述史中心：
-                  所有灵感、怪话、设定、朋友之间的暗号都可以暂时供奉在这里。
+                  我们一同欢庆。
                 </p>
               </div>
 
@@ -133,8 +133,7 @@ function WorksPage() {
                   今日限定功能幻想
                 </p>
                 <p className="mt-2 text-sm leading-6 text-orange-800">
-                  点击进入后，所有漫画都被临时解释为鸡神圣卷、SaBa帮编年史、
-                  蓬莱仙岛民俗图录。
+                  点击进入吧，为了SaBa帮的历史。
                 </p>
               </div>
             </div>
@@ -144,7 +143,7 @@ function WorksPage() {
         <section className="mt-8 grid gap-4 md:grid-cols-4">
           {[
             ["鸡神圣像", "已反复加载", "bg-orange-100"],
-            ["SaBa帮寿星", "正在集结", "bg-yellow-100"],
+            ["SaBa帮成员", "正在集结", "bg-yellow-100"],
             ["蓬莱仙岛", "开放入岛", "bg-amber-100"],
             ["限定分支", "拒绝合并", "bg-red-100"],
           ].map(([title, desc, bg]) => (

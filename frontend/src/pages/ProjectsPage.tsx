@@ -19,7 +19,7 @@ function ProjectsPage() {
 
             <p className="mt-5 max-w-3xl leading-7 text-muted">
               GPT 原本说这里用于整理物理计算、网站开发和课程项目。今天全部临时改名为
-              SaBa 帮技术法器陈列馆：每一个项目都是一次召唤，每一次 build
+              SaBa 帮技术神兵陈列馆：每一个项目都是一次召唤，每一次 build
               通过都是鸡神显灵。
             </p>
 

@@ -19,7 +19,7 @@ function Navbar() {
   return (
     <header className="sticky top-0 z-20 border-b border-orange-200 bg-orange-50/90 shadow-sm shadow-orange-100/70 backdrop-blur">
       <div className="bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 px-4 py-1 text-center text-[11px] font-black uppercase tracking-[0.24em] text-white">
-        SaBa节限定模式运行中 · 鸡神与SaBa帮生日快乐
+        SaBa节限定模式运行中 · 愿鸡神照耀过去一切
       </div>
 
       <nav className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 md:grid-cols-[1fr_auto_1fr] md:gap-4 md:px-6 md:py-4">

@@ -11,7 +11,7 @@ export const projects: Project[] = [
     coverClass: 'from-slate-900 to-blue-700',
   },
   {
-    title: 'CGCNN 材料带隙预测',
+    title: '黄焖鸡项目：CGCNN 带隙预测',
     description: '基于晶体图卷积网络与传统机器学习的材料性质预测实践。',
     coverClass: 'from-slate-900 to-indigo-700',
   },
