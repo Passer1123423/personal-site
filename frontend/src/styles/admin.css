@@ -127,6 +127,8 @@
 }
 
 .log-console-layout {
+  --log-sticky-top: 0.75rem;
+
   display: grid;
   grid-template-columns: minmax(0, 1fr) 390px;
   gap: 1rem;
@@ -143,7 +145,7 @@
   --log-control-height: 2.35rem;
 
   position: sticky;
-  top: 0.75rem;
+  top: var(--log-sticky-top);
   z-index: 200;
   isolation: isolate;
   overflow: visible;
@@ -602,7 +604,7 @@
 
 .log-detail-panel {
   position: sticky;
-  top: 0.75rem;
+  top: var(--log-sticky-top);
   align-self: start;
   overflow: visible;
   padding: 1rem;
