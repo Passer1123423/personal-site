@@ -165,6 +165,55 @@ class SiteSetting(SQLModel, table=True):
     value: str
     updated_at: datetime = Field(default_factory=now_utc)
 
+class ActivityLog(SQLModel, table=True):
+    """
+    操作日志表。
+
+    用于记录重要的业务写操作：
+    谁在什么时间，对什么对象，做了什么，结果如何。
+
+    注意：
+    这不是访问统计表，不记录普通页面访问。
+    """
+
+    __tablename__ = "activity_log"
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    actor_user_id: str | None = Field(default=None, foreign_key="user.id", index=True)
+    actor_username: str | None = Field(default=None, index=True)
+    actor_display_name: str | None = None
+    actor_role: str | None = Field(default=None, index=True)
+
+    # 例如：
+    # auth.login.success
+    # comment.create
+    # comment.delete.admin_hard
+    action: str = Field(index=True)
+
+    # 例如：
+    # auth / user / comment / comic / novel / comic_upload / system
+    category: str = Field(index=True)
+
+    target_type: str | None = Field(default=None, index=True)
+    target_id: str | None = Field(default=None, index=True)
+    target_label: str | None = None
+
+    # success / failed
+    status: str = Field(default="success", index=True)
+
+    message: str | None = None
+    error_code: str | None = Field(default=None, index=True)
+
+    # JSON 字符串。
+    # SQLite 下先用 Text 最稳，避免额外引入复杂 JSON 兼容问题。
+    metadata_json: str | None = Field(default=None, sa_column=Column(Text))
+
+    ip_address: str | None = None
+    user_agent: str | None = None
+
+    created_at: datetime = Field(default_factory=now_utc, index=True)
+
 class Comment(SQLModel, table=True):
     """
     通用评论表。

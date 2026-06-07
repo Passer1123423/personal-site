@@ -14,6 +14,8 @@ from app.core.security import (
 from app.dependencies.auth import require_current_user
 from app.services.user_profile import user_to_public_dict
 
+from app.services.activity_logs import log_activity
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 class LoginRequest(BaseModel):
@@ -126,6 +128,24 @@ def register(
     session.commit()
     session.refresh(user)
 
+    log_activity(
+        session,
+        actor=user,
+        action="auth.register.success",
+        category="auth",
+        target_type="user",
+        target_id=user.id,
+        target_label=user.username,
+        status="success",
+        message="用户注册成功",
+        metadata={
+            "username": user.username,
+            "display_name": user.display_name,
+            "role": user.role,
+        },
+        request=request,
+    )
+
     access_token = create_access_token({"sub": user.username})
 
     return {
@@ -137,6 +157,7 @@ def register(
 @router.post("/login")
 def login(
     payload: LoginRequest,
+    request: Request,
     session: Session = Depends(get_session),
 ):
     user = session.exec(
@@ -144,24 +165,94 @@ def login(
     ).first()
 
     if not user:
+        log_activity(
+            session,
+            actor=None,
+            action="auth.login.failed",
+            category="auth",
+            target_type="user",
+            target_label=payload.username,
+            status="failed",
+            message="登录失败：用户名或密码错误",
+            error_code="invalid_credentials",
+            metadata={
+                "username": payload.username,
+                "reason": "user_not_found_or_wrong_password",
+            },
+            request=request,
+        )
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
         )
 
     if not user.is_active:
+        log_activity(
+            session,
+            actor=user,
+            action="auth.login.failed",
+            category="auth",
+            target_type="user",
+            target_id=user.id,
+            target_label=user.username,
+            status="failed",
+            message="登录失败：账号不可用",
+            error_code="inactive_user",
+            metadata={
+                "username": user.username,
+                "reason": "inactive_user",
+            },
+            request=request,
+        )
+
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="账号不可用",
         )
 
     if not verify_password(payload.password, user.password_hash):
+        log_activity(
+            session,
+            actor=user,
+            action="auth.login.failed",
+            category="auth",
+            target_type="user",
+            target_id=user.id,
+            target_label=user.username,
+            status="failed",
+            message="登录失败：用户名或密码错误",
+            error_code="invalid_credentials",
+            metadata={
+                "username": user.username,
+                "reason": "wrong_password",
+            },
+            request=request,
+        )
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
         )
 
     access_token = create_access_token({"sub": user.username})
+
+    log_activity(
+        session,
+        actor=user,
+        action="auth.login.success",
+        category="auth",
+        target_type="user",
+        target_id=user.id,
+        target_label=user.username,
+        status="success",
+        message="用户登录成功",
+        metadata={
+            "username": user.username,
+            "role": user.role,
+        },
+        request=request,
+    )
 
     return {
         "accessToken": access_token,

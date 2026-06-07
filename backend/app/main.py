@@ -40,6 +40,8 @@ from app.routers.novel_author import router as novel_author_router
 from app.routers.interactions import router as interactions_router
 from app.routers.interaction_admin import router as interaction_admin_router
 
+from app.routers.activity_log_admin import router as activity_log_admin_router
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -132,6 +134,7 @@ app.include_router(novel_admin_router)
 app.include_router(novel_author_router)
 app.include_router(interactions_router)
 app.include_router(interaction_admin_router)
+app.include_router(activity_log_admin_router)
 
 @app.get("/")
 def root():

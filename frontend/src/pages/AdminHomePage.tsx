@@ -45,7 +45,7 @@ export default function AdminHomePage() {
           选择要管理的模块。
         </p>
 
-        <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-2">
           <Link
             to="/admin/comics"
             className="surface-card surface-card-link p-6"
@@ -83,6 +83,16 @@ export default function AdminHomePage() {
             <h2 className="text-xl font-semibold text-main">互动管理</h2>
             <p className="mt-3 text-sm leading-6 text-muted">
               检索评论、查看上下文、软删除或硬删除评论。
+            </p>
+          </Link>
+
+          <Link
+            to="/admin/activity-logs"
+            className="surface-card surface-card-link p-6"
+          >
+            <h2 className="text-xl font-semibold text-main">日志查看</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">
+              查看操作日志
             </p>
           </Link>
         </div>

@@ -24,6 +24,7 @@ import AdminComicsPage from "./pages/AdminComicsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminNovelsPage from "./pages/AdminNovelsPage";
 import AdminInteractionsPage from "./pages/AdminInteractionsPage";
+import AdminActivityLogsPage from "./pages/AdminActivityLogsPage";
 
 import NovelsPage from './pages/NovelsPage'
 import NovelDetailPage from './pages/NovelDetailPage'
@@ -53,6 +54,13 @@ function App() {
     ),
   );
 
+  const isAdminActivityLogsPage = Boolean(
+    matchPath(
+      "/admin/activity-logs",
+      location.pathname,
+    ),
+  );
+
   const isCreatorNovelEditorPage = Boolean(
     matchPath(
       "/creator/novels/:novelSlug/new-chapter",
@@ -66,7 +74,7 @@ function App() {
 
   const navbarMode: NavbarMode = isComicReaderPage
     ? "none"
-    : isCreatorComicPartPage || isCreatorNovelEditorPage
+    : isCreatorComicPartPage || isCreatorNovelEditorPage || isAdminActivityLogsPage
       ? "auto"
       : "standard";
 
@@ -142,6 +150,7 @@ function App() {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/novels" element={<AdminNovelsPage />} />
         <Route path="/admin/interactions" element={<AdminInteractionsPage />} />
+        <Route path="/admin/activity-logs" element={<AdminActivityLogsPage />} />
       </Routes>
 
       {shouldRenderFooter && (

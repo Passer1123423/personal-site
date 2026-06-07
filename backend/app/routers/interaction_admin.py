@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlmodel import Session
 
 from app.database import get_session
@@ -11,13 +11,12 @@ from app.services.interactions import (
     list_admin_comments,
     list_comment_tree,
 )
-
+from app.services.activity_logs import log_activity
 
 router = APIRouter(
     prefix="/api/admin/interactions",
     tags=["admin-interactions"],
 )
-
 
 @router.get("/comments")
 def admin_list_comments(
@@ -50,7 +49,6 @@ def admin_list_comments(
         offset=offset,
     )
 
-
 @router.get("/comments/tree")
 def admin_read_comment_tree(
     comment_id: str | None = Query(default=None),
@@ -77,7 +75,6 @@ def admin_read_comment_tree(
         offset=offset,
     )
 
-
 @router.get("/comments/{comment_id}")
 def admin_read_comment_detail(
     comment_id: str,
@@ -92,32 +89,76 @@ def admin_read_comment_detail(
         reveal_deleted_content=True,
     )
 
-
 @router.delete("/comments/{comment_id}")
 def admin_soft_delete_comment_route(
+    request: Request,
     comment_id: str,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_admin_user),
 ):
-    _ = current_user
-
-    return admin_soft_delete_comment(
+    result = admin_soft_delete_comment(
         session,
         comment_id=comment_id,
     )
 
+    log_activity(
+        session,
+        actor=current_user,
+        action="comment.delete.admin_soft",
+        category="comment",
+        target_type="comment",
+        target_id=result.get("id"),
+        target_label=(result.get("content") or "")[:80],
+        status="success",
+        message="管理员软删除评论",
+        metadata={
+            "comment_id": result.get("id"),
+            "comment_target_type": result.get("target_type"),
+            "comment_target_id": result.get("target_id"),
+            "comment_user_id": result.get("user_id"),
+            "parent_id": result.get("parent_id"),
+        },
+        request=request,
+    )
+
+    return result
 
 @router.delete("/comments/{comment_id}/hard")
 def admin_hard_delete_comment_route(
+    request: Request,
     comment_id: str,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_admin_user),
 ):
-    _ = current_user
+    before_delete = get_comment_detail(
+        session,
+        comment_id=comment_id,
+        reveal_deleted_content=True,
+    )
 
     admin_hard_delete_comment(
         session,
         comment_id=comment_id,
+    )
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="comment.delete.admin_hard",
+        category="comment",
+        target_type="comment",
+        target_id=comment_id,
+        target_label=(before_delete.get("content") or "")[:80],
+        status="success",
+        message="管理员硬删除评论",
+        metadata={
+            "comment_id": comment_id,
+            "comment_target_type": before_delete.get("target_type"),
+            "comment_target_id": before_delete.get("target_id"),
+            "comment_user_id": before_delete.get("user_id"),
+            "parent_id": before_delete.get("parent_id"),
+        },
+        request=request,
     )
 
     return {
