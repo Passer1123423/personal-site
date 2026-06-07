@@ -7,6 +7,14 @@ import {
   type AdminActivityLogItem,
 } from "../api/adminActivityLogs";
 import { fetchAdminUsers, type AdminUser } from "../api/adminUsers";
+import {
+  fetchAdminComicsTree,
+  type AdminComicSeries,
+} from "../api/adminComics";
+import {
+  fetchAdminNovelsTree,
+  type AdminNovel,
+} from "../api/adminNovels";
 import SearchablePicker, {
   type SearchablePickerOption,
 } from "../components/SearchablePicker";
@@ -14,6 +22,7 @@ import { formatChinaDateTimeToMinute } from "../utils/time";
 
 type SortMode = "newest" | "oldest";
 type QuickRange = "all" | "24h" | "7d";
+type TargetPickerMode = "picker" | "input" | "disabled";
 
 const PAGE_SIZE = 40;
 
@@ -447,6 +456,99 @@ function buildUserOptions(users: AdminUser[]): SearchablePickerOption[] {
   }));
 }
 
+function isTargetPickerSupported(targetType: string) {
+  return [
+    "user",
+    "comic_series",
+    "comic_part",
+    "comic_chapter",
+    "novel",
+    "novel_chapter",
+  ].includes(targetType);
+}
+
+function getTargetPickerMode(targetType: string): TargetPickerMode {
+  if (!targetType) {
+    return "disabled";
+  }
+
+  return isTargetPickerSupported(targetType) ? "picker" : "input";
+}
+
+function buildComicTargetOptions(
+  comicsTree: AdminComicSeries[],
+  targetType: string,
+): SearchablePickerOption[] {
+  if (targetType === "comic_series") {
+    return comicsTree.map((series) => ({
+      value: series.id,
+      label: series.title || series.slug,
+      description: `/${series.slug}`,
+      badge: "series",
+      searchText: `${series.id} ${series.slug} ${series.title}`,
+    }));
+  }
+
+  if (targetType === "comic_part") {
+    return comicsTree.flatMap((series) =>
+      series.parts.map((part) => ({
+        value: part.id,
+        label: `${series.title || series.slug} / ${part.title || part.slug}`,
+        description: `/${series.slug}/${part.slug}`,
+        badge: "part",
+        searchText: `${part.id} ${part.slug} ${part.title} ${series.id} ${series.slug} ${series.title}`,
+      })),
+    );
+  }
+
+  if (targetType === "comic_chapter") {
+    return comicsTree.flatMap((series) =>
+      series.parts.flatMap((part) =>
+        part.chapters.map((chapter) => ({
+          value: chapter.id,
+          label: `${series.title || series.slug} / ${part.title || part.slug} / ${
+            chapter.title || chapter.slug
+          }`,
+          description: `/${series.slug}/${part.slug}/${chapter.slug}`,
+          badge: "chapter",
+          searchText: `${chapter.id} ${chapter.slug} ${chapter.title} ${part.id} ${part.slug} ${part.title} ${series.id} ${series.slug} ${series.title}`,
+        })),
+      ),
+    );
+  }
+
+  return [];
+}
+
+function buildNovelTargetOptions(
+  novelsTree: AdminNovel[],
+  targetType: string,
+): SearchablePickerOption[] {
+  if (targetType === "novel") {
+    return novelsTree.map((novel) => ({
+      value: novel.id,
+      label: novel.title || novel.slug,
+      description: `/${novel.slug}`,
+      badge: "novel",
+      searchText: `${novel.id} ${novel.slug} ${novel.title}`,
+    }));
+  }
+
+  if (targetType === "novel_chapter") {
+    return novelsTree.flatMap((novel) =>
+      novel.chapters.map((chapter) => ({
+        value: chapter.id,
+        label: `${novel.title || novel.slug} / ${chapter.title || chapter.slug}`,
+        description: `/${novel.slug}/${chapter.slug}`,
+        badge: "chapter",
+        searchText: `${chapter.id} ${chapter.slug} ${chapter.title} ${novel.id} ${novel.slug} ${novel.title}`,
+      })),
+    );
+  }
+
+  return [];
+}
+
 function getCategoryLabel(category: string) {
   return CATEGORY_OPTIONS.find((option) => option.value === category)?.label ?? category;
 }
@@ -620,6 +722,9 @@ function AdminActivityLogsPage() {
 
   const [userOptions, setUserOptions] = useState<SearchablePickerOption[]>([]);
 
+  const [comicsTree, setComicsTree] = useState<AdminComicSeries[]>([]);
+  const [novelsTree, setNovelsTree] = useState<AdminNovel[]>([]);
+
   const maxPage = useMemo(() => {
     return Math.max(1, Math.ceil(total / PAGE_SIZE));
   }, [total]);
@@ -631,6 +736,26 @@ function AdminActivityLogsPage() {
   const visibleItems = useMemo(() => {
     return sortLogs(items, sortMode);
   }, [items, sortMode]);
+
+  const targetPickerMode = useMemo(() => {
+    return getTargetPickerMode(targetType);
+  }, [targetType]);
+
+  const targetObjectOptions = useMemo(() => {
+    if (targetType === "user") {
+      return userOptions;
+    }
+
+    if (targetType.startsWith("comic_")) {
+      return buildComicTargetOptions(comicsTree, targetType);
+    }
+
+    if (targetType.startsWith("novel")) {
+      return buildNovelTargetOptions(novelsTree, targetType);
+    }
+
+    return [];
+  }, [targetType, userOptions, comicsTree, novelsTree]);
 
   const successCount = useMemo(() => {
     return items.filter((item) => item.status === "success").length;
@@ -664,10 +789,17 @@ function AdminActivityLogsPage() {
     setIsPickerLoading(true);
 
     try {
-      const users = await fetchAdminUsers();
+      const [users, comics, novels] = await Promise.all([
+        fetchAdminUsers(),
+        fetchAdminComicsTree(),
+        fetchAdminNovelsTree(),
+      ]);
+
       setUserOptions(buildUserOptions(users));
+      setComicsTree(comics);
+      setNovelsTree(novels);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "加载用户候选项失败");
+      setErrorMessage(error instanceof Error ? error.message : "加载筛选候选项失败");
     } finally {
       setIsPickerLoading(false);
     }
@@ -1016,27 +1148,41 @@ function AdminActivityLogsPage() {
                 <SearchablePicker
                   value={targetType}
                   options={TARGET_TYPE_OPTIONS}
-                  placeholder="先选择对象类型"
+                  placeholder="选择对象类型"
                   searchPlaceholder="搜索对象类型"
                   emptyText="没有匹配的对象类型"
                   onChange={(value) => {
                     setTargetType(value);
-                    if (!value) {
-                      setTargetId("");
-                    }
+                    setTargetId("");
                   }}
                 />
               </label>
 
               <label>
-                <span>对象 ID</span>
-                <input
-                  value={targetId}
-                  onChange={(event) => setTargetId(event.target.value)}
-                  disabled={!targetType}
-                  className="admin-input w-full px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder={targetType ? "粘贴 target_id 精确筛选" : "先选择对象类型"}
-                />
+                <span>对象</span>
+                {targetPickerMode === "picker" ? (
+                  <SearchablePicker
+                    value={targetId}
+                    options={targetObjectOptions}
+                    isLoading={isPickerLoading}
+                    placeholder="选择现有对象"
+                    searchPlaceholder="搜索标题、slug、用户名或 ID"
+                    emptyText="没有匹配的对象"
+                    onChange={setTargetId}
+                  />
+                ) : (
+                  <input
+                    value={targetId}
+                    onChange={(event) => setTargetId(event.target.value)}
+                    disabled={targetPickerMode === "disabled"}
+                    className="admin-input w-full px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder={
+                      targetPickerMode === "disabled"
+                        ? "先选择对象类型"
+                        : "当前对象类型暂不支持 Picker，可粘贴 target_id"
+                    }
+                  />
+                )}
               </label>
 
               <label>
