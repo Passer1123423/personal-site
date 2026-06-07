@@ -710,7 +710,6 @@ function AdminActivityLogsPage() {
   const [category, setCategory] = useState("");
   const [action, setAction] = useState("");
   const [actorUserId, setActorUserId] = useState("");
-  const [actorUsername, setActorUsername] = useState("");
   const [targetType, setTargetType] = useState("");
   const [targetId, setTargetId] = useState("");
   const [status, setStatus] = useState("");
@@ -815,7 +814,6 @@ function AdminActivityLogsPage() {
         category: category || undefined,
         action: action || undefined,
         actorUserId: actorUserId || undefined,
-        actorUsername: actorUsername.trim() || undefined,
         targetType: targetType || undefined,
         targetId: targetId.trim() || undefined,
         status: status || undefined,
@@ -858,7 +856,6 @@ function AdminActivityLogsPage() {
     setCategory("");
     setAction("");
     setActorUserId("");
-    setActorUsername("");
     setTargetType("");
     setTargetId("");
     setStatus("");
@@ -902,8 +899,6 @@ function AdminActivityLogsPage() {
       setAction("");
     } else if (key === "actorUserId") {
       setActorUserId("");
-    } else if (key === "actorUsername") {
-      setActorUsername("");
     } else if (key === "targetType") {
       setTargetType("");
       setTargetId("");
@@ -930,7 +925,6 @@ function AdminActivityLogsPage() {
           }`,
         }
       : null,
-    actorUsername ? { key: "actorUsername", label: `历史用户名：${actorUsername}` } : null,
     targetType ? { key: "targetType", label: `对象：${getTargetTypeLabel(targetType)}` } : null,
     targetId ? { key: "targetId", label: `对象 ID：${getShortId(targetId)}` } : null,
     status ? { key: "status", label: `状态：${getStatusLabel(status)}` } : null,
@@ -991,363 +985,355 @@ function AdminActivityLogsPage() {
           </div>
         )}
 
-        <section className="log-filter-console mt-6">
-          <div className="log-filter-main-row">
-            <div className="log-search-box">
-              <span className="log-search-icon">⌕</span>
-              <input
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value)}
-                className="log-search-input"
-                placeholder="搜索 action、对象名称、说明、用户名快照..."
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    handleSearch();
-                  }
-                }}
-              />
-            </div>
-
-            <div className="log-segmented-control" aria-label="状态筛选">
-              <button
-                type="button"
-                className={status === "" ? "is-active" : ""}
-                onClick={() => setStatus("")}
-              >
-                全部
-              </button>
-              <button
-                type="button"
-                className={status === "success" ? "is-active is-success" : ""}
-                onClick={() => setStatus("success")}
-              >
-                成功
-              </button>
-              <button
-                type="button"
-                className={status === "failed" ? "is-active is-failed" : ""}
-                onClick={() => setStatus("failed")}
-              >
-                失败
-              </button>
-            </div>
-
-            <div className="log-sort-switch" title="切换当前页排序">
-              <button
-                type="button"
-                className={sortMode === "newest" ? "is-active" : ""}
-                onClick={() => setSortMode("newest")}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                className={sortMode === "oldest" ? "is-active" : ""}
-                onClick={() => setSortMode("oldest")}
-              >
-                ↓
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className="admin-button-primary log-query-button"
-              onClick={handleSearch}
-            >
-              查询
-            </button>
-          </div>
-
-          <div className="log-facet-row">
-            <div className="log-facet-picker">
-              <span>操作人</span>
-              <SearchablePicker
-                value={actorUserId}
-                options={userOptions}
-                isLoading={isPickerLoading}
-                placeholder="全部操作人"
-                searchPlaceholder="搜索用户名、显示名或 ID"
-                emptyText="没有匹配的用户"
-                onChange={setActorUserId}
-              />
-            </div>
-
-            <div className="log-facet-picker">
-              <span>分类</span>
-              <SearchablePicker
-                value={category}
-                options={CATEGORY_OPTIONS}
-                placeholder="全部分类"
-                searchPlaceholder="搜索分类"
-                emptyText="没有匹配的分类"
-                onChange={setCategory}
-              />
-            </div>
-
-            <div className="log-facet-picker log-facet-wide">
-              <span>操作类型</span>
-              <SearchablePicker
-                value={action}
-                options={ACTION_OPTIONS}
-                placeholder="全部操作"
-                searchPlaceholder="搜索操作名称或 action"
-                emptyText="没有匹配的操作"
-                onChange={setAction}
-              />
-            </div>
-
-            <div className="log-range-pills" aria-label="时间范围">
-              <button
-                type="button"
-                className={quickRange === "all" ? "is-active" : ""}
-                onClick={() => handleRangeChange("all")}
-              >
-                全部时间
-              </button>
-              <button
-                type="button"
-                className={quickRange === "24h" ? "is-active" : ""}
-                onClick={() => handleRangeChange("24h")}
-              >
-                24h
-              </button>
-              <button
-                type="button"
-                className={quickRange === "7d" ? "is-active" : ""}
-                onClick={() => handleRangeChange("7d")}
-              >
-                7d
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className={[
-                "log-advanced-toggle",
-                showAdvanced ? "is-open" : "",
-              ].join(" ")}
-              onClick={() => setShowAdvanced((value) => !value)}
-            >
-              高级筛选
-              <span>{showAdvanced ? "▴" : "▾"}</span>
-            </button>
-
-            <button
-              type="button"
-              className="log-reset-button"
-              onClick={handleReset}
-            >
-              重置
-            </button>
-          </div>
-
-          <div className={["log-advanced-panel", showAdvanced ? "is-open" : ""].join(" ")}>
-            <div className="log-advanced-grid">
-              <label>
-                <span>对象类型</span>
-                <SearchablePicker
-                  value={targetType}
-                  options={TARGET_TYPE_OPTIONS}
-                  placeholder="选择对象类型"
-                  searchPlaceholder="搜索对象类型"
-                  emptyText="没有匹配的对象类型"
-                  onChange={(value) => {
-                    setTargetType(value);
-                    setTargetId("");
-                  }}
-                />
-              </label>
-
-              <label>
-                <span>对象</span>
-                {targetPickerMode === "picker" ? (
-                  <SearchablePicker
-                    value={targetId}
-                    options={targetObjectOptions}
-                    isLoading={isPickerLoading}
-                    placeholder="选择现有对象"
-                    searchPlaceholder="搜索标题、slug、用户名或 ID"
-                    emptyText="没有匹配的对象"
-                    onChange={setTargetId}
-                  />
-                ) : (
-                  <input
-                    value={targetId}
-                    onChange={(event) => setTargetId(event.target.value)}
-                    disabled={targetPickerMode === "disabled"}
-                    className="admin-input w-full px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder={
-                      targetPickerMode === "disabled"
-                        ? "先选择对象类型"
-                        : "当前对象类型暂不支持 Picker，可粘贴 target_id"
-                    }
-                  />
-                )}
-              </label>
-
-              <label>
-                <span>历史用户名快照</span>
-                <input
-                  value={actorUsername}
-                  onChange={(event) => setActorUsername(event.target.value)}
-                  className="admin-input w-full px-3 py-2 text-sm"
-                  placeholder="用于查历史用户名文本"
-                />
-              </label>
-
-              <label>
-                <span>开始时间</span>
-                <input
-                  type="datetime-local"
-                  value={createdFrom}
-                  onChange={(event) => {
-                    setCreatedFrom(event.target.value);
-                    setQuickRange("all");
-                  }}
-                  className="admin-input w-full px-3 py-2 text-sm"
-                />
-              </label>
-
-              <label>
-                <span>结束时间</span>
-                <input
-                  type="datetime-local"
-                  value={createdTo}
-                  onChange={(event) => {
-                    setCreatedTo(event.target.value);
-                    setQuickRange("all");
-                  }}
-                  className="admin-input w-full px-3 py-2 text-sm"
-                />
-              </label>
-            </div>
-          </div>
-
-          {activeFilterChips.length > 0 && (
-            <div className="log-active-filter-row">
-              <span className="text-xs text-soft">当前筛选</span>
-              {activeFilterChips.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  className="log-filter-chip"
-                  onClick={() => removeFilter(chip.key)}
-                >
-                  {chip.label}
-                  <span>×</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
         <div className="log-console-layout mt-6">
-          <section className="log-stream-panel">
-            <div className="log-stream-toolbar">
-              <div>
-                <h2>事件流</h2>
-                <p>
-                  第 {currentPage} / {maxPage} 页 · 本页 {visibleItems.length} 条 · 偏移 {offset}
-                </p>
-              </div>
+          <div className="log-main-column">
+            <section className="log-filter-console">
+              <div className="log-filter-main-row">
+                <div className="log-search-box">
+                  <span className="log-search-icon">⌕</span>
+                  <input
+                    value={keyword}
+                    onChange={(event) => setKeyword(event.target.value)}
+                    className="log-search-input"
+                    placeholder="搜索 action、对象名称、说明、用户名快照..."
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        handleSearch();
+                      }
+                    }}
+                  />
+                </div>
 
-              <div className="flex gap-2">
+                <div className="log-segmented-control" aria-label="状态筛选">
+                  <button
+                    type="button"
+                    className={status === "" ? "is-active" : ""}
+                    onClick={() => setStatus("")}
+                  >
+                    全部
+                  </button>
+                  <button
+                    type="button"
+                    className={status === "success" ? "is-active is-success" : ""}
+                    onClick={() => setStatus("success")}
+                  >
+                    成功
+                  </button>
+                  <button
+                    type="button"
+                    className={status === "failed" ? "is-active is-failed" : ""}
+                    onClick={() => setStatus("failed")}
+                  >
+                    失败
+                  </button>
+                </div>
+
+                <div className="log-sort-switch" title="切换当前页排序">
+                  <button
+                    type="button"
+                    className={sortMode === "newest" ? "is-active" : ""}
+                    onClick={() => setSortMode("newest")}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className={sortMode === "oldest" ? "is-active" : ""}
+                    onClick={() => setSortMode("oldest")}
+                  >
+                    ↓
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  disabled={offset <= 0 || isLoading}
-                  className="admin-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => loadLogs(Math.max(0, offset - PAGE_SIZE))}
+                  className="admin-button-primary log-query-button"
+                  onClick={handleSearch}
                 >
-                  上一页
-                </button>
-                <button
-                  type="button"
-                  disabled={offset + PAGE_SIZE >= total || isLoading}
-                  className="admin-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => loadLogs(offset + PAGE_SIZE)}
-                >
-                  下一页
+                  查询
                 </button>
               </div>
-            </div>
 
-            <div className="log-stream-list">
-              {isLoading ? (
-                <p className="px-5 py-10 text-sm text-soft">正在加载操作日志...</p>
-              ) : visibleItems.length === 0 ? (
-                <p className="px-5 py-10 text-sm text-soft">没有匹配的操作日志。</p>
-              ) : (
-                visibleItems.map((log) => {
-                  const metadataText = stringifyMetadata(log.metadata);
-                  const isMetadataExpanded = expandedMetadataIds.has(log.id);
-                  const selected = selectedLog?.id === log.id;
-                  const actionTone = getActionTone(log.action);
+              <div className="log-facet-row">
+                <div className="log-facet-picker">
+                  <span>操作人</span>
+                  <SearchablePicker
+                    value={actorUserId}
+                    options={userOptions}
+                    isLoading={isPickerLoading}
+                    placeholder="全部操作人"
+                    searchPlaceholder="搜索用户名、显示名或 ID"
+                    emptyText="没有匹配的用户"
+                    onChange={setActorUserId}
+                  />
+                </div>
 
-                  return (
-                    <article
-                      key={log.id}
-                      className={[
-                        "log-event-row",
-                        selected ? "is-selected" : "",
-                        log.status === "failed" ? "is-failed" : "is-success",
-                        `tone-${actionTone}`,
-                      ].join(" ")}
+                <div className="log-facet-picker">
+                  <span>分类</span>
+                  <SearchablePicker
+                    value={category}
+                    options={CATEGORY_OPTIONS}
+                    placeholder="全部分类"
+                    searchPlaceholder="搜索分类"
+                    emptyText="没有匹配的分类"
+                    onChange={setCategory}
+                  />
+                </div>
+
+                <div className="log-facet-picker log-facet-wide">
+                  <span>操作类型</span>
+                  <SearchablePicker
+                    value={action}
+                    options={ACTION_OPTIONS}
+                    placeholder="全部操作"
+                    searchPlaceholder="搜索操作名称或 action"
+                    emptyText="没有匹配的操作"
+                    onChange={setAction}
+                  />
+                </div>
+
+                <div className="log-range-pills" aria-label="时间范围">
+                  <button
+                    type="button"
+                    className={quickRange === "all" ? "is-active" : ""}
+                    onClick={() => handleRangeChange("all")}
+                  >
+                    全部时间
+                  </button>
+                  <button
+                    type="button"
+                    className={quickRange === "24h" ? "is-active" : ""}
+                    onClick={() => handleRangeChange("24h")}
+                  >
+                    24h
+                  </button>
+                  <button
+                    type="button"
+                    className={quickRange === "7d" ? "is-active" : ""}
+                    onClick={() => handleRangeChange("7d")}
+                  >
+                    7d
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className={[
+                    "log-advanced-toggle",
+                    showAdvanced ? "is-open" : "",
+                  ].join(" ")}
+                  onClick={() => setShowAdvanced((value) => !value)}
+                >
+                  高级筛选
+                  <span>{showAdvanced ? "▴" : "▾"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="log-reset-button"
+                  onClick={handleReset}
+                >
+                  重置
+                </button>
+              </div>
+
+              <div className={["log-advanced-panel", showAdvanced ? "is-open" : ""].join(" ")}>
+                <div className="log-advanced-grid">
+                  <label>
+                    <span>对象类型</span>
+                    <SearchablePicker
+                      value={targetType}
+                      options={TARGET_TYPE_OPTIONS}
+                      placeholder="选择对象类型"
+                      searchPlaceholder="搜索对象类型"
+                      emptyText="没有匹配的对象类型"
+                      onChange={(value) => {
+                        setTargetType(value);
+                        setTargetId("");
+                      }}
+                    />
+                  </label>
+
+                  <label>
+                    <span>对象</span>
+                    {targetPickerMode === "picker" ? (
+                      <SearchablePicker
+                        value={targetId}
+                        options={targetObjectOptions}
+                        isLoading={isPickerLoading}
+                        placeholder="选择现有对象"
+                        searchPlaceholder="搜索标题、slug、用户名或 ID"
+                        emptyText="没有匹配的对象"
+                        onChange={setTargetId}
+                      />
+                    ) : (
+                      <input
+                        value={targetId}
+                        onChange={(event) => setTargetId(event.target.value)}
+                        disabled={targetPickerMode === "disabled"}
+                        className="admin-input w-full px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                        placeholder={
+                          targetPickerMode === "disabled"
+                            ? "先选择对象类型"
+                            : "当前对象类型暂不支持 Picker，可粘贴 target_id"
+                        }
+                      />
+                    )}
+                  </label>
+
+                  <label>
+                    <span>开始时间</span>
+                    <input
+                      type="datetime-local"
+                      value={createdFrom}
+                      onChange={(event) => {
+                        setCreatedFrom(event.target.value);
+                        setQuickRange("all");
+                      }}
+                      className="admin-input w-full px-3 py-2 text-sm"
+                    />
+                  </label>
+
+                  <label>
+                    <span>结束时间</span>
+                    <input
+                      type="datetime-local"
+                      value={createdTo}
+                      onChange={(event) => {
+                        setCreatedTo(event.target.value);
+                        setQuickRange("all");
+                      }}
+                      className="admin-input w-full px-3 py-2 text-sm"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {activeFilterChips.length > 0 && (
+                <div className="log-active-filter-row">
+                  <span className="text-xs text-soft">当前筛选</span>
+                  {activeFilterChips.map((chip) => (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      className="log-filter-chip"
+                      onClick={() => removeFilter(chip.key)}
                     >
-                      <button
-                        type="button"
-                        className="log-event-main"
-                        onClick={() => setSelectedLog(log)}
-                      >
-                        <span className="log-event-time">
-                          {formatChinaDateTimeToMinute(log.createdAt)}
-                        </span>
-
-                        <span className="log-event-state">
-                          <span className="log-event-dot" />
-                          {getStatusLabel(log.status)}
-                        </span>
-
-                        <span className="log-event-action">
-                          <span className="log-action-label">{getActionLabel(log.action)}</span>
-                          <span className="log-action-code">{log.action}</span>
-                        </span>
-
-                        <span className="log-event-actor">
-                          <span>{getActorLabel(log)}</span>
-                          <em>{getActorSubLabel(log)}</em>
-                        </span>
-
-                        <span className="log-event-target">
-                          <span>{getTargetTypeLabel(log.targetType)}</span>
-                          <em>{getTargetLabel(log)}</em>
-                        </span>
-
-                        <span className="log-event-message">
-                          {log.message || "无说明"}
-                        </span>
-                      </button>
-
-                      {metadataText && (
-                        <div className="log-event-extra">
-                          <button
-                            type="button"
-                            className="log-metadata-toggle"
-                            onClick={() => toggleMetadata(log.id)}
-                          >
-                            {isMetadataExpanded ? "收起 metadata" : "metadata"}
-                          </button>
-
-                          {isMetadataExpanded && (
-                            <pre className="log-metadata-block">{metadataText}</pre>
-                          )}
-                        </div>
-                      )}
-                    </article>
-                  );
-                })
+                      {chip.label}
+                      <span>×</span>
+                    </button>
+                  ))}
+                </div>
               )}
-            </div>
-          </section>
+            </section>
+
+            <section className="log-stream-panel">
+              <div className="log-stream-toolbar">
+                <div>
+                  <h2>事件流</h2>
+                  <p>
+                    第 {currentPage} / {maxPage} 页 · 本页 {visibleItems.length} 条 · 偏移 {offset}
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={offset <= 0 || isLoading}
+                    className="admin-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => loadLogs(Math.max(0, offset - PAGE_SIZE))}
+                  >
+                    上一页
+                  </button>
+                  <button
+                    type="button"
+                    disabled={offset + PAGE_SIZE >= total || isLoading}
+                    className="admin-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => loadLogs(offset + PAGE_SIZE)}
+                  >
+                    下一页
+                  </button>
+                </div>
+              </div>
+
+              <div className="log-stream-list">
+                {isLoading ? (
+                  <p className="px-5 py-10 text-sm text-soft">正在加载操作日志...</p>
+                ) : visibleItems.length === 0 ? (
+                  <p className="px-5 py-10 text-sm text-soft">没有匹配的操作日志。</p>
+                ) : (
+                  visibleItems.map((log) => {
+                    const metadataText = stringifyMetadata(log.metadata);
+                    const isMetadataExpanded = expandedMetadataIds.has(log.id);
+                    const selected = selectedLog?.id === log.id;
+                    const actionTone = getActionTone(log.action);
+
+                    return (
+                      <article
+                        key={log.id}
+                        className={[
+                          "log-event-row",
+                          selected ? "is-selected" : "",
+                          log.status === "failed" ? "is-failed" : "is-success",
+                          `tone-${actionTone}`,
+                        ].join(" ")}
+                      >
+                        <button
+                          type="button"
+                          className="log-event-main"
+                          onClick={() => setSelectedLog(log)}
+                        >
+                          <span className="log-event-time">
+                            {formatChinaDateTimeToMinute(log.createdAt)}
+                          </span>
+
+                          <span className="log-event-state">
+                            <span className="log-event-dot" />
+                            {getStatusLabel(log.status)}
+                          </span>
+
+                          <span className="log-event-action">
+                            <span className="log-action-label">{getActionLabel(log.action)}</span>
+                            <span className="log-action-code">{log.action}</span>
+                          </span>
+
+                          <span className="log-event-actor">
+                            <span>{getActorLabel(log)}</span>
+                            <em>{getActorSubLabel(log)}</em>
+                          </span>
+
+                          <span className="log-event-target">
+                            <span>{getTargetTypeLabel(log.targetType)}</span>
+                            <em>{getTargetLabel(log)}</em>
+                          </span>
+
+                          <span className="log-event-message">
+                            {log.message || "无说明"}
+                          </span>
+                        </button>
+
+                        {metadataText && (
+                          <div className="log-event-extra">
+                            <button
+                              type="button"
+                              className="log-metadata-toggle"
+                              onClick={() => toggleMetadata(log.id)}
+                            >
+                              {isMetadataExpanded ? "收起 metadata" : "metadata"}
+                            </button>
+
+                            {isMetadataExpanded && (
+                              <pre className="log-metadata-block">{metadataText}</pre>
+                            )}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+          </div>
 
           <aside className="log-detail-panel">
             <div className="log-detail-head">

@@ -126,46 +126,75 @@
   color: var(--color-danger);
 }
 
+.log-console-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.log-main-column {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+
 .log-filter-console {
-  --log-control-height: 2.45rem;
+  --log-control-height: 2.35rem;
 
   position: sticky;
   top: 0.75rem;
   z-index: 200;
+  isolation: isolate;
   overflow: visible;
-  min-height: 9.6rem;
+  min-height: 8.55rem;
   border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--color-panel-bg) 97%, transparent);
-  padding: 0.78rem;
+  padding: 0.68rem;
   box-shadow: var(--shadow-card);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(10px);
 }
 
 .log-filter-main-row,
 .log-facet-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.55rem;
   align-items: center;
+}
+
+.log-filter-main-row {
+  position: relative;
+  z-index: 40;
+}
+
+.log-facet-row {
+  position: relative;
+  z-index: 60;
+  margin-top: 0.6rem;
+}
+
+.log-facet-row:focus-within {
+  z-index: 300;
 }
 
 .log-search-box {
   display: flex;
-  min-width: min(28rem, 100%);
+  min-width: min(20rem, 100%);
   height: var(--log-control-height);
-  flex: 1 1 26rem;
+  flex: 1 1 20rem;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   border: 1px solid var(--color-border-control);
   border-radius: var(--radius-control);
   background: var(--color-panel-bg);
-  padding: 0 0.72rem;
+  padding: 0 0.65rem;
 }
 
 .log-search-icon {
   color: var(--color-text-soft);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .log-search-input {
@@ -175,7 +204,7 @@
   background: transparent;
   padding: 0;
   color: var(--color-text-main);
-  font-size: 0.875rem;
+  font-size: 0.84rem;
   outline: none;
 }
 
@@ -192,16 +221,16 @@
   border: 1px solid var(--color-border-control);
   border-radius: var(--radius-control);
   background: var(--color-panel-soft-bg);
-  padding: 0.14rem;
+  padding: 0.13rem;
 }
 
 .log-segmented-control button,
 .log-range-pills button {
-  height: calc(var(--log-control-height) - 0.28rem);
+  height: calc(var(--log-control-height) - 0.26rem);
   border-radius: calc(var(--radius-control) - 0.2rem);
-  padding: 0 0.78rem;
+  padding: 0 0.68rem;
   color: var(--color-text-muted);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   transition:
     background 0.15s ease,
     color 0.15s ease,
@@ -230,7 +259,7 @@
 
 .log-sort-switch {
   display: inline-grid;
-  width: 2.55rem;
+  width: 2.35rem;
   height: var(--log-control-height);
   grid-template-rows: 1fr 1fr;
   overflow: hidden;
@@ -243,7 +272,7 @@
   width: 100%;
   height: 100%;
   color: var(--color-text-soft);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   line-height: 1;
   transition:
     background 0.15s ease,
@@ -258,35 +287,36 @@
 
 .log-query-button {
   height: var(--log-control-height);
-  padding: 0 1.05rem;
-  font-size: 0.875rem;
+  padding: 0 0.95rem;
+  font-size: 0.84rem;
   font-weight: 600;
 }
 
-.log-facet-row {
-  margin-top: 0.72rem;
+.log-facet-picker {
+  position: relative;
+  z-index: 1;
+  min-width: 10.5rem;
+  flex: 1 1 10.5rem;
 }
 
-.log-facet-picker {
-  min-width: 12rem;
-  flex: 1 1 12rem;
-  position: relative;
-  z-index: 210;
+.log-facet-picker:focus-within {
+  z-index: 320;
+}
+
+.log-facet-picker .relative {
+  z-index: 1;
+}
+
+.log-facet-picker:focus-within .relative {
+  z-index: 330;
 }
 
 .log-facet-picker > span {
   display: none;
 }
 
-.log-advanced-grid label > span {
-  display: block;
-  margin-bottom: 0.3rem;
-  color: var(--color-text-soft);
-  font-size: 0.72rem;
-}
-
 .log-facet-wide {
-  flex: 1.6 1 18rem;
+  flex: 1.45 1 15rem;
 }
 
 .log-advanced-toggle,
@@ -296,9 +326,9 @@
   border: 1px solid var(--color-border-control);
   border-radius: var(--radius-control);
   background: var(--color-panel-bg);
-  padding: 0 0.9rem;
+  padding: 0 0.78rem;
   color: var(--color-text-muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   transition:
     border-color 0.15s ease,
     color 0.15s ease,
@@ -308,7 +338,7 @@
 
 .log-advanced-toggle {
   display: inline-flex;
-  gap: 0.4rem;
+  gap: 0.35rem;
   align-items: center;
 }
 
@@ -321,67 +351,73 @@
 }
 
 .log-advanced-panel {
+  position: relative;
+  z-index: 10;
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.18s ease;
 }
 
 .log-advanced-panel.is-open {
-  max-height: 11rem;
+  max-height: 7.2rem;
   overflow: visible;
 }
 
 .log-advanced-grid {
+  position: relative;
+  z-index: 10;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.78rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
   min-height: 0;
   overflow: visible;
 }
 
 .log-advanced-panel.is-open .log-advanced-grid {
-  margin-top: 1rem;
-  padding-top: 1rem;
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
   border-top: 1px solid var(--color-border-soft);
 }
 
 .log-advanced-grid label {
-  min-width: 0;
   position: relative;
   z-index: 220;
+  min-width: 0;
+}
+
+.log-advanced-grid label > span {
+  display: block;
+  margin-bottom: 0.26rem;
+  color: var(--color-text-soft);
+  font-size: 0.7rem;
 }
 
 .log-active-filter-row {
+  position: relative;
+  z-index: 5;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.4rem;
   align-items: center;
-  margin-top: 0.68rem;
-  padding-top: 0.68rem;
+  margin-top: 0.58rem;
+  padding-top: 0.58rem;
   border-top: 1px solid var(--color-border-soft);
 }
 
 .log-filter-chip {
   display: inline-flex;
-  gap: 0.4rem;
+  gap: 0.35rem;
   align-items: center;
   border: 1px solid var(--color-accent-border);
   border-radius: 999px;
   background: var(--color-accent-soft);
-  padding: 0.28rem 0.6rem;
+  padding: 0.22rem 0.5rem;
   color: var(--color-accent);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
 }
 
 .log-filter-chip:hover {
   border-color: var(--color-accent-border-strong);
-}
-
-.log-console-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 390px;
-  gap: 1rem;
-  align-items: start;
 }
 
 .log-stream-panel,
@@ -566,7 +602,8 @@
 
 .log-detail-panel {
   position: sticky;
-  top: 11.7rem;
+  top: 0.75rem;
+  align-self: start;
   overflow: visible;
   padding: 1rem;
 }
@@ -633,58 +670,6 @@
   overflow-wrap: anywhere;
 }
 
-/* ===== Activity log filter stacking fix ===== */
-
-.log-filter-console {
-  isolation: isolate;
-  overflow: visible !important;
-}
-
-.log-filter-main-row {
-  position: relative;
-  z-index: 40;
-}
-
-.log-facet-row {
-  position: relative;
-  z-index: 60;
-}
-
-.log-facet-row:focus-within {
-  z-index: 300;
-}
-
-.log-facet-picker {
-  position: relative;
-  z-index: 1;
-}
-
-.log-facet-picker:focus-within {
-  z-index: 320;
-}
-
-.log-facet-picker .relative {
-  z-index: 1;
-}
-
-.log-facet-picker:focus-within .relative {
-  z-index: 330;
-}
-
-.log-advanced-panel {
-  position: relative;
-  z-index: 10;
-}
-
-.log-advanced-grid {
-  position: relative;
-  z-index: 10;
-}
-
-.log-active-filter-row {
-  position: relative;
-  z-index: 5;
-}
 @media (max-width: 1200px) {
   .log-console-header,
   .log-console-layout {
@@ -700,7 +685,7 @@
   }
 
   .log-advanced-panel.is-open {
-    max-height: 18rem;
+    max-height: 14rem;
   }
 
   .log-event-main {
@@ -763,7 +748,7 @@
   }
 
   .log-advanced-panel.is-open {
-    max-height: 30rem;
+    max-height: 24rem;
   }
 
   .log-stream-toolbar {

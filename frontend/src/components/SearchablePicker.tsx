@@ -130,17 +130,20 @@ export default function SearchablePicker({
       >
         <span className="min-w-0 flex-1">
           {selectedOption ? (
-            <span className="block min-w-0">
-              <span className="block truncate text-main">
+            <span className="flex min-w-0 items-center text-main">
+              <span className="min-w-0 shrink truncate">
                 {selectedOption.label}
               </span>
               {selectedOption.description && (
-                <span className="mt-0.5 block truncate text-xs text-soft">
-                  {selectedOption.description}
-                </span>
+                <>
+                  <span className="shrink-0 px-1 text-soft">：</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-soft">
+                    {selectedOption.description}
+                  </span>
+                </>
               )}
             </span>
-          ) : (
+          ):(
             <span className="text-soft">{placeholder}</span>
           )}
         </span>
