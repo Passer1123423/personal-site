@@ -136,14 +136,14 @@ export default function SearchablePicker({
               </span>
               {selectedOption.description && (
                 <>
-                  <span className="shrink-0 px-1 text-soft">：</span>
+                  <span className="shrink-0 text-soft">:</span>
                   <span className="min-w-0 flex-1 truncate text-xs text-soft">
                     {selectedOption.description}
                   </span>
                 </>
               )}
             </span>
-          ):(
+          ) : (
             <span className="text-soft">{placeholder}</span>
           )}
         </span>
