@@ -34,6 +34,8 @@ import CreatorNovelsPage from "./pages/CreatorNovelsPage";
 import CreatorNovelPage from "./pages/CreatorNovelPage";
 import CreatorNovelChapterEditorPage from "./pages/CreatorNovelChapterEditorPage";
 
+type NavbarMode = "standard" | "auto" | "none";
+
 function App() {
   const location = useLocation();
 
@@ -44,9 +46,38 @@ function App() {
     ),
   );
 
+  const isCreatorComicPartPage = Boolean(
+    matchPath(
+      "/creator/comics/:seriesSlug/:partSlug",
+      location.pathname,
+    ),
+  );
+
+  const isCreatorNovelEditorPage = Boolean(
+    matchPath(
+      "/creator/novels/:novelSlug/new-chapter",
+      location.pathname,
+    ) ||
+      matchPath(
+        "/creator/novels/:novelSlug/:chapterSlug/edit",
+        location.pathname,
+      ),
+  );
+
+  const navbarMode: NavbarMode = isComicReaderPage
+    ? "none"
+    : isCreatorComicPartPage || isCreatorNovelEditorPage
+      ? "auto"
+      : "standard";
+
+  const footerClassName = navbarMode === "auto" ? "md:hidden" : "";
+  const shouldRenderFooter = navbarMode !== "none";
+
   return (
     <main className="min-h-screen bg-slate-50">
-      {!isComicReaderPage && <Navbar />}
+      {navbarMode !== "none" && (
+        <Navbar mode={navbarMode === "auto" ? "auto" : "standard"} />
+      )}
       
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -113,7 +144,11 @@ function App() {
         <Route path="/admin/interactions" element={<AdminInteractionsPage />} />
       </Routes>
 
-      <Footer />
+      {shouldRenderFooter && (
+        <div className={footerClassName}>
+          <Footer />
+        </div>
+      )}
     </main>
   )
 }

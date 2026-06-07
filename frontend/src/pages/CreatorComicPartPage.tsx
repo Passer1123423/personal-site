@@ -1070,7 +1070,7 @@ export default function CreatorComicPartPage() {
                 </div>
               </header>
 
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-6 md:py-5">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 max-md:overscroll-contain md:px-6 md:py-5">
                 <section className="flex h-full min-h-0 flex-col gap-4 md:gap-5">
                   <div className="flex min-h-0 flex-1 flex-col border-y border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] py-3 md:rounded-2xl md:border md:p-4">
                     <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
@@ -1088,7 +1088,7 @@ export default function CreatorComicPartPage() {
                       </span>
                     </div>
 
-                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+                    <div className="min-h-0 flex-1 overflow-y-auto pr-1 max-md:overscroll-contain">
                       {visibleUploadCount === 0 ? (
                         <div className="flex h-full min-h-48 items-center justify-center rounded-xl border border-dashed border-[var(--color-border-control)] bg-white px-4 py-10 text-center text-sm text-soft">
                           待传区为空。点击下方区域上传新章节图片。
