@@ -1040,7 +1040,7 @@ export default function CreatorComicPartPage() {
 
         <aside
           className={[
-            "fixed inset-0 z-40 h-[100dvh] overflow-hidden overscroll-contain border-l border-[var(--color-border-soft)] bg-[var(--color-panel-bg)] shadow-xl transition-transform duration-300 md:sticky md:top-0 md:z-auto md:shrink-0 md:transition-[width]",
+            "border-l border-[var(--color-border-soft)] bg-[var(--color-panel-bg)] shadow-xl transition-transform duration-300 max-md:fixed max-md:inset-0 max-md:z-40 max-md:h-[100dvh] max-md:overflow-hidden max-md:overscroll-contain md:sticky md:top-0 md:z-auto md:h-[100dvh] md:shrink-0 md:transition-[width]",
             drawerOpen
               ? "translate-x-0 md:w-[48vw] md:min-w-[560px] md:max-w-[820px]"
               : "translate-x-full md:w-0 md:translate-x-0",

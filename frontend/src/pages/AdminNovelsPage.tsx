@@ -86,8 +86,11 @@ function makeNextChapterSlug(chapters: AdminNovelChapter[]) {
     })
     .filter((value) => value > 0);
 
-  const nextNumber =
-    usedNumbers.length > 0 ? Math.max(...usedNumbers) + 1 : 1;
+  let nextNumber = 1;
+
+  while (usedNumbers.includes(nextNumber)) {
+    nextNumber += 1;
+  }
 
   return `chapter-${String(nextNumber).padStart(3, "0")}`;
 }

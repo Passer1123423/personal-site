@@ -336,8 +336,21 @@ def create_next_chapter(
     statement = select(ComicChapter).where(ComicChapter.part_id == part.id)
     existing_chapters = session.exec(statement).all()
 
+    used_slug_numbers = set()
+
+    for chapter in existing_chapters:
+        match = re.fullmatch(r"chapter-(\d+)", chapter.slug)
+
+        if match:
+            used_slug_numbers.add(int(match.group(1)))
+
+    next_slug_number = 1
+
+    while next_slug_number in used_slug_numbers:
+        next_slug_number += 1
+
     next_order = len(existing_chapters) + 1
-    chapter_slug = f"chapter-{next_order:03d}"
+    chapter_slug = f"chapter-{next_slug_number:03d}"
 
     if chapter_title:
         title = f"第{next_order}话 {chapter_title}"
