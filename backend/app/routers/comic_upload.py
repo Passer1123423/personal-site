@@ -397,7 +397,6 @@ async def upload_images(
         "limitBytes": STAGING_LIMIT_BYTES,
     }
 
-
 @router.get("/images/{image_id}/preview")
 def preview_upload_image(
     image_id: str,

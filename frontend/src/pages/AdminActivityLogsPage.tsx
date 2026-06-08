@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { clearAccessToken, getMe } from "../api/auth";
@@ -705,6 +705,9 @@ function AdminActivityLogsPage() {
   const [expandedMetadataIds, setExpandedMetadataIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [isDetailMetadataOverflowing, setIsDetailMetadataOverflowing] = useState(false);
+  const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
+  const detailMetadataRef = useRef<HTMLPreElement | null>(null);
 
   const [keyword, setKeyword] = useState("");
   const [category, setCategory] = useState("");
@@ -735,6 +738,10 @@ function AdminActivityLogsPage() {
   const visibleItems = useMemo(() => {
     return sortLogs(items, sortMode);
   }, [items, sortMode]);
+
+  const selectedMetadataText = useMemo(() => {
+    return selectedLog ? stringifyMetadata(selectedLog.metadata) : "";
+  }, [selectedLog]);
 
   const targetPickerMode = useMemo(() => {
     return getTargetPickerMode(targetType);
@@ -846,6 +853,37 @@ function AdminActivityLogsPage() {
       loadPickerOptions();
     }
   }, [isAuthReady]);
+
+  useEffect(() => {
+    setIsMetadataModalOpen(false);
+  }, [selectedLog?.id]);
+
+  useEffect(() => {
+    const element = detailMetadataRef.current;
+
+    if (!element || !selectedMetadataText) {
+      setIsDetailMetadataOverflowing(false);
+      return;
+    }
+
+    const measuredElement = element;
+
+    function updateOverflowState() {
+      setIsDetailMetadataOverflowing(
+        measuredElement.scrollHeight > measuredElement.clientHeight + 1
+        || measuredElement.scrollWidth > measuredElement.clientWidth + 1,
+      );
+    }
+
+    updateOverflowState();
+
+    const resizeObserver = new ResizeObserver(updateOverflowState);
+    resizeObserver.observe(measuredElement);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [selectedMetadataText]);
 
   function handleSearch() {
     loadLogs(0);
@@ -1440,10 +1478,21 @@ function AdminActivityLogsPage() {
 
                 <section>
                   <h3>Metadata</h3>
-                  {stringifyMetadata(selectedLog.metadata) ? (
-                    <pre className="log-detail-metadata">
-                      {stringifyMetadata(selectedLog.metadata)}
-                    </pre>
+                  {selectedMetadataText ? (
+                    <div className="log-detail-metadata-preview">
+                      <pre ref={detailMetadataRef} className="log-detail-metadata">
+                        {selectedMetadataText}
+                      </pre>
+                      {isDetailMetadataOverflowing && (
+                        <button
+                          type="button"
+                          className="log-detail-metadata-expand"
+                          onClick={() => setIsMetadataModalOpen(true)}
+                        >
+                          展开完整 Metadata
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-sm text-soft">无 metadata。</p>
                   )}
@@ -1453,6 +1502,35 @@ function AdminActivityLogsPage() {
           </aside>
         </div>
       </section>
+
+      {isMetadataModalOpen && selectedMetadataText && (
+        <div
+          className="log-metadata-modal-backdrop"
+          role="presentation"
+          onClick={() => setIsMetadataModalOpen(false)}
+        >
+          <div
+            className="log-metadata-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="完整 Metadata"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="log-metadata-modal-head">
+              <h2>完整 Metadata</h2>
+              <button
+                type="button"
+                className="log-metadata-modal-close"
+                aria-label="关闭完整 Metadata"
+                onClick={() => setIsMetadataModalOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <pre className="log-metadata-modal-body">{selectedMetadataText}</pre>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

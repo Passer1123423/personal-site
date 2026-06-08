@@ -2,7 +2,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -23,6 +23,7 @@ from app.services.comic_admin import (
     get_or_create_part,
     get_or_create_series,
     get_part,
+    get_series,
     rename_chapter,
     rename_part,
     rename_series,

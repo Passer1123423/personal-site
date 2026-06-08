@@ -596,6 +596,8 @@
   color: var(--color-text-muted);
   font-size: 0.75rem;
   line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .log-metadata-block {
@@ -607,7 +609,7 @@
   top: var(--log-sticky-top);
   align-self: start;
   overflow: visible;
-  padding: 1rem;
+  padding: 0.9rem;
 }
 
 .log-detail-head {
@@ -616,7 +618,7 @@
   gap: 1rem;
   align-items: center;
   border-bottom: 1px solid var(--color-border-soft);
-  padding-bottom: 0.8rem;
+  padding-bottom: 0.65rem;
 }
 
 .log-detail-status {
@@ -637,8 +639,8 @@
 
 .log-detail-body {
   display: grid;
-  gap: 1.15rem;
-  margin-top: 1rem;
+  gap: 0.85rem;
+  margin-top: 0.8rem;
 }
 
 .log-detail-body section h3 {
@@ -651,16 +653,16 @@
 
 .log-detail-body dl {
   display: grid;
-  gap: 0.45rem;
-  margin-top: 0.65rem;
+  gap: 0.34rem;
+  margin-top: 0.5rem;
 }
 
 .log-detail-body dl div {
   display: grid;
   grid-template-columns: 5.2rem minmax(0, 1fr);
-  gap: 0.75rem;
+  gap: 0.65rem;
   color: var(--color-text-muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 .log-detail-body dt {
@@ -669,6 +671,100 @@
 
 .log-detail-body dd {
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.log-detail-metadata-preview {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.log-detail-metadata {
+  max-height: 7.25rem;
+  margin-top: 0.5rem;
+  overflow: hidden;
+}
+
+.log-detail-metadata-expand {
+  justify-self: start;
+  color: var(--color-accent);
+  font-size: 0.75rem;
+}
+
+.log-detail-metadata-expand:hover {
+  text-decoration: underline;
+}
+
+.log-metadata-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(2 6 23 / 0.62);
+  padding: 1rem;
+}
+
+.log-metadata-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(62rem, calc(100vw - 2rem));
+  max-height: min(42rem, calc(100vh - 2rem));
+  overflow: hidden;
+  border: 1px solid rgb(71 85 105);
+  border-radius: var(--radius-card);
+  background: #0f172a;
+  box-shadow: 0 24px 80px rgb(2 6 23 / 0.45);
+}
+
+.log-metadata-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  border-bottom: 1px solid rgb(51 65 85);
+  padding: 0.85rem 1rem;
+}
+
+.log-metadata-modal-head h2 {
+  color: #e2e8f0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.log-metadata-modal-close {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: #94a3b8;
+  font-size: 1.25rem;
+}
+
+.log-metadata-modal-close:hover {
+  background: rgb(30 41 59);
+  color: #f8fafc;
+}
+
+.log-metadata-modal-body {
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 1rem;
+  background:
+    linear-gradient(rgb(15 23 42 / 0.96), rgb(15 23 42 / 0.96)),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 1.55rem,
+      rgb(148 163 184 / 0.07) 1.55rem,
+      rgb(148 163 184 / 0.07) 1.6rem
+    );
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
