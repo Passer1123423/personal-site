@@ -762,8 +762,13 @@ export default function CommentPanel({
       const previewUrl = URL.createObjectURL(file);
       selectedImagePreviewUrlsRef.current.push(previewUrl);
 
+      const imageId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
       nextImages.push({
-        id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
+        id: `${file.name}-${file.lastModified}-${imageId}`,
         file,
         previewUrl,
       });
