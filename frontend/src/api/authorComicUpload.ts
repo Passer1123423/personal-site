@@ -52,6 +52,12 @@ export type UploadImagesResult = {
   limitBytes: number;
 };
 
+export type UploadComicImageBatchInfo = {
+  uploadBatchId?: string;
+  uploadBatchIndex?: number;
+  uploadBatchTotal?: number;
+};
+
 export type PublishComicChapterPayload = {
   series_slug: string;
   part_slug: string;
@@ -109,6 +115,7 @@ export async function uploadAuthorComicImages(
 export function uploadAuthorComicImageWithProgress(
   file: File,
   onProgress: (progress: number) => void,
+  batchInfo: UploadComicImageBatchInfo = {},
 ): Promise<UploadImagesResult> {
   return new Promise((resolve, reject) => {
     const token = getAccessToken();
@@ -120,6 +127,18 @@ export function uploadAuthorComicImageWithProgress(
 
     const formData = new FormData();
     formData.append("files", file);
+
+    if (batchInfo.uploadBatchId) {
+      formData.append("upload_batch_id", batchInfo.uploadBatchId);
+    }
+
+    if (typeof batchInfo.uploadBatchIndex === "number") {
+      formData.append("upload_batch_index", String(batchInfo.uploadBatchIndex));
+    }
+
+    if (typeof batchInfo.uploadBatchTotal === "number") {
+      formData.append("upload_batch_total", String(batchInfo.uploadBatchTotal));
+    }
 
     const xhr = new XMLHttpRequest();
 

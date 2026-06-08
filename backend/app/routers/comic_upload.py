@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+import json
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.database import get_session
 from app.dependencies.auth import require_current_user
-from app.models import ComicPart, ComicUploadImage, User
+from app.models import ActivityLog, ComicPart, ComicUploadImage, User
+from app.services.activity_logs import log_activity
 from app.services.comic_admin import (
     UPLOADS_ROOT,
     get_part,
@@ -25,7 +28,6 @@ from app.services.comic_upload import (
     list_user_upload_images,
     save_upload_images,
 )
-
 
 router = APIRouter(
     prefix="/api/author/comic-upload",
@@ -180,6 +182,153 @@ def ensure_current_user_is_part_owner(
             detail="你不是该作品分部的 owner",
         )
 
+def summarize_upload_images(images: list[ComicUploadImage]) -> dict:
+    return {
+        "image_count": len(images),
+        "total_size_bytes": sum(image.size_bytes for image in images),
+        "image_ids": [image.id for image in images],
+        "original_filenames": [image.original_filename for image in images],
+    }
+
+def upload_image_snapshot(image: ComicUploadImage) -> dict:
+    return {
+        "image_id": image.id,
+        "original_filename": image.original_filename,
+        "stored_filename": image.stored_filename,
+        "content_type": image.content_type,
+        "size_bytes": image.size_bytes,
+        "display_order": image.display_order,
+        "storage_path": image.storage_path,
+    }
+
+
+def find_upload_batch_log(
+    session: Session,
+    *,
+    actor_user_id: str,
+    upload_batch_id: str,
+) -> ActivityLog | None:
+    return session.exec(
+        select(ActivityLog)
+        .where(ActivityLog.actor_user_id == actor_user_id)
+        .where(ActivityLog.category == "comic_upload")
+        .where(ActivityLog.action == "comic_upload.image.upload")
+        .where(ActivityLog.target_type == "comic_upload_image")
+        .where(ActivityLog.target_id == upload_batch_id)
+    ).first()
+
+
+def merge_upload_batch_log(
+    session: Session,
+    *,
+    request: Request,
+    current_user: User,
+    upload_batch_id: str | None,
+    upload_batch_index: int | None,
+    upload_batch_total: int | None,
+    saved_images: list[ComicUploadImage],
+    rejected_items: list[dict],
+    total_size_bytes: int,
+) -> None:
+    if not saved_images and not rejected_items:
+        return
+
+    batch_id = upload_batch_id or (
+        saved_images[0].id if saved_images else f"upload-batch-{current_user.id}"
+    )
+
+    saved_snapshots = [upload_image_snapshot(image) for image in saved_images]
+
+    existing_log = find_upload_batch_log(
+        session,
+        actor_user_id=current_user.id,
+        upload_batch_id=batch_id,
+    )
+
+    if existing_log is None:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.image.upload",
+            category="comic_upload",
+            target_type="comic_upload_image",
+            target_id=batch_id,
+            target_label=(
+                saved_images[0].original_filename
+                if len(saved_images) == 1 and (upload_batch_total or 1) == 1
+                else f"上传待传区图片 {upload_batch_total or len(saved_images)} 张"
+            ),
+            status="success",
+            message=(
+                f"上传漫画待传区图片 {upload_batch_total or len(saved_images)} 张"
+            ),
+            metadata={
+                "source": "author",
+                "user_id": current_user.id,
+                "username": current_user.username,
+                "upload_batch_id": batch_id,
+                "upload_batch_total": upload_batch_total or len(saved_images),
+                "received_indexes": (
+                    [upload_batch_index]
+                    if upload_batch_index is not None
+                    else []
+                ),
+                "saved_count": len(saved_images),
+                "rejected_count": len(rejected_items),
+                "total_size_bytes": total_size_bytes,
+                "limit_bytes": STAGING_LIMIT_BYTES,
+                "saved": saved_snapshots,
+                "rejected": rejected_items,
+            },
+            request=request,
+        )
+        return
+
+    try:
+        metadata = json.loads(existing_log.metadata_json or "{}")
+    except json.JSONDecodeError:
+        metadata = {}
+
+    saved = list(metadata.get("saved") or [])
+    rejected = list(metadata.get("rejected") or [])
+    received_indexes = list(metadata.get("received_indexes") or [])
+
+    saved.extend(saved_snapshots)
+    rejected.extend(rejected_items)
+
+    if upload_batch_index is not None and upload_batch_index not in received_indexes:
+        received_indexes.append(upload_batch_index)
+        received_indexes.sort()
+
+    metadata.update(
+        {
+            "source": "author",
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "upload_batch_id": batch_id,
+            "upload_batch_total": upload_batch_total or metadata.get("upload_batch_total") or len(saved),
+            "received_indexes": received_indexes,
+            "saved_count": len(saved),
+            "rejected_count": len(rejected),
+            "total_size_bytes": total_size_bytes,
+            "limit_bytes": STAGING_LIMIT_BYTES,
+            "saved": saved,
+            "rejected": rejected,
+        }
+    )
+
+    existing_log.metadata_json = json.dumps(
+        metadata,
+        ensure_ascii=False,
+        default=str,
+        separators=(",", ":"),
+    )
+
+    existing_log.target_label = f"上传待传区图片 {len(saved)} 张"
+    existing_log.message = f"上传漫画待传区图片 {len(saved)} 张"
+
+    session.add(existing_log)
+    session.commit()
 
 @router.get("/images")
 def list_upload_images(
@@ -200,7 +349,11 @@ def list_upload_images(
 
 @router.post("/images")
 async def upload_images(
+    request: Request,
     files: list[UploadFile] = File(...),
+    upload_batch_id: str | None = Form(default=None),
+    upload_batch_index: int | None = Form(default=None),
+    upload_batch_total: int | None = Form(default=None),
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
@@ -219,12 +372,27 @@ async def upload_images(
     except Exception as exc:
         raise_service_error(exc)
 
+    merge_upload_batch_log(
+        session,
+        request=request,
+        current_user=current_user,
+        upload_batch_id=upload_batch_id,
+        upload_batch_index=upload_batch_index,
+        upload_batch_total=upload_batch_total,
+        saved_images=result["saved"],
+        rejected_items=result["rejected"],
+        total_size_bytes=result["total_size"],
+    )
+
+    saved_images = result["saved"]
+    rejected_items = result["rejected"]
+
     return {
         "saved": [
             upload_image_to_public(image)
-            for image in result["saved"]
+            for image in saved_images
         ],
-        "rejected": result["rejected"],
+        "rejected": rejected_items,
         "totalSizeBytes": result["total_size"],
         "limitBytes": STAGING_LIMIT_BYTES,
     }
@@ -261,11 +429,19 @@ def preview_upload_image(
 
 @router.delete("/images/{image_id}")
 def delete_one_upload_image(
+    request: Request,
     image_id: str,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
     try:
+        image = get_upload_image(
+            session=session,
+            user_id=current_user.id,
+            image_id=image_id,
+        )
+        image_before_delete = upload_image_snapshot(image)
+
         images = delete_upload_image(
             session=session,
             user_id=current_user.id,
@@ -273,6 +449,28 @@ def delete_one_upload_image(
         )
     except Exception as exc:
         raise_service_error(exc)
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="comic_upload.image.delete",
+        category="comic_upload",
+        target_type="comic_upload_image",
+        target_id=image_id,
+        target_label=image_before_delete["original_filename"],
+        status="success",
+        message="删除漫画待传区图片",
+        metadata={
+            "source": "author",
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "deleted_count": 1,
+            "deleted": [image_before_delete],
+            "remaining_count": len(images),
+            "remaining_total_size_bytes": get_user_staging_size(session, current_user.id),
+        },
+        request=request,
+    )
 
     return upload_state_to_public(
         session=session,
@@ -283,11 +481,25 @@ def delete_one_upload_image(
 
 @router.post("/images/delete-batch")
 def delete_many_upload_images(
+    request: Request,
     payload: DeleteUploadImagesPayload,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
     try:
+        images_to_delete = [
+            get_upload_image(
+                session=session,
+                user_id=current_user.id,
+                image_id=image_id,
+            )
+            for image_id in payload.imageIds
+        ]
+        deleted_snapshots = [
+            upload_image_snapshot(image)
+            for image in images_to_delete
+        ]
+
         images = delete_upload_images(
             session=session,
             user_id=current_user.id,
@@ -295,6 +507,33 @@ def delete_many_upload_images(
         )
     except Exception as exc:
         raise_service_error(exc)
+
+    if deleted_snapshots:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.image.delete",
+            category="comic_upload",
+            target_type="comic_upload_image",
+            target_id=deleted_snapshots[0]["image_id"] if len(deleted_snapshots) == 1 else None,
+            target_label=(
+                deleted_snapshots[0]["original_filename"]
+                if len(deleted_snapshots) == 1
+                else f"批量删除待传区图片 {len(deleted_snapshots)} 张"
+            ),
+            status="success",
+            message=f"批量删除漫画待传区图片 {len(deleted_snapshots)} 张",
+            metadata={
+                "source": "author",
+                "user_id": current_user.id,
+                "username": current_user.username,
+                "deleted_count": len(deleted_snapshots),
+                "deleted": deleted_snapshots,
+                "remaining_count": len(images),
+                "remaining_total_size_bytes": get_user_staging_size(session, current_user.id),
+            },
+            request=request,
+        )
 
     return upload_state_to_public(
         session=session,
@@ -305,16 +544,48 @@ def delete_many_upload_images(
 
 @router.delete("/images")
 def clear_upload_images(
+    request: Request,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
     try:
+        images_before_clear = list_user_upload_images(
+            session=session,
+            user_id=current_user.id,
+        )
+        deleted_summary = summarize_upload_images(images_before_clear)
+        deleted_snapshots = [
+            upload_image_snapshot(image)
+            for image in images_before_clear
+        ]
+
         clear_user_upload_images(
             session=session,
             user_id=current_user.id,
         )
     except Exception as exc:
         raise_service_error(exc)
+
+    if deleted_summary["image_count"] > 0:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.image.clear",
+            category="comic_upload",
+            target_type="comic_upload_image",
+            target_id=None,
+            target_label=f"清空待传区图片 {deleted_summary['image_count']} 张",
+            status="success",
+            message=f"清空漫画待传区图片 {deleted_summary['image_count']} 张",
+            metadata={
+                "source": "author",
+                "user_id": current_user.id,
+                "username": current_user.username,
+                **deleted_summary,
+                "deleted": deleted_snapshots,
+            },
+            request=request,
+        )
 
     return {
         "images": [],
@@ -325,6 +596,7 @@ def clear_upload_images(
 
 @router.post("/publish")
 def publish_upload_as_chapter(
+    request: Request,
     payload: PublishComicChapterPayload,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
@@ -353,6 +625,11 @@ def publish_upload_as_chapter(
         if not images:
             raise ValueError("当前待传区没有图片")
 
+        images_before_publish = [
+            upload_image_snapshot(image)
+            for image in images
+        ]
+
         if payload.ordered_image_ids is None:
             ordered_image_ids = [image.id for image in images]
         else:
@@ -361,8 +638,8 @@ def publish_upload_as_chapter(
         image_ids = {image.id for image in images}
 
         if (
-                len(ordered_image_ids) != len(images)
-                or set(ordered_image_ids) != image_ids
+            len(ordered_image_ids) != len(images)
+            or set(ordered_image_ids) != image_ids
         ):
             raise ValueError("发布列表必须包含当前待传区全部图片")
 
@@ -392,5 +669,43 @@ def publish_upload_as_chapter(
 
     except Exception as exc:
         raise_service_error(exc)
+
+    series = result["series"]
+    published_part = result["part"]
+    chapter = result["chapter"]
+    page_count = result["page_count"]
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="comic_upload.chapter.publish",
+        category="comic_upload",
+        target_type="comic_chapter",
+        target_id=chapter.id,
+        target_label=chapter.title,
+        status="success",
+        message="发布漫画待传区为正式章节",
+        metadata={
+            "source": "author",
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "series_id": series.id,
+            "series_slug": series.slug,
+            "series_title": series.title,
+            "part_id": published_part.id,
+            "part_slug": published_part.slug,
+            "part_title": published_part.title,
+            "chapter_id": chapter.id,
+            "chapter_slug": chapter.slug,
+            "chapter_title": chapter.title,
+            "chapter_display_order": chapter.display_order,
+            "page_count": page_count,
+            "image_count": len(images_before_publish),
+            "ordered_image_ids": ordered_image_ids,
+            "ordered_file_names": ordered_file_names,
+            "published_images": images_before_publish,
+        },
+        request=request,
+    )
 
     return publish_result_to_public(result)

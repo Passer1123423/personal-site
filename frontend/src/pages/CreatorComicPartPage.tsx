@@ -505,6 +505,11 @@ export default function CreatorComicPartPage() {
 
     const selectedFiles = Array.from(files);
 
+    const uploadBatchId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `upload-batch-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
     const pendingItems: PendingUploadImage[] = selectedFiles.map((file, index) => ({
       id: `pending-${Date.now()}-${index}-${Math.random()
         .toString(36)
@@ -525,7 +530,7 @@ export default function CreatorComicPartPage() {
     const rejected: { filename: string; reason: string }[] = [];
 
     try {
-      for (const item of pendingItems) {
+      for (const [index, item] of pendingItems.entries()) {
         updatePendingUpload(item.id, (current) => ({
           ...current,
           status: "uploading",
@@ -539,6 +544,11 @@ export default function CreatorComicPartPage() {
                 ...current,
                 progress,
               }));
+            },
+            {
+              uploadBatchId,
+              uploadBatchIndex: index + 1,
+              uploadBatchTotal: pendingItems.length,
             },
           );
 

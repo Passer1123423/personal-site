@@ -1,11 +1,12 @@
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
 from app.core.security import hash_password, verify_password
 from app.database import get_session
 from app.dependencies.auth import require_admin_user
 from app.models import SiteSetting, User, now_utc
+from app.services.activity_logs import log_activity
 from app.services.user_profile import get_avatar_url
 from app.services.interactions import hard_delete_comments_for_target
 
@@ -38,12 +39,15 @@ class UpdateUserRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     password: str
 
+
 class DeleteUserRequest(BaseModel):
     confirmUsername: str
     adminPassword: str
 
+
 class RegistrationSettingRequest(BaseModel):
     enabled: bool
+
 
 def user_to_admin_item(session: Session, user: User) -> dict:
     return {
@@ -59,6 +63,14 @@ def user_to_admin_item(session: Session, user: User) -> dict:
     }
 
 
+def get_changed_fields(changes: dict[str, tuple[object, object]]) -> list[str]:
+    return [
+        field_name
+        for field_name, (old_value, new_value) in changes.items()
+        if old_value != new_value
+    ]
+
+
 @router.get("")
 def list_admin_users(
     session: Session = Depends(get_session),
@@ -68,6 +80,7 @@ def list_admin_users(
     ).all()
 
     return [user_to_admin_item(session, user) for user in users]
+
 
 @router.get("/settings/registration")
 def get_registration_setting(
@@ -84,10 +97,13 @@ def get_registration_setting(
 
 @router.patch("/settings/registration")
 def update_registration_setting(
+    request: Request,
     payload: RegistrationSettingRequest,
     session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
 ):
     setting = session.get(SiteSetting, "registration_enabled")
+    old_enabled = True if setting is None else setting.value == "true"
 
     if setting is None:
         setting = SiteSetting(
@@ -101,14 +117,37 @@ def update_registration_setting(
     session.add(setting)
     session.commit()
 
+    new_enabled = setting.value == "true"
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="system.setting.update",
+        category="system",
+        target_type="site_setting",
+        target_id="registration_enabled",
+        target_label="公开注册开关",
+        status="success",
+        message="管理员更新公开注册开关",
+        metadata={
+            "key": "registration_enabled",
+            "old_enabled": old_enabled,
+            "new_enabled": new_enabled,
+        },
+        request=request,
+    )
+
     return {
-        "enabled": setting.value == "true",
+        "enabled": new_enabled,
     }
+
 
 @router.post("")
 def create_admin_user(
+    request: Request,
     payload: CreateUserRequest,
     session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
 ):
     username = payload.username.strip()
     display_name = payload.displayName.strip()
@@ -160,14 +199,36 @@ def create_admin_user(
     session.commit()
     session.refresh(user)
 
+    log_activity(
+        session,
+        actor=current_user,
+        action="user.admin.create",
+        category="user",
+        target_type="user",
+        target_id=user.id,
+        target_label=user.username,
+        status="success",
+        message="管理员创建用户",
+        metadata={
+            "created_user_id": user.id,
+            "created_username": user.username,
+            "created_display_name": user.display_name,
+            "created_role": user.role,
+            "created_bio_length": len(user.bio or ""),
+        },
+        request=request,
+    )
+
     return user_to_admin_item(session, user)
 
 
 @router.patch("/{username}")
 def update_admin_user(
+    request: Request,
     username: str,
     payload: UpdateUserRequest,
     session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
 ):
     user = session.exec(
         select(User).where(User.username == username)
@@ -178,6 +239,11 @@ def update_admin_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在",
         )
+
+    old_display_name = user.display_name
+    old_role = user.role
+    old_is_active = user.is_active
+    old_bio_length = len(user.bio or "")
 
     if payload.displayName is not None:
         display_name = payload.displayName.strip()
@@ -202,18 +268,56 @@ def update_admin_user(
     if payload.bio is not None:
         user.bio = payload.bio
 
+    user.updated_at = now_utc()
+
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    changes = {
+        "display_name": (old_display_name, user.display_name),
+        "role": (old_role, user.role),
+        "is_active": (old_is_active, user.is_active),
+        "bio_length": (old_bio_length, len(user.bio or "")),
+    }
+    changed_fields = get_changed_fields(changes)
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="user.admin.update",
+        category="user",
+        target_type="user",
+        target_id=user.id,
+        target_label=user.username,
+        status="success",
+        message="管理员更新用户信息",
+        metadata={
+            "updated_user_id": user.id,
+            "updated_username": user.username,
+            "changed_fields": changed_fields,
+            "old_display_name": old_display_name,
+            "new_display_name": user.display_name,
+            "old_role": old_role,
+            "new_role": user.role,
+            "old_is_active": old_is_active,
+            "new_is_active": user.is_active,
+            "old_bio_length": old_bio_length,
+            "new_bio_length": len(user.bio or ""),
+        },
+        request=request,
+    )
 
     return user_to_admin_item(session, user)
 
 
 @router.patch("/{username}/password")
 def reset_admin_user_password(
+    request: Request,
     username: str,
     payload: ResetPasswordRequest,
     session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
 ):
     user = session.exec(
         select(User).where(User.username == username)
@@ -232,16 +336,35 @@ def reset_admin_user_password(
         )
 
     user.password_hash = hash_password(payload.password)
+    user.updated_at = now_utc()
 
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="user.admin.password_reset",
+        category="user",
+        target_type="user",
+        target_id=user.id,
+        target_label=user.username,
+        status="success",
+        message="管理员重置用户密码",
+        metadata={
+            "updated_user_id": user.id,
+            "updated_username": user.username,
+        },
+        request=request,
+    )
 
     return user_to_admin_item(session, user)
 
 
 @router.delete("/{username}")
 def delete_admin_user(
+    request: Request,
     username: str,
     payload: DeleteUserRequest,
     current_user: User = Depends(require_admin_user),
@@ -275,6 +398,16 @@ def delete_admin_user(
             detail="用户不存在",
         )
 
+    deleted_user_snapshot = {
+        "deleted_user_id": user.id,
+        "deleted_username": user.username,
+        "deleted_display_name": user.display_name,
+        "deleted_role": user.role,
+        "deleted_is_active": user.is_active,
+        "deleted_bio_length": len(user.bio or ""),
+        "deleted_avatar_asset_id": user.avatar_asset_id,
+    }
+
     deleted_user_page_comments = hard_delete_comments_for_target(
         session,
         target_type="user_page",
@@ -284,6 +417,23 @@ def delete_admin_user(
 
     session.delete(user)
     session.commit()
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="user.admin.delete",
+        category="user",
+        target_type="user",
+        target_id=deleted_user_snapshot["deleted_user_id"],
+        target_label=deleted_user_snapshot["deleted_username"],
+        status="success",
+        message="管理员删除用户",
+        metadata={
+            **deleted_user_snapshot,
+            "deleted_user_page_comments": deleted_user_page_comments,
+        },
+        request=request,
+    )
 
     return {
         "deleted": True,
