@@ -997,6 +997,7 @@ def delete_novel(
         logger.info(f"已删除小说详情页评论 {deleted_novel_comments} 条")
 
     deleted_chapter_comments = 0
+    deleted_chapter_images = 0
 
     for chapter in chapters:
         deleted_chapter_comments += hard_delete_comments_for_target(
@@ -1005,10 +1006,21 @@ def delete_novel(
             target_id=chapter.id,
             commit=False,
         )
+
+        deleted_chapter_images += delete_all_novel_chapter_images(
+            session=session,
+            novel=novel,
+            chapter=chapter,
+            commit=False,
+        )
+
         session.delete(chapter)
 
     if deleted_chapter_comments:
         logger.info(f"已删除小说章节评论 {deleted_chapter_comments} 条")
+
+    if deleted_chapter_images:
+        logger.info(f"已删除小说章节正文图片 {deleted_chapter_images} 张")
 
     logger.info(f"已删除 {len(chapters)} 个 novel chapter")
 
