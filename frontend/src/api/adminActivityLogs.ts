@@ -53,6 +53,18 @@ export type AdminActivityLogListParams = {
   offset?: number;
 };
 
+export type AdminActivityLogOptionItem = {
+  value: string;
+  count: number;
+};
+
+export type AdminActivityLogOptionsResponse = {
+  categories: AdminActivityLogOptionItem[];
+  actions: AdminActivityLogOptionItem[];
+  targetTypes: AdminActivityLogOptionItem[];
+  statuses: AdminActivityLogOptionItem[];
+};
+
 function requireAdminToken(): string {
   const token = getAccessToken();
 
@@ -124,6 +136,23 @@ export async function adminGetActivityLog(
   if (!response.ok) {
     const error = await response.json().catch(() => null);
     throw new Error(error?.detail ?? "加载操作日志详情失败");
+  }
+
+  return response.json();
+}
+
+export async function adminGetActivityLogOptions(): Promise<AdminActivityLogOptionsResponse> {
+  const token = requireAdminToken();
+
+  const response = await fetch(`${API_BASE_URL}/api/admin/activity-logs/options`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.detail ?? "加载操作日志筛选项失败");
   }
 
   return response.json();

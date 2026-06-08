@@ -3,8 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { clearAccessToken, getMe } from "../api/auth";
 import {
+  adminGetActivityLogOptions,
   adminListActivityLogs,
   type AdminActivityLogItem,
+  type AdminActivityLogOptionItem,
 } from "../api/adminActivityLogs";
 import { fetchAdminUsers, type AdminUser } from "../api/adminUsers";
 import {
@@ -456,6 +458,55 @@ function buildUserOptions(users: AdminUser[]): SearchablePickerOption[] {
   }));
 }
 
+function getOptionCountLabel(count: number) {
+  return `${count} 条`;
+}
+
+function getDynamicOptionBadge(value: string) {
+  if (value.endsWith(".failed") || value === "failed") {
+    return "失败";
+  }
+
+  const firstPart = value.split(".", 1)[0];
+
+  if (firstPart) {
+    return firstPart;
+  }
+
+  return "日志";
+}
+
+function buildAggregatedOptions(
+  rows: AdminActivityLogOptionItem[],
+  presetOptions: SearchablePickerOption[],
+): SearchablePickerOption[] {
+  const presetMap = new Map(
+    presetOptions.map((option) => [option.value, option]),
+  );
+
+  return rows.map((row) => {
+    const preset = presetMap.get(row.value);
+
+    if (preset) {
+      return {
+        ...preset,
+        description: preset.description
+          ? `${preset.description} · ${getOptionCountLabel(row.count)}`
+          : getOptionCountLabel(row.count),
+        searchText: `${preset.searchText ?? ""} ${row.value} ${row.count}`,
+      };
+    }
+
+    return {
+      value: row.value,
+      label: row.value,
+      description: getOptionCountLabel(row.count),
+      badge: getDynamicOptionBadge(row.value),
+      searchText: `${row.value} ${row.count}`,
+    };
+  });
+}
+
 function isTargetPickerSupported(targetType: string) {
   return [
     "user",
@@ -549,20 +600,29 @@ function buildNovelTargetOptions(
   return [];
 }
 
-function getCategoryLabel(category: string) {
-  return CATEGORY_OPTIONS.find((option) => option.value === category)?.label ?? category;
+function getCategoryLabelFromOptions(
+  category: string,
+  options: SearchablePickerOption[],
+) {
+  return options.find((option) => option.value === category)?.label ?? category;
 }
 
-function getActionLabel(action: string) {
-  return ACTION_OPTIONS.find((option) => option.value === action)?.label ?? action;
+function getActionLabelFromOptions(
+  action: string,
+  options: SearchablePickerOption[],
+) {
+  return options.find((option) => option.value === action)?.label ?? action;
 }
 
-function getTargetTypeLabel(targetType: string | null) {
+function getTargetTypeLabelFromOptions(
+  targetType: string | null,
+  options: SearchablePickerOption[],
+) {
   if (!targetType) {
     return "无对象";
   }
 
-  return TARGET_TYPE_OPTIONS.find((option) => option.value === targetType)?.label ?? targetType;
+  return options.find((option) => option.value === targetType)?.label ?? targetType;
 }
 
 function getStatusLabel(status: string) {
@@ -667,6 +727,10 @@ function sortLogs(items: AdminActivityLogItem[], sortMode: SortMode) {
 }
 
 function getActionTone(action: string) {
+  if (action.endsWith(".failed")) {
+    return "failed";
+  }
+
   if (action.includes(".delete") || action.includes("hard")) {
     return "delete";
   }
@@ -723,6 +787,13 @@ function AdminActivityLogsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [userOptions, setUserOptions] = useState<SearchablePickerOption[]>([]);
+
+  const [categoryOptions, setCategoryOptions] =
+    useState<SearchablePickerOption[]>(CATEGORY_OPTIONS);
+  const [actionOptions, setActionOptions] =
+    useState<SearchablePickerOption[]>(ACTION_OPTIONS);
+  const [targetTypeOptions, setTargetTypeOptions] =
+    useState<SearchablePickerOption[]>(TARGET_TYPE_OPTIONS);
 
   const [comicsTree, setComicsTree] = useState<AdminComicSeries[]>([]);
   const [novelsTree, setNovelsTree] = useState<AdminNovel[]>([]);
@@ -795,15 +866,32 @@ function AdminActivityLogsPage() {
     setIsPickerLoading(true);
 
     try {
-      const [users, comics, novels] = await Promise.all([
+      const [users, comics, novels, logOptions] = await Promise.all([
         fetchAdminUsers(),
         fetchAdminComicsTree(),
         fetchAdminNovelsTree(),
+        adminGetActivityLogOptions(),
       ]);
 
       setUserOptions(buildUserOptions(users));
       setComicsTree(comics);
       setNovelsTree(novels);
+
+      setCategoryOptions(
+        logOptions.categories.length > 0
+          ? buildAggregatedOptions(logOptions.categories, CATEGORY_OPTIONS)
+          : CATEGORY_OPTIONS,
+      );
+      setActionOptions(
+        logOptions.actions.length > 0
+          ? buildAggregatedOptions(logOptions.actions, ACTION_OPTIONS)
+          : ACTION_OPTIONS,
+      );
+      setTargetTypeOptions(
+        logOptions.targetTypes.length > 0
+          ? buildAggregatedOptions(logOptions.targetTypes, TARGET_TYPE_OPTIONS)
+          : TARGET_TYPE_OPTIONS,
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "加载筛选候选项失败");
     } finally {
@@ -953,8 +1041,18 @@ function AdminActivityLogsPage() {
 
   const activeFilterChips = [
     keyword ? { key: "keyword", label: `关键词：${keyword}` } : null,
-    category ? { key: "category", label: `分类：${getCategoryLabel(category)}` } : null,
-    action ? { key: "action", label: `操作：${getActionLabel(action)}` } : null,
+    category
+      ? {
+          key: "category",
+          label: `分类：${getCategoryLabelFromOptions(category, categoryOptions)}`,
+        }
+      : null,
+    action
+      ? {
+          key: "action",
+          label: `操作：${getActionLabelFromOptions(action, actionOptions)}`,
+        }
+      : null,
     actorUserId
       ? {
           key: "actorUserId",
@@ -963,7 +1061,12 @@ function AdminActivityLogsPage() {
           }`,
         }
       : null,
-    targetType ? { key: "targetType", label: `对象：${getTargetTypeLabel(targetType)}` } : null,
+    targetType
+      ? {
+          key: "targetType",
+          label: `对象：${getTargetTypeLabelFromOptions(targetType, targetTypeOptions)}`,
+        }
+      : null,
     targetId ? { key: "targetId", label: `对象 ID：${getShortId(targetId)}` } : null,
     status ? { key: "status", label: `状态：${getStatusLabel(status)}` } : null,
     createdFrom || createdTo
@@ -1110,7 +1213,7 @@ function AdminActivityLogsPage() {
                   <span>分类</span>
                   <SearchablePicker
                     value={category}
-                    options={CATEGORY_OPTIONS}
+                    options={categoryOptions}
                     placeholder="全部分类"
                     searchPlaceholder="搜索分类"
                     emptyText="没有匹配的分类"
@@ -1122,7 +1225,7 @@ function AdminActivityLogsPage() {
                   <span>操作类型</span>
                   <SearchablePicker
                     value={action}
-                    options={ACTION_OPTIONS}
+                    options={actionOptions}
                     placeholder="全部操作"
                     searchPlaceholder="搜索操作名称或 action"
                     emptyText="没有匹配的操作"
@@ -1181,7 +1284,7 @@ function AdminActivityLogsPage() {
                     <span>对象类型</span>
                     <SearchablePicker
                       value={targetType}
-                      options={TARGET_TYPE_OPTIONS}
+                      options={targetTypeOptions}
                       placeholder="选择对象类型"
                       searchPlaceholder="搜索对象类型"
                       emptyText="没有匹配的对象类型"
@@ -1331,7 +1434,7 @@ function AdminActivityLogsPage() {
                           </span>
 
                           <span className="log-event-action">
-                            <span className="log-action-label">{getActionLabel(log.action)}</span>
+                            <span className="log-action-label">{getActionLabelFromOptions(log.action, actionOptions)}</span>
                             <span className="log-action-code">{log.action}</span>
                           </span>
 
@@ -1341,7 +1444,7 @@ function AdminActivityLogsPage() {
                           </span>
 
                           <span className="log-event-target">
-                            <span>{getTargetTypeLabel(log.targetType)}</span>
+                            <span>{getTargetTypeLabelFromOptions(log.targetType, targetTypeOptions)}</span>
                             <em>{getTargetLabel(log)}</em>
                           </span>
 
@@ -1405,7 +1508,7 @@ function AdminActivityLogsPage() {
                     </div>
                     <div>
                       <dt>分类</dt>
-                      <dd>{getCategoryLabel(selectedLog.category)}</dd>
+                      <dd>{getCategoryLabelFromOptions(selectedLog.category, categoryOptions)}</dd>
                     </div>
                     <div>
                       <dt>Action</dt>
@@ -1449,7 +1552,7 @@ function AdminActivityLogsPage() {
                   <dl>
                     <div>
                       <dt>类型</dt>
-                      <dd>{getTargetTypeLabel(selectedLog.targetType)}</dd>
+                      <dd>{getTargetTypeLabelFromOptions(selectedLog.targetType, targetTypeOptions)}</dd>
                     </div>
                     <div>
                       <dt>ID</dt>

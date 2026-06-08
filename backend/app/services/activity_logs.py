@@ -2,7 +2,7 @@ import json
 from typing import Any
 
 from fastapi import Request
-from sqlmodel import Session, col, func, or_, select
+from sqlmodel import Session, func, or_, select
 
 from app.models import ActivityLog, User
 
@@ -292,3 +292,64 @@ def get_activity_log_detail(
         return None
 
     return serialize_activity_log(log)
+
+def list_activity_log_filter_options(session: Session) -> dict:
+    category_rows = session.exec(
+        select(ActivityLog.category, func.count())
+        .group_by(ActivityLog.category)
+        .order_by(ActivityLog.category)
+    ).all()
+
+    action_rows = session.exec(
+        select(ActivityLog.action, func.count())
+        .group_by(ActivityLog.action)
+        .order_by(ActivityLog.action)
+    ).all()
+
+    target_type_rows = session.exec(
+        select(ActivityLog.target_type, func.count())
+        .where(ActivityLog.target_type.is_not(None))
+        .group_by(ActivityLog.target_type)
+        .order_by(ActivityLog.target_type)
+    ).all()
+
+    status_rows = session.exec(
+        select(ActivityLog.status, func.count())
+        .group_by(ActivityLog.status)
+        .order_by(ActivityLog.status)
+    ).all()
+
+    return {
+        "categories": [
+            {
+                "value": value,
+                "count": count,
+            }
+            for value, count in category_rows
+            if value
+        ],
+        "actions": [
+            {
+                "value": value,
+                "count": count,
+            }
+            for value, count in action_rows
+            if value
+        ],
+        "targetTypes": [
+            {
+                "value": value,
+                "count": count,
+            }
+            for value, count in target_type_rows
+            if value
+        ],
+        "statuses": [
+            {
+                "value": value,
+                "count": count,
+            }
+            for value, count in status_rows
+            if value
+        ],
+    }

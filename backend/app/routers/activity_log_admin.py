@@ -8,6 +8,7 @@ from app.dependencies.auth import require_admin_user
 from app.models import User
 from app.services.activity_logs import (
     get_activity_log_detail,
+    list_activity_log_filter_options,
     list_activity_logs,
 )
 
@@ -55,6 +56,14 @@ def admin_list_activity_logs(
         offset=offset,
     )
 
+@router.get("/options")
+def admin_list_activity_log_options(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_user),
+):
+    _ = current_user
+
+    return list_activity_log_filter_options(session)
 
 @router.get("/{log_id}")
 def admin_read_activity_log(
