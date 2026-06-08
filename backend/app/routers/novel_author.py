@@ -2,7 +2,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -47,6 +47,8 @@ from app.services.novel_buffer import (
     publish_buffer_to_new_chapter,
     update_text_buffer,
 )
+
+from app.services.activity_logs import log_activity
 
 
 class CreateNovelRequest(BaseModel):
@@ -130,6 +132,96 @@ def user_to_owner_item(user: User | None):
         "avatarUrl": None,
     }
 
+def get_chapter_count_for_novel(session: Session, novel_id: str) -> int:
+    chapters = session.exec(
+        select(NovelChapter).where(NovelChapter.novel_id == novel_id)
+    ).all()
+
+    return len(chapters)
+
+
+def get_novel_snapshot(novel: Novel | None) -> dict | None:
+    if not novel:
+        return None
+
+    return {
+        "id": novel.id,
+        "slug": novel.slug,
+        "title": novel.title,
+        "summary_length": len(novel.summary or ""),
+        "cover_asset_id": novel.cover_asset_id,
+        "display_order": novel.display_order,
+        "created_at": novel.created_at,
+        "updated_at": novel.updated_at,
+    }
+
+
+def get_chapter_snapshot(chapter: NovelChapter | None) -> dict | None:
+    if not chapter:
+        return None
+
+    return {
+        "id": chapter.id,
+        "novel_id": chapter.novel_id,
+        "slug": chapter.slug,
+        "title": chapter.title,
+        "content_length": len(chapter.content or ""),
+        "display_order": chapter.display_order,
+        "created_at": chapter.created_at,
+        "updated_at": chapter.updated_at,
+    }
+
+
+def get_asset_snapshot(session: Session, asset_id: str | None) -> dict | None:
+    if not asset_id:
+        return None
+
+    asset = session.get(Asset, asset_id)
+
+    if not asset:
+        return None
+
+    return {
+        "id": asset.id,
+        "filename": asset.filename,
+        "original_name": asset.original_name,
+        "mime_type": asset.mime_type,
+        "size": asset.size,
+        "url": asset.url,
+        "usage": asset.usage,
+    }
+
+
+def get_chapter_image_snapshot(image_item: dict | None) -> dict | None:
+    if not image_item:
+        return None
+
+    return {
+        "id": image_item.get("id"),
+        "asset_id": image_item.get("assetId"),
+        "filename": image_item.get("filename"),
+        "original_name": image_item.get("originalName"),
+        "mime_type": image_item.get("mimeType"),
+        "size": image_item.get("size"),
+        "url": image_item.get("url"),
+        "display_order": image_item.get("displayOrder"),
+        "created_at": image_item.get("createdAt"),
+    }
+
+def get_buffer_snapshot(buffer: NovelTextBuffer | None) -> dict | None:
+    if not buffer:
+        return None
+
+    return {
+        "id": buffer.id,
+        "user_id": buffer.user_id,
+        "novel_id": buffer.novel_id,
+        "chapter_id": buffer.chapter_id,
+        "content_type": buffer.content_type,
+        "content_length": len(buffer.content or ""),
+        "created_at": buffer.created_at,
+        "updated_at": buffer.updated_at,
+    }
 
 def current_user_owns_novel(
     session: Session,
@@ -269,9 +361,9 @@ def get_author_novels_tree(
         for novel in novels
     ]
 
-
 @router.post("/create")
 def create_author_novel(
+    request: Request,
     payload: CreateNovelRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
@@ -293,22 +385,40 @@ def create_author_novel(
 
     session.refresh(novel)
 
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.create",
+        category="novel",
+        target_type="novel",
+        target_id=novel.id,
+        target_label=novel.title,
+        status="success",
+        message="作者创建小说",
+        metadata={
+            "source": "author",
+            "novel": get_novel_snapshot(novel),
+            "owner": user_to_owner_item(current_user),
+        },
+        request=request,
+    )
+
     return novel_to_author_item(
         session=session,
         novel=novel,
         include_chapters=True,
     )
 
-
 @router.post("/{novel_slug}/chapter/create")
 def create_author_novel_chapter(
+    request: Request,
     novel_slug: str,
     payload: CreateChapterRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_novel(
+        novel = require_owned_novel(
             session=session,
             novel_slug=novel_slug,
             current_user=current_user,
@@ -324,22 +434,42 @@ def create_author_novel_chapter(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    return chapter_to_author_item(chapter)
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.chapter.create",
+        category="novel",
+        target_type="novel_chapter",
+        target_id=chapter.id,
+        target_label=chapter.title,
+        status="success",
+        message="作者创建小说章节",
+        metadata={
+            "source": "author",
+            "novel": get_novel_snapshot(novel),
+            "chapter": get_chapter_snapshot(chapter),
+            "content_length": len(payload.content or ""),
+        },
+        request=request,
+    )
 
+    return chapter_to_author_item(chapter)
 
 @router.patch("/{novel_slug}/rename")
 def rename_author_novel(
+    request: Request,
     novel_slug: str,
     payload: RenameNovelRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_novel(
+        novel_before = require_owned_novel(
             session=session,
             novel_slug=novel_slug,
             current_user=current_user,
         )
+        before_snapshot = get_novel_snapshot(novel_before)
 
         novel = rename_novel(
             session=session,
@@ -349,26 +479,46 @@ def rename_author_novel(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.rename",
+        category="novel",
+        target_type="novel",
+        target_id=novel.id,
+        target_label=novel.title,
+        status="success",
+        message="作者重命名小说",
+        metadata={
+            "source": "author",
+            "novel_slug": novel_slug,
+            "before": before_snapshot,
+            "after": get_novel_snapshot(novel),
+        },
+        request=request,
+    )
+
     return novel_to_author_item(
         session=session,
         novel=novel,
         include_chapters=False,
     )
 
-
 @router.patch("/{novel_slug}/summary")
 def update_author_novel_summary(
+    request: Request,
     novel_slug: str,
     payload: SummaryRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_novel(
+        novel_before = require_owned_novel(
             session=session,
             novel_slug=novel_slug,
             current_user=current_user,
         )
+        before_snapshot = get_novel_snapshot(novel_before)
 
         novel = reset_novel_summary(
             session=session,
@@ -378,26 +528,46 @@ def update_author_novel_summary(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.summary_update",
+        category="novel",
+        target_type="novel",
+        target_id=novel.id,
+        target_label=novel.title,
+        status="success",
+        message="作者更新小说简介",
+        metadata={
+            "source": "author",
+            "novel_slug": novel_slug,
+            "old_summary_length": before_snapshot["summary_length"] if before_snapshot else None,
+            "new_summary_length": len(novel.summary or ""),
+        },
+        request=request,
+    )
+
     return novel_to_author_item(
         session=session,
         novel=novel,
         include_chapters=False,
     )
 
-
 @router.post("/{novel_slug}/cover")
 async def upload_author_novel_cover(
+    request: Request,
     novel_slug: str,
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_novel(
+        novel_before = require_owned_novel(
             session=session,
             novel_slug=novel_slug,
             current_user=current_user,
         )
+        old_cover_asset = get_asset_snapshot(session, novel_before.cover_asset_id)
     except ValueError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
 
@@ -427,15 +597,37 @@ async def upload_author_novel_cover(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
 
+    new_cover_asset = get_asset_snapshot(session, novel.cover_asset_id)
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.cover_upload",
+        category="novel",
+        target_type="novel",
+        target_id=novel.id,
+        target_label=novel.title,
+        status="success",
+        message="作者上传小说封面",
+        metadata={
+            "source": "author",
+            "novel_slug": novel_slug,
+            "uploaded_original_name": file.filename,
+            "old_cover_asset": old_cover_asset,
+            "new_cover_asset": new_cover_asset,
+        },
+        request=request,
+    )
+
     return novel_to_author_item(
         session=session,
         novel=novel,
         include_chapters=False,
     )
 
-
 @router.patch("/{novel_slug}/{chapter_slug}/rename")
 def rename_author_novel_chapter(
+    request: Request,
     novel_slug: str,
     chapter_slug: str,
     payload: RenameChapterRequest,
@@ -443,12 +635,13 @@ def rename_author_novel_chapter(
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_chapter(
+        _, chapter_before = require_owned_chapter(
             session=session,
             novel_slug=novel_slug,
             chapter_slug=chapter_slug,
             current_user=current_user,
         )
+        before_snapshot = get_chapter_snapshot(chapter_before)
 
         chapter = rename_chapter(
             session=session,
@@ -459,11 +652,32 @@ def rename_author_novel_chapter(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    return chapter_to_author_item(chapter)
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.chapter.rename",
+        category="novel",
+        target_type="novel_chapter",
+        target_id=chapter.id,
+        target_label=chapter.title,
+        status="success",
+        message="作者重命名小说章节",
+        metadata={
+            "source": "author",
+            "novel_slug": novel_slug,
+            "chapter_slug": chapter_slug,
+            "custom_title": payload.customTitle,
+            "before": before_snapshot,
+            "after": get_chapter_snapshot(chapter),
+        },
+        request=request,
+    )
 
+    return chapter_to_author_item(chapter)
 
 @router.patch("/{novel_slug}/{chapter_slug}/content")
 def update_author_novel_chapter_content(
+    request: Request,
     novel_slug: str,
     chapter_slug: str,
     payload: ChapterContentRequest,
@@ -478,12 +692,13 @@ def update_author_novel_chapter_content(
     """
 
     try:
-        require_owned_chapter(
+        _, chapter_before = require_owned_chapter(
             session=session,
             novel_slug=novel_slug,
             chapter_slug=chapter_slug,
             current_user=current_user,
         )
+        before_snapshot = get_chapter_snapshot(chapter_before)
 
         chapter = reset_chapter_content(
             session=session,
@@ -493,6 +708,28 @@ def update_author_novel_chapter_content(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    after_snapshot = get_chapter_snapshot(chapter)
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.chapter.update_content",
+        category="novel",
+        target_type="novel_chapter",
+        target_id=chapter.id,
+        target_label=chapter.title,
+        status="success",
+        message="作者更新小说章节正文",
+        metadata={
+            "source": "author",
+            "novel_slug": novel_slug,
+            "chapter_slug": chapter_slug,
+            "old_content_length": before_snapshot["content_length"] if before_snapshot else None,
+            "new_content_length": after_snapshot["content_length"] if after_snapshot else None,
+        },
+        request=request,
+    )
 
     return chapter_to_author_item(chapter)
 
@@ -519,9 +756,9 @@ def list_author_novel_chapter_images(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-
 @router.post("/{novel_slug}/{chapter_slug}/images")
 async def upload_author_novel_chapter_image(
+    request: Request,
     novel_slug: str,
     chapter_slug: str,
     file: UploadFile = File(...),
@@ -529,14 +766,14 @@ async def upload_author_novel_chapter_image(
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_chapter(
+        _, chapter = require_owned_chapter(
             session=session,
             novel_slug=novel_slug,
             chapter_slug=chapter_slug,
             current_user=current_user,
         )
 
-        return await save_novel_chapter_image(
+        image_item = await save_novel_chapter_image(
             session=session,
             novel_slug=novel_slug,
             chapter_slug=chapter_slug,
@@ -545,9 +782,31 @@ async def upload_author_novel_chapter_image(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.chapter.image_upload",
+        category="novel",
+        target_type="asset",
+        target_id=image_item.get("assetId"),
+        target_label=image_item.get("originalName") or image_item.get("filename"),
+        status="success",
+        message="作者上传小说章节正文图片",
+        metadata={
+            "source": "author",
+            "novel_slug": novel_slug,
+            "chapter_slug": chapter_slug,
+            "chapter": get_chapter_snapshot(chapter),
+            "image": get_chapter_image_snapshot(image_item),
+        },
+        request=request,
+    )
+
+    return image_item
 
 @router.delete("/{novel_slug}/{chapter_slug}/images/{image_id}")
 def delete_author_novel_chapter_image(
+    request: Request,
     novel_slug: str,
     chapter_slug: str,
     image_id: str,
@@ -555,14 +814,24 @@ def delete_author_novel_chapter_image(
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_chapter(
+        _, chapter = require_owned_chapter(
             session=session,
             novel_slug=novel_slug,
             chapter_slug=chapter_slug,
             current_user=current_user,
         )
 
-        return delete_novel_chapter_image(
+        images_before = list_novel_chapter_images(
+            session=session,
+            novel_slug=novel_slug,
+            chapter_slug=chapter_slug,
+        )
+        image_before = next(
+            (image for image in images_before if image.get("id") == image_id),
+            None,
+        )
+
+        images_after = delete_novel_chapter_image(
             session=session,
             novel_slug=novel_slug,
             chapter_slug=chapter_slug,
@@ -571,8 +840,37 @@ def delete_author_novel_chapter_image(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.chapter.image_delete",
+        category="novel",
+        target_type="asset",
+        target_id=image_before.get("assetId") if image_before else None,
+        target_label=(
+            image_before.get("originalName")
+            if image_before
+            else image_id
+        ),
+        status="success",
+        message="作者删除小说章节正文图片",
+        metadata={
+            "source": "author",
+            "novel_slug": novel_slug,
+            "chapter_slug": chapter_slug,
+            "chapter": get_chapter_snapshot(chapter),
+            "image_id": image_id,
+            "deleted_image": get_chapter_image_snapshot(image_before),
+            "remaining_image_count": len(images_after),
+        },
+        request=request,
+    )
+
+    return images_after
+
 @router.patch("/{novel_slug}/{chapter_slug}/move")
 def move_author_novel_chapter(
+    request: Request,
     novel_slug: str,
     chapter_slug: str,
     payload: MoveChapterRequest,
@@ -580,12 +878,13 @@ def move_author_novel_chapter(
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_chapter(
+        _, chapter_before = require_owned_chapter(
             session=session,
             novel_slug=novel_slug,
             chapter_slug=chapter_slug,
             current_user=current_user,
         )
+        before_snapshot = get_chapter_snapshot(chapter_before)
 
         result = shift_chapter(
             session=session,
@@ -595,6 +894,28 @@ def move_author_novel_chapter(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    if result.get("moved"):
+        log_activity(
+            session,
+            actor=current_user,
+            action="novel.chapter.move",
+            category="novel",
+            target_type="novel_chapter",
+            target_id=before_snapshot["id"] if before_snapshot else None,
+            target_label=before_snapshot["title"] if before_snapshot else chapter_slug,
+            status="success",
+            message="作者移动小说章节顺序",
+            metadata={
+                "source": "author",
+                "novel_slug": novel_slug,
+                "chapter_slug": chapter_slug,
+                "direction": payload.direction,
+                "before": before_snapshot,
+                "result": result,
+            },
+            request=request,
+        )
 
     return result
 
@@ -718,6 +1039,7 @@ def update_author_text_buffer(
 
 @router.post("/{novel_slug}/{chapter_slug}/text-buffer/publish")
 def publish_author_text_buffer_to_existing_chapter(
+    request: Request,
     novel_slug: str,
     chapter_slug: str,
     payload: PublishExistingChapterBufferRequest,
@@ -725,12 +1047,21 @@ def publish_author_text_buffer_to_existing_chapter(
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_chapter(
+        novel, chapter_before = require_owned_chapter(
             session=session,
             novel_slug=novel_slug,
             chapter_slug=chapter_slug,
             current_user=current_user,
         )
+
+        buffer_before = get_text_buffer(
+            session=session,
+            buffer_id=payload.bufferId,
+            user_id=current_user.id,
+        )
+
+        buffer_snapshot = get_buffer_snapshot(buffer_before)
+        chapter_before_snapshot = get_chapter_snapshot(chapter_before)
 
         chapter = publish_buffer_to_existing_chapter(
             session=session,
@@ -742,22 +1073,54 @@ def publish_author_text_buffer_to_existing_chapter(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    after_snapshot = get_chapter_snapshot(chapter)
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.buffer.publish",
+        category="novel_buffer",
+        target_type="novel_chapter",
+        target_id=chapter.id,
+        target_label=chapter.title,
+        status="success",
+        message="作者发布正文缓冲区到已有章节",
+        metadata={
+            "source": "author",
+            "novel": get_novel_snapshot(novel),
+            "buffer": buffer_snapshot,
+            "chapter_before": chapter_before_snapshot,
+            "chapter_after": after_snapshot,
+            "old_content_length": chapter_before_snapshot["content_length"] if chapter_before_snapshot else None,
+            "new_content_length": after_snapshot["content_length"] if after_snapshot else None,
+        },
+        request=request,
+    )
+
     return chapter_to_author_item(chapter)
 
 
 @router.post("/{novel_slug}/text-buffer/publish-new-chapter")
 def publish_author_text_buffer_to_new_chapter(
+    request: Request,
     novel_slug: str,
     payload: PublishNewChapterBufferRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_novel(
+        novel = require_owned_novel(
             session=session,
             novel_slug=novel_slug,
             current_user=current_user,
         )
+
+        buffer_before = get_text_buffer(
+            session=session,
+            buffer_id=payload.bufferId,
+            user_id=current_user.id,
+        )
+        buffer_snapshot = get_buffer_snapshot(buffer_before)
 
         chapter = publish_buffer_to_new_chapter(
             session=session,
@@ -769,6 +1132,27 @@ def publish_author_text_buffer_to_new_chapter(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.buffer.publish_new_chapter",
+        category="novel_buffer",
+        target_type="novel_chapter",
+        target_id=chapter.id,
+        target_label=chapter.title,
+        status="success",
+        message="作者发布正文缓冲区为新章节",
+        metadata={
+            "source": "author",
+            "novel": get_novel_snapshot(novel),
+            "buffer": buffer_snapshot,
+            "chapter": get_chapter_snapshot(chapter),
+            "chapter_slug": payload.slug,
+            "custom_title": payload.customTitle,
+        },
+        request=request,
+    )
 
     return chapter_to_author_item(chapter)
 
@@ -810,18 +1194,22 @@ def delete_author_text_buffer(
 
 @router.delete("/{novel_slug}/{chapter_slug}")
 def delete_author_novel_chapter(
+    request: Request,
     novel_slug: str,
     chapter_slug: str,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_chapter(
+        novel, chapter = require_owned_chapter(
             session=session,
             novel_slug=novel_slug,
             chapter_slug=chapter_slug,
             current_user=current_user,
         )
+
+        novel_before = get_novel_snapshot(novel)
+        chapter_before = get_chapter_snapshot(chapter)
 
         delete_chapter(
             session=session,
@@ -831,6 +1219,26 @@ def delete_author_novel_chapter(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.chapter.delete",
+        category="novel",
+        target_type="novel_chapter",
+        target_id=chapter_before["id"] if chapter_before else None,
+        target_label=chapter_before["title"] if chapter_before else chapter_slug,
+        status="success",
+        message="作者删除小说章节",
+        metadata={
+            "source": "author",
+            "novel": novel_before,
+            "chapter": chapter_before,
+            "novel_slug": novel_slug,
+            "chapter_slug": chapter_slug,
+        },
+        request=request,
+    )
+
     return {
         "deleted": True,
         "type": "chapter",
@@ -838,19 +1246,21 @@ def delete_author_novel_chapter(
         "chapterSlug": chapter_slug,
     }
 
-
 @router.delete("/{novel_slug}")
 def delete_author_novel(
+    request: Request,
     novel_slug: str,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
     try:
-        require_owned_novel(
+        novel = require_owned_novel(
             session=session,
             novel_slug=novel_slug,
             current_user=current_user,
         )
+
+        novel_before = get_novel_snapshot(novel)
 
         delete_novel(
             session=session,
@@ -858,6 +1268,24 @@ def delete_author_novel(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="novel.delete",
+        category="novel",
+        target_type="novel",
+        target_id=novel_before["id"] if novel_before else None,
+        target_label=novel_before["title"] if novel_before else novel_slug,
+        status="success",
+        message="作者删除小说",
+        metadata={
+            "source": "author",
+            "novel": novel_before,
+            "novel_slug": novel_slug,
+        },
+        request=request,
+    )
 
     return {
         "deleted": True,
