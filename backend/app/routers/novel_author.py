@@ -48,7 +48,7 @@ from app.services.novel_buffer import (
     update_text_buffer,
 )
 
-from app.services.activity_logs import log_activity
+from app.services.activity_logs import build_error_metadata, log_activity
 
 
 class CreateNovelRequest(BaseModel):
@@ -569,7 +569,31 @@ async def upload_author_novel_cover(
         )
         old_cover_asset = get_asset_snapshot(session, novel_before.cover_asset_id)
     except ValueError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
+        log_activity(
+            session,
+            actor=current_user,
+            action="novel.cover_upload.failed",
+            category="novel",
+            target_type="novel",
+            target_id=novel_before.id,
+            target_label=novel_before.title,
+            status="failed",
+            message="作者上传小说封面失败",
+            error_code="novel_cover_upload_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "novel_slug": novel_slug,
+                    "novel": get_novel_snapshot(novel_before),
+                    "old_cover_asset": old_cover_asset,
+                    "uploaded_original_name": file.filename,
+                },
+            ),
+            request=request,
+        )
+
+        raise HTTPException(status_code=400, detail=str(exc))
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
@@ -1200,6 +1224,9 @@ def delete_author_novel_chapter(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
+    novel_before = None
+    chapter_before = None
+
     try:
         novel, chapter = require_owned_chapter(
             session=session,
@@ -1217,6 +1244,29 @@ def delete_author_novel_chapter(
             chapter_slug=chapter_slug,
         )
     except ValueError as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="novel.chapter.delete.failed",
+            category="novel",
+            target_type="novel_chapter",
+            target_id=chapter_before["id"] if chapter_before else None,
+            target_label=chapter_before["title"] if chapter_before else chapter_slug,
+            status="failed",
+            message="作者删除小说章节失败",
+            error_code="novel_chapter_delete_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "novel": novel_before,
+                    "chapter": chapter_before,
+                    "novel_slug": novel_slug,
+                    "chapter_slug": chapter_slug,
+                },
+            ),
+            request=request,
+        )
         raise HTTPException(status_code=404, detail=str(exc))
 
     log_activity(
@@ -1253,6 +1303,8 @@ def delete_author_novel(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
+    novel_before = None
+
     try:
         novel = require_owned_novel(
             session=session,
@@ -1267,6 +1319,27 @@ def delete_author_novel(
             novel_slug=novel_slug,
         )
     except ValueError as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="novel.delete.failed",
+            category="novel",
+            target_type="novel",
+            target_id=novel_before["id"] if novel_before else None,
+            target_label=novel_before["title"] if novel_before else novel_slug,
+            status="failed",
+            message="作者删除小说失败",
+            error_code="novel_delete_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "novel": novel_before,
+                    "novel_slug": novel_slug,
+                },
+            ),
+            request=request,
+        )
         raise HTTPException(status_code=404, detail=str(exc))
 
     log_activity(

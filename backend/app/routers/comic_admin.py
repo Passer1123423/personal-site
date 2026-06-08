@@ -41,7 +41,7 @@ from app.services.comic_admin import (
     get_part,
     get_chapter,
 )
-from app.services.activity_logs import log_activity
+from app.services.activity_logs import build_error_metadata, log_activity
 
 class MoveChapterRequest(BaseModel):
     direction: str
@@ -352,6 +352,10 @@ def delete_admin_comic_chapter(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_admin_user),
 ):
+    series_before = None
+    part_before = None
+    chapter_before = None
+
     try:
         series = get_series(
             session=session,
@@ -381,6 +385,31 @@ def delete_admin_comic_chapter(
             chapter_slug=chapter_slug,
         )
     except ValueError as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic.chapter.delete.failed",
+            category="comic",
+            target_type="comic_chapter",
+            target_id=chapter_before["id"] if chapter_before else None,
+            target_label=chapter_before["title"] if chapter_before else chapter_slug,
+            status="failed",
+            message="管理员删除漫画章节失败",
+            error_code="comic_chapter_delete_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "admin",
+                    "series": series_before,
+                    "part": part_before,
+                    "chapter": chapter_before,
+                    "series_slug": series_slug,
+                    "part_slug": part_slug,
+                    "chapter_slug": chapter_slug,
+                },
+            ),
+            request=request,
+        )
         raise HTTPException(status_code=404, detail=str(exc))
 
     log_activity(
@@ -420,6 +449,9 @@ def delete_admin_comic_part(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_admin_user),
 ):
+    series_before = None
+    part_before = None
+
     try:
         series = get_series(
             session=session,
@@ -440,6 +472,29 @@ def delete_admin_comic_part(
             part_slug=part_slug,
         )
     except ValueError as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic.part.delete.failed",
+            category="comic",
+            target_type="comic_part",
+            target_id=part_before["id"] if part_before else None,
+            target_label=part_before["title"] if part_before else part_slug,
+            status="failed",
+            message="管理员删除漫画分部失败",
+            error_code="comic_part_delete_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "admin",
+                    "series": series_before,
+                    "part": part_before,
+                    "series_slug": series_slug,
+                    "part_slug": part_slug,
+                },
+            ),
+            request=request,
+        )
         raise HTTPException(status_code=404, detail=str(exc))
 
     log_activity(
@@ -476,6 +531,9 @@ def delete_admin_comic_series(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_admin_user),
 ):
+    series_before = None
+    part_count = None
+
     try:
         series = get_series(
             session=session,
@@ -490,6 +548,28 @@ def delete_admin_comic_series(
             series_slug=series_slug,
         )
     except ValueError as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic.series.delete.failed",
+            category="comic",
+            target_type="comic_series",
+            target_id=series_before["id"] if series_before else None,
+            target_label=series_before["title"] if series_before else series_slug,
+            status="failed",
+            message="管理员删除漫画系列失败",
+            error_code="comic_series_delete_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "admin",
+                    "series": series_before,
+                    "series_slug": series_slug,
+                    "part_count": part_count,
+                },
+            ),
+            request=request,
+        )
         raise HTTPException(status_code=404, detail=str(exc))
 
     log_activity(
@@ -936,6 +1016,29 @@ async def upload_admin_comic_series_cover(
                 source_path=source_path,
             )
         except ValueError as exc:
+            log_activity(
+                session,
+                actor=current_user,
+                action="comic.series.cover_upload.failed",
+                category="comic",
+                target_type="comic_series",
+                target_id=series_before.id,
+                target_label=series_before.title,
+                status="failed",
+                message="管理员上传漫画系列封面失败",
+                error_code="comic_series_cover_upload_failed",
+                metadata=build_error_metadata(
+                    exc,
+                    {
+                        "source": "admin",
+                        "series_slug": series_slug,
+                        "series": get_series_snapshot(series_before),
+                        "old_cover_asset": old_cover_asset,
+                        "uploaded_original_name": file.filename,
+                    },
+                ),
+                request=request,
+            )
             raise HTTPException(status_code=400, detail=str(exc))
 
     new_cover_asset = get_asset_snapshot(session, series.cover_asset_id)
@@ -1011,6 +1114,30 @@ async def upload_admin_comic_part_cover(
                 source_path=source_path,
             )
         except ValueError as exc:
+            log_activity(
+                session,
+                actor=current_user,
+                action="comic.part.cover_upload.failed",
+                category="comic",
+                target_type="comic_part",
+                target_id=part_before.id,
+                target_label=part_before.title,
+                status="failed",
+                message="管理员上传漫画分部封面失败",
+                error_code="comic_part_cover_upload_failed",
+                metadata=build_error_metadata(
+                    exc,
+                    {
+                        "source": "admin",
+                        "series_slug": series_slug,
+                        "part_slug": part_slug,
+                        "part": get_part_snapshot(session, part_before),
+                        "old_cover_asset": old_cover_asset,
+                        "uploaded_original_name": file.filename,
+                    },
+                ),
+                request=request,
+            )
             raise HTTPException(status_code=400, detail=str(exc))
 
     new_cover_asset = get_asset_snapshot(session, part.cover_asset_id)

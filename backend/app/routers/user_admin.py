@@ -6,7 +6,7 @@ from app.core.security import hash_password, verify_password
 from app.database import get_session
 from app.dependencies.auth import require_admin_user
 from app.models import SiteSetting, User, now_utc
-from app.services.activity_logs import log_activity
+from app.services.activity_logs import build_error_metadata, log_activity
 from app.services.user_profile import get_avatar_url
 from app.services.interactions import hard_delete_comments_for_target
 
@@ -370,6 +370,9 @@ def delete_admin_user(
     current_user: User = Depends(require_admin_user),
     session: Session = Depends(get_session),
 ):
+    deleted_user_snapshot = None
+    deleted_user_page_comments = None
+
     if username == current_user.username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -388,35 +391,72 @@ def delete_admin_user(
             detail="管理员密码错误",
         )
 
-    user = session.exec(
-        select(User).where(User.username == username)
-    ).first()
+    try:
+        user = session.exec(
+            select(User).where(User.username == username)
+        ).first()
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在",
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="用户不存在",
+            )
+
+        deleted_user_snapshot = {
+            "deleted_user_id": user.id,
+            "deleted_username": user.username,
+            "deleted_display_name": user.display_name,
+            "deleted_role": user.role,
+            "deleted_is_active": user.is_active,
+            "deleted_bio_length": len(user.bio or ""),
+            "deleted_avatar_asset_id": user.avatar_asset_id,
+        }
+
+        deleted_user_page_comments = hard_delete_comments_for_target(
+            session,
+            target_type="user_page",
+            target_id=user.id,
+            commit=False,
         )
 
-    deleted_user_snapshot = {
-        "deleted_user_id": user.id,
-        "deleted_username": user.username,
-        "deleted_display_name": user.display_name,
-        "deleted_role": user.role,
-        "deleted_is_active": user.is_active,
-        "deleted_bio_length": len(user.bio or ""),
-        "deleted_avatar_asset_id": user.avatar_asset_id,
-    }
+        session.delete(user)
+        session.commit()
 
-    deleted_user_page_comments = hard_delete_comments_for_target(
-        session,
-        target_type="user_page",
-        target_id=user.id,
-        commit=False,
-    )
+    except HTTPException:
+        raise
 
-    session.delete(user)
-    session.commit()
+    except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="user.admin.delete.failed",
+            category="user",
+            target_type="user",
+            target_id=(
+                deleted_user_snapshot["deleted_user_id"]
+                if deleted_user_snapshot
+                else None
+            ),
+            target_label=(
+                deleted_user_snapshot["deleted_username"]
+                if deleted_user_snapshot
+                else username
+            ),
+            status="failed",
+            message="管理员删除用户失败",
+            error_code="user_admin_delete_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "admin",
+                    "username": username,
+                    "target_user": deleted_user_snapshot,
+                    "deleted_user_page_comments": deleted_user_page_comments,
+                },
+            ),
+            request=request,
+        )
+        raise
 
     log_activity(
         session,

@@ -93,6 +93,19 @@ def shorten_label(value: str | None, max_length: int = 120) -> str | None:
 
     return clean_value[: max_length - 1] + "…"
 
+def build_error_metadata(
+    exc: Exception,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "error_type": type(exc).__name__,
+        "error_message": str(exc)[:500],
+    }
+
+    if extra:
+        metadata.update(extra)
+
+    return metadata
 
 def log_activity(
     session: Session,

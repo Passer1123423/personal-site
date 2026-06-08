@@ -33,7 +33,7 @@ from app.services.comic_admin import (
     set_series_cover,
     shift_chapter,
 )
-from app.services.activity_logs import log_activity
+from app.services.activity_logs import build_error_metadata, log_activity
 
 class MoveChapterRequest(BaseModel):
     direction: str
@@ -675,6 +675,29 @@ async def upload_author_comic_series_cover(
                 source_path=source_path,
             )
         except ValueError as exc:
+            log_activity(
+                session,
+                actor=current_user,
+                action="comic.series.cover_upload.failed",
+                category="comic",
+                target_type="comic_series",
+                target_id=series_before.id,
+                target_label=series_before.title,
+                status="failed",
+                message="作者上传漫画系列封面失败",
+                error_code="comic_series_cover_upload_failed",
+                metadata=build_error_metadata(
+                    exc,
+                    {
+                        "source": "author",
+                        "series_slug": series_slug,
+                        "series": get_series_snapshot(series_before),
+                        "old_cover_asset": old_cover_asset,
+                        "uploaded_original_name": file.filename,
+                    },
+                ),
+                request=request,
+            )
             raise HTTPException(status_code=400, detail=str(exc))
 
     new_cover_asset = get_asset_snapshot(session, series.cover_asset_id)
@@ -1013,6 +1036,10 @@ def delete_author_comic_chapter(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_author_user),
 ):
+    series_before = None
+    part_before = None
+    chapter_before = None
+
     try:
         part, chapter = require_owned_chapter(
             session=session,
@@ -1038,6 +1065,31 @@ def delete_author_comic_chapter(
             chapter_slug=chapter_slug,
         )
     except ValueError as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic.chapter.delete.failed",
+            category="comic",
+            target_type="comic_chapter",
+            target_id=chapter_before["id"] if chapter_before else None,
+            target_label=chapter_before["title"] if chapter_before else chapter_slug,
+            status="failed",
+            message="作者删除漫画章节失败",
+            error_code="comic_chapter_delete_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "series": series_before,
+                    "part": part_before,
+                    "chapter": chapter_before,
+                    "series_slug": series_slug,
+                    "part_slug": part_slug,
+                    "chapter_slug": chapter_slug,
+                },
+            ),
+            request=request,
+        )
         raise HTTPException(status_code=404, detail=str(exc))
 
     log_activity(

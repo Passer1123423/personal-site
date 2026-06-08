@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 from app.database import get_session
 from app.dependencies.auth import require_current_user
 from app.models import ActivityLog, ComicPart, ComicUploadImage, User
-from app.services.activity_logs import log_activity
+from app.services.activity_logs import build_error_metadata, log_activity
 from app.services.comic_admin import (
     UPLOADS_ROOT,
     get_part,
@@ -433,6 +433,8 @@ def delete_one_upload_image(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    image_before_delete = None
+
     try:
         image = get_upload_image(
             session=session,
@@ -447,6 +449,33 @@ def delete_one_upload_image(
             image_id=image_id,
         )
     except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.image.delete.failed",
+            category="comic_upload",
+            target_type="comic_upload_image",
+            target_id=image_id,
+            target_label=(
+                image_before_delete["original_filename"]
+                if image_before_delete
+                else image_id
+            ),
+            status="failed",
+            message="删除漫画待传区图片失败",
+            error_code="comic_upload_image_delete_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "image_id": image_id,
+                    "image": image_before_delete,
+                },
+            ),
+            request=request,
+        )
         raise_service_error(exc)
 
     log_activity(
@@ -485,6 +514,8 @@ def delete_many_upload_images(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    deleted_snapshots: list[dict] = []
+
     try:
         images_to_delete = [
             get_upload_image(
@@ -505,6 +536,34 @@ def delete_many_upload_images(
             image_ids=payload.imageIds,
         )
     except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.image.delete.failed",
+            category="comic_upload",
+            target_type="comic_upload_image",
+            target_id=deleted_snapshots[0]["image_id"] if len(deleted_snapshots) == 1 else None,
+            target_label=(
+                deleted_snapshots[0]["original_filename"]
+                if len(deleted_snapshots) == 1
+                else f"批量删除待传区图片失败 {len(payload.imageIds)} 张"
+            ),
+            status="failed",
+            message="批量删除漫画待传区图片失败",
+            error_code="comic_upload_image_delete_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "requested_image_ids": payload.imageIds,
+                    "resolved_count": len(deleted_snapshots),
+                    "deleted_candidates": deleted_snapshots,
+                },
+            ),
+            request=request,
+        )
         raise_service_error(exc)
 
     if deleted_snapshots:
@@ -547,6 +606,14 @@ def clear_upload_images(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    deleted_summary = {
+        "image_count": 0,
+        "total_size_bytes": 0,
+        "image_ids": [],
+        "original_filenames": [],
+    }
+    deleted_snapshots: list[dict] = []
+
     try:
         images_before_clear = list_user_upload_images(
             session=session,
@@ -563,6 +630,29 @@ def clear_upload_images(
             user_id=current_user.id,
         )
     except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.image.clear.failed",
+            category="comic_upload",
+            target_type="comic_upload_image",
+            target_id=None,
+            target_label=f"清空待传区图片失败 {deleted_summary['image_count']} 张",
+            status="failed",
+            message="清空漫画待传区图片失败",
+            error_code="comic_upload_image_clear_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    **deleted_summary,
+                    "deleted_candidates": deleted_snapshots,
+                },
+            ),
+            request=request,
+        )
         raise_service_error(exc)
 
     if deleted_summary["image_count"] > 0:
@@ -614,6 +704,10 @@ def publish_upload_as_chapter(
         part=part,
         current_user=current_user,
     )
+
+    images_before_publish: list[dict] = []
+    ordered_image_ids: list[str] = []
+    ordered_file_names: list[str] = []
 
     try:
         images = list_user_upload_images(
@@ -667,6 +761,37 @@ def publish_upload_as_chapter(
         )
 
     except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.chapter.publish.failed",
+            category="comic_upload",
+            target_type="comic_part",
+            target_id=part.id,
+            target_label=part.title,
+            status="failed",
+            message="发布漫画待传区为正式章节失败",
+            error_code="comic_upload_chapter_publish_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "series_slug": series_slug,
+                    "part_slug": part_slug,
+                    "part_id": part.id,
+                    "part_title": part.title,
+                    "chapter_title": payload.chapter_title,
+                    "ordered_image_ids": ordered_image_ids,
+                    "ordered_file_names": ordered_file_names,
+                    "image_count": len(images_before_publish),
+                    "published_images": images_before_publish,
+                },
+            ),
+            request=request,
+        )
+
         raise_service_error(exc)
 
     series = result["series"]
