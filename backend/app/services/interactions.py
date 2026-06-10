@@ -18,6 +18,7 @@ from app.models import (
 )
 
 from app.services.user_profile import get_avatar_url
+from app.services.outbox_service import create_outbox_event
 
 ACTIVE_COMMENT_TARGET_TYPES = {
     "user_page",
@@ -45,6 +46,14 @@ MAX_COMMENT_IMAGE_TOTAL_SIZE_BYTES = 30 * 1024 * 1024
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", BACKEND_DIR / "uploads")).resolve()
 COMMENT_IMAGE_ROOT = UPLOADS_DIR / "interactions" / "comments"
+
+def build_comment_content_preview(content: str, limit: int = 80) -> str:
+    preview = " ".join(content.split())
+
+    if len(preview) <= limit:
+        return preview
+
+    return f"{preview[:limit]}..."
 
 def clamp_comment_limit(limit: int) -> int:
     return max(1, min(limit, MAX_COMMENT_QUERY_LIMIT))
@@ -772,6 +781,29 @@ async def create_comment(
             session=session,
             comment=comment,
             image_files=image_files,
+        )
+
+        image_count = len(image_files)
+
+        create_outbox_event(
+            session,
+            event_type="comment.created",
+            aggregate_type="comment",
+            aggregate_id=comment.id,
+            actor_user_id=user.id,
+            payload={
+                "comment_id": comment.id,
+                "actor_user_id": user.id,
+                "target_type": comment.target_type,
+                "target_id": comment.target_id,
+                "parent_id": comment.parent_id,
+                "reply_to_id": comment.reply_to_id,
+                "root_comment_id": comment.parent_id or comment.id,
+                "content_preview": build_comment_content_preview(comment.content),
+                "image_count": image_count,
+                "created_at": comment.created_at,
+            },
+            dedupe_key=f"comment.created:{comment.id}",
         )
 
         session.commit()

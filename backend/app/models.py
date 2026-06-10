@@ -214,6 +214,106 @@ class ActivityLog(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=now_utc, index=True)
 
+class OutboxEvent(SQLModel, table=True):
+    """
+    业务事件 outbox 表。
+
+    用于记录已经发生的业务事件，再由独立 processor 派生后续副作用。
+    第一版不对普通用户暴露 API。
+    """
+
+    __tablename__ = "outbox_event"
+
+    __table_args__ = (
+        Index("ix_outbox_event_status_available_created", "status", "available_at", "created_at"),
+        Index("ix_outbox_event_type_created", "event_type", "created_at"),
+        Index("ix_outbox_event_aggregate", "aggregate_type", "aggregate_id"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    # 例如：
+    # comment.created
+    event_type: str = Field(index=True)
+
+    # 例如：
+    # comment / novel / comic_chapter
+    aggregate_type: str = Field(index=True)
+
+    # 对应业务对象 id。
+    aggregate_id: str = Field(index=True)
+
+    actor_user_id: str | None = Field(default=None, foreign_key="user.id", index=True)
+
+    # JSON 字符串。SQLite 下用 Text 最稳。
+    payload_json: str = Field(default="{}", sa_column=Column(Text, nullable=False))
+
+    event_version: int = Field(default=1)
+
+    # pending / processing / processed / failed / dead
+    status: str = Field(default="pending", index=True)
+
+    retry_count: int = Field(default=0)
+    max_retries: int = Field(default=3)
+
+    available_at: datetime = Field(default_factory=now_utc, index=True)
+
+    locked_at: datetime | None = Field(default=None, index=True)
+    locked_by: str | None = Field(default=None, index=True)
+
+    created_at: datetime = Field(default_factory=now_utc, index=True)
+    processed_at: datetime | None = Field(default=None, index=True)
+
+    last_error: str | None = Field(default=None, sa_column=Column(Text))
+    last_error_at: datetime | None = Field(default=None, index=True)
+
+    dedupe_key: str = Field(index=True, unique=True)
+
+class Notification(SQLModel, table=True):
+    """
+    用户通知表。
+
+    Notification 是由 OutboxEvent 派生出来的用户可见消息。
+    普通用户只能访问自己的通知。
+    """
+
+    __tablename__ = "notification"
+
+    __table_args__ = (
+        Index("ix_notification_recipient_created", "recipient_user_id", "created_at"),
+        Index("ix_notification_recipient_read_created", "recipient_user_id", "is_read", "created_at"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    recipient_user_id: str = Field(foreign_key="user.id", index=True)
+
+    actor_user_id: str | None = Field(default=None, foreign_key="user.id", index=True)
+    actor_username: str | None = Field(default=None, index=True)
+    actor_display_name: str | None = None
+
+    # 例如：
+    # comment.reply
+    # comment.user_page
+    type: str = Field(index=True)
+
+    title: str
+    body: str = ""
+
+    target_type: str | None = Field(default=None, index=True)
+    target_id: str | None = Field(default=None, index=True)
+    target_url: str | None = None
+
+    is_read: bool = Field(default=False, index=True)
+
+    created_at: datetime = Field(default_factory=now_utc, index=True)
+    read_at: datetime | None = Field(default=None, index=True)
+
+    # JSON 字符串。不要保存完整正文、密码、token。
+    metadata_json: str | None = Field(default=None, sa_column=Column(Text))
+
+    dedupe_key: str = Field(index=True, unique=True)
+
 class Comment(SQLModel, table=True):
     """
     通用评论表。
