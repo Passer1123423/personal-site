@@ -1,10 +1,10 @@
-# Event Outbox and Notification Plan
+# Event Outbox and Notification Current State
 
-本文档记录 Event / OutboxEvent / Notification 地基的架构审计和开发规划。
+本文档记录 Event / OutboxEvent / Notification 的当前实现、设计边界和后续补强项。
 
-当前状态：规划，未实现。
+当前状态：基础链路已实现，消息通知系统已经接入评论事件。
 
-范围约束：
+实现范围：
 
 - 后端仍使用 FastAPI + SQLModel + SQLite。
 - 不引入 Redis、Celery、RabbitMQ、Kafka。
@@ -14,103 +14,47 @@
 - payload 和 metadata 不能记录密码、token、完整评论正文、完整小说正文、完整 buffer 正文。
 - Notification 不做访问统计。
 
-## 1. 总体结论
+## 1. 当前结论
 
-当前项目最适合采用：
-
-```txt
-service 层写 OutboxEvent，独立 worker / script 定时处理
-```
-
-理由：
-
-- 当前项目是个人小站，SQLite + 数据库表模拟轻量 outbox 足够。
-- 评论、小说、漫画、上传等业务写入已经主要落在 service 层。
-- ActivityLog 目前多在 router 层补写，适合先冻结，不适合直接复用为通知源。
-- 通知失败不应该影响主业务写入。
-- 独立 processor 可以支持失败重试、dead event 排查和后续扩展。
-
-第一版只接入 `comment.created`，后续再扩展小说、漫画、收藏和日志派生。
-
-## 2. 推荐架构
-
-推荐组件：
-
-- `OutboxEvent`：业务事件表，记录“发生了什么”。
-- `Notification`：用户通知表，记录“谁应该看到什么”。
-- `outbox service`：负责创建事件、claim 事件、标记成功或失败。
-- `notification service`：负责创建通知、序列化通知、去重。
-- `event processor`：独立 Python 脚本或 service 函数，定时处理 pending events。
-- `notification router`：只暴露当前登录用户自己的通知接口。
-
-推荐事件流：
+项目已经采用：
 
 ```txt
-业务 service 成功创建业务数据
--> 同事务或同业务流程写 OutboxEvent
--> worker claim pending event
--> handler 根据 event_type 处理
--> Notification service 创建通知
--> OutboxEvent 标记 processed / failed / dead
+service 层写 OutboxEvent，独立 worker / script 处理事件并派生 Notification
 ```
 
-第一版的事件源位置：
+当前已完成：
+
+- `OutboxEvent` 模型。
+- `Notification` 模型。
+- `outbox service`：创建事件、claim pending/failed 事件、恢复超时 processing、标记 processed/failed/dead。
+- `notification service`：创建通知、序列化通知、分页查询、未读计数、标记已读、全部已读。
+- `event processor`：`process_outbox_events_once()`。
+- CLI 脚本：`backend/scripts/process_outbox_events.py`。
+- `notification router`：`/api/notifications`。
+- `comment.created` 事件源：`app.services.interactions.create_comment`。
+- 前端通知 API：`frontend/src/api/notifications.ts`。
+- 前端通知页：`/notifications`。
+- Navbar 未读 badge 和通知入口。
+
+当前事件流：
 
 ```txt
-app.services.interactions.create_comment
+评论创建成功
+-> 同一业务事务写入 OutboxEvent(comment.created)
+-> 运行 process_outbox_events.py
+-> claim pending / failed events
+-> event handler 根据 comment.created 生成 Notification
+-> 标记 OutboxEvent 为 processed / failed / dead
+-> 前端通过通知接口展示、标记已读和跳转
 ```
 
-原因：
+## 2. 后端实现
 
-- 当前评论创建逻辑在该 service 内完成目标校验、回复关系校验、评论入库、图片保存和提交。
-- 这里最接近“评论已创建”这个业务事实。
-- router 只是 HTTP 入口，不适合作为业务事件源。
+### 2.1 OutboxEvent
 
-## 3. 不推荐方案及原因
+模型位置：`backend/app/models.py`
 
-不推荐 router 直接调用 notification service：
-
-- router 会越来越厚。
-- 同一业务动作如果未来有多个入口，容易漏通知。
-- router 更适合处理请求参数、认证依赖和 HTTP 错误，不适合作为业务事实源。
-
-不推荐当前请求内同步完整处理通知：
-
-- 通知失败可能拖慢评论请求。
-- 通知规则后续变复杂后，请求路径会变脆。
-- 主业务和派生副作用应该解耦。
-
-不推荐 ORM event / SQLAlchemy hook：
-
-- hook 很难表达业务语义。
-- `reply_to_id`、`parent_id`、用户页留言 recipient、自己回复自己跳过等规则不适合放 hook。
-- 隐式触发会增加排查成本。
-
-不推荐 SQLite trigger：
-
-- trigger 不适合查复杂业务对象、构造 URL、去重、重试和记录错误。
-- 业务逻辑分散到数据库层后可维护性差。
-
-不推荐 Redis/Celery/RabbitMQ/Kafka：
-
-- 对当前个人网站过重。
-- 会增加部署、监控、连接、重试和运维复杂度。
-
-不建议从 ActivityLog 反推通知：
-
-- ActivityLog 是审计日志，不是业务事件源。
-- 它记录 admin 操作、失败日志、上传日志等，语义不等于“用户应该收到通知”。
-- 反推通知会依赖日志字段细节，后续演进脆弱。
-
-service 层产生业务事件更合适：
-
-- service 已经掌握业务动作是否真正成功。
-- service 能拿到规范化后的业务对象和关系。
-- service 可以被 router、脚本、后台任务复用。
-
-## 4. OutboxEvent 模型建议
-
-第一版建议字段：
+当前字段：
 
 - `id`
 - `event_type`
@@ -131,7 +75,7 @@ service 层产生业务事件更合适：
 - `last_error_at`
 - `dedupe_key`
 
-建议状态：
+当前状态：
 
 ```txt
 pending
@@ -141,32 +85,24 @@ failed
 dead
 ```
 
-字段判断：
-
-- `payload_json` 用 `Text` 足够，当前 ActivityLog 也使用 Text 存 JSON。
-- `event_version` 第一版就建议加入，默认 `1`，便于以后 payload 演进。
-- `dedupe_key` 建议第一版就加入，并设置唯一约束。
-- `locked_at` / `locked_by` 在 SQLite 下仍建议保留，用于 worker 崩溃后恢复 `processing`。
-- `priority` 第一版不需要。
-- `correlation_id` / `source` 有价值，但第一版可以暂缓；如需来源信息可先放 payload。
-- `last_error` 建议存 Text，但写入时截断到 2000-4000 字。
-
-建议索引：
+当前索引：
 
 - `(status, available_at, created_at)`
-- `dedupe_key` unique
 - `(event_type, created_at)`
 - `(aggregate_type, aggregate_id)`
+- `dedupe_key` unique
 
-示例 dedupe key：
+当前 dedupe key 示例：
 
 ```txt
 comment.created:{comment_id}
 ```
 
-## 5. Notification 模型建议
+### 2.2 Notification
 
-第一版建议字段：
+模型位置：`backend/app/models.py`
+
+当前字段：
 
 - `id`
 - `recipient_user_id`
@@ -185,24 +121,25 @@ comment.created:{comment_id}
 - `metadata_json`
 - `dedupe_key`
 
-字段判断：
-
-- `recipient_user_id` 必须由后端 handler 计算，不能信任前端传入。
-- `dedupe_key` 建议必须有，并设置唯一约束，保证 worker 重试不重复创建通知。
-- 应保存 actor 快照：`actor_username`、`actor_display_name`。
-- 删除目标对象后通知建议保留，点击时提示目标可能已删除。
-- 第一版不需要软删除通知，后续可加 `deleted_at`。
-- notification preference / 设置表第一版暂缓。
-
-建议索引：
+当前索引：
 
 - `(recipient_user_id, created_at)`
 - `(recipient_user_id, is_read, created_at)`
 - `dedupe_key` unique
 
-## 6. 第一版 comment.created 事件 payload 建议
+设计判断：
 
-建议 payload：
+- `recipient_user_id` 由后端 handler 计算，不能由前端传入。
+- 通知保存 actor 快照：`actor_username`、`actor_display_name`。
+- 通知创建使用 `dedupe_key` 防止 worker 重试时重复生成。
+- 删除目标对象后通知保留；点击后的目标不存在由目标页处理。
+- 第一版仍不做软删除通知和 notification preference。
+
+### 2.3 comment.created payload
+
+事件源位置：`backend/app/services/interactions.py`
+
+当前 payload：
 
 ```json
 {
@@ -212,74 +149,76 @@ comment.created:{comment_id}
   "target_id": "...",
   "parent_id": null,
   "reply_to_id": null,
-  "root_comment_id": null,
+  "root_comment_id": "...",
   "content_preview": "...",
   "image_count": 0,
   "created_at": "..."
 }
 ```
 
-字段判断：
+说明：
 
-- 这些字段足够生成 `comment.reply` 和 `comment.user_page`。
-- 建议补充 `root_comment_id`，虽然可由 `parent_id` 推导，但显式保存更清晰。
-- `target_url` 建议由 handler 计算，不建议事件源提前硬编码。
-- 不建议 payload 只保存 id；如果评论之后被软删或硬删，handler 仍需要最小快照。
-- 不应保存完整评论内容，只保存短 `content_preview`，例如 80-120 字。
-- `image_count` 可以用于通知文案，例如“并附带图片”。
+- `content_preview` 是短预览，不保存完整评论正文。
+- `image_count` 用于前端展示“图片 N 张”。
+- `target_url` 由 handler 根据目标对象计算，不在事件源中硬编码。
+- OutboxEvent 与评论创建处于同一业务提交路径；事件创建失败会回滚评论创建。
 
-## 7. event processor 处理流程
+## 3. Event Processor
 
-建议提供函数：
+核心函数位置：`backend/app/services/event_processor.py`
 
-```txt
-process_outbox_events_once(limit=50)
-claim_pending_events(limit, locked_by)
-handle_event(event)
-mark_processed(event)
-mark_failed_or_dead(event, exc)
-```
+CLI 脚本位置：`backend/scripts/process_outbox_events.py`
 
-处理流程：
+当前流程：
 
-1. 恢复超时的 `processing` 事件，例如 `locked_at < now - 10 minutes`。
-2. claim 一批 `pending` 或可重试的 `failed` 事件。
+1. 恢复超时 `processing` 事件，默认阈值 10 分钟。
+2. claim 一批 `pending` 或到期的 `failed` 事件。
 3. 将事件标记为 `processing`，写入 `locked_at` 和 `locked_by`。
 4. 按 `event_type` 分发 handler。
 5. 成功后标记 `processed`，写入 `processed_at`。
 6. 失败后 `retry_count += 1`，写入 `last_error`、`last_error_at`。
-7. 如果未超过 `max_retries`，设置新的 `available_at`，进入 `failed` 或回到 `pending`。
-8. 超过 `max_retries` 后进入 `dead`。
+7. 未超过 `max_retries` 时进入 `failed`，并设置 backoff 后的 `available_at`。
+8. 达到 `max_retries` 后进入 `dead`。
 
-SQLite 并发建议：
+当前 backoff：
 
-- 第一版只允许单 worker。
-- claim 阶段使用短事务，避免长时间占用 SQLite 写锁。
-- 即使单 worker，也保留 `locked_at` / `locked_by`，便于恢复异常状态。
+```txt
+第 1 次失败：1 分钟
+第 2 次失败：5 分钟
+第 3 次及以后：30 分钟
+```
 
-失败处理建议：
+运行示例：
 
-- 简单 backoff 即可，例如 1 分钟、5 分钟、30 分钟。
-- `last_error` 截断到 2000-4000 字。
-- 通知处理失败不影响已经成功写入的业务数据。
-- 第一版不需要把 event 处理过程写入 ActivityLog，先靠 OutboxEvent 状态和后端 logger 排查。
+```bash
+cd backend
+python scripts/process_outbox_events.py --limit 50 --json
+```
 
-## 8. 通知规则
+可用环境变量：
 
-第一版只做评论相关。
+- `OUTBOX_PROCESS_LIMIT`
+- `OUTBOX_LOCKED_BY`
+- `OUTBOX_PROCESS_JSON`
 
-### comment.reply
+部署建议：
+
+- 第一版按单 worker 运行。
+- 可由手动命令、cron、systemd timer 或现有部署脚本周期性触发。
+- 目前仓库内只有脚本，没有提交 systemd timer 示例。
+
+## 4. 通知规则
+
+当前只由 `comment.created` 派生通知，但覆盖范围已经包括用户页、回复、小说和漫画作品评论。
+
+### 4.1 comment.reply
 
 规则：
 
 - A 回复 B 的评论，通知 B。
 - A 回复自己，不通知。
 - 回复子评论时通知 `reply_to_id` 对应评论的作者，不通知 root comment 作者。
-
-依据：
-
-- 当前 Comment 模型中 `parent_id` 表示归属的一级评论。
-- `reply_to_id` 表示实际点击回复的评论。
+- 如果同一个动作同时满足用户页留言或作品评论，回复通知优先，只生成 `comment.reply`。
 
 dedupe key：
 
@@ -287,13 +226,20 @@ dedupe key：
 comment.reply:{comment_id}:{recipient_user_id}
 ```
 
-### comment.user_page
+target：
+
+- `target_type = "comment"`
+- `target_id = comment_id`
+- `target_url` 指向评论所在页面，暂不带评论锚点。
+
+### 4.2 comment.user_page
 
 规则：
 
 - `target_type == "user_page"` 时，`target_id` 是被留言用户的 user id。
-- A 在 B 的用户页留言，通知 B。
+- A 在 B 的用户页一级留言，通知 B。
 - A 在自己主页留言，不通知。
+- 用户页回复不生成 `comment.user_page`，由 `comment.reply` 处理。
 
 dedupe key：
 
@@ -301,31 +247,47 @@ dedupe key：
 comment.user_page:{comment_id}:{recipient_user_id}
 ```
 
-### 冲突规则
+target：
 
-如果一个动作同时满足 `comment.reply` 和 `comment.user_page`：
+- `target_type = "user_page"`
+- `target_id = recipient_user_id`
+- `target_url = /users/{username}`
+
+### 4.3 作品评论 owner 通知
+
+当前已实现，原计划中的“作品评论通知第一版暂缓”已经过期。
+
+支持目标：
+
+- `novel` -> `comment.novel`
+- `novel_chapter` -> `comment.novel_chapter`
+- `comic_part` -> `comment.comic_part`
+- `comic_chapter` -> `comment.comic_chapter`
+
+规则：
+
+- 只处理一级评论；回复仍由 `comment.reply` 处理。
+- 查找作品 owner，给所有 owner 生成通知。
+- 评论者本人如果也是 owner，不给自己发通知。
+- 多 owner 时每个 recipient 各有一条通知。
+
+dedupe key：
 
 ```txt
-只生成 comment.reply
+{notification_type}:{comment_id}:{recipient_user_id}
 ```
 
-原因：
+target：
 
-- 回复已有明确 recipient。
-- 避免同一个动作给同一个用户生成两条通知。
+- `target_type` 保持作品目标类型。
+- `target_id` 保持作品目标 id。
+- `target_url` 指向小说、小说章节、漫画分部或漫画章节页面。
 
-### target_url
+## 5. API
 
-第一版可以先跳评论所在页面：
+Router 位置：`backend/app/routers/notifications.py`
 
-- 用户页留言：`/users/{username}`
-- 无法精确跳转评论时，先跳页面即可。
-
-作品评论通知第一版暂缓。
-
-## 9. API 规划
-
-通知接口：
+当前接口：
 
 ```txt
 GET  /api/notifications
@@ -336,11 +298,11 @@ POST /api/notifications/read-all
 
 `GET /api/notifications` 参数：
 
-- `limit`，默认 20，建议最大 100。
+- `limit`，默认 20，范围 1-100。
 - `offset`，默认 0。
 - `unread_only`，默认 false。
 
-返回字段建议使用 camelCase：
+返回字段使用 camelCase：
 
 ```json
 {
@@ -374,116 +336,121 @@ POST /api/notifications/read-all
 - 用户只能读取自己的 Notification。
 - 用户只能标记自己的通知已读。
 - `read-all` 只影响当前用户。
-- 第一版暂缓 DELETE 通知。
+- 当前没有 DELETE 通知接口。
 
-## 10. 前端规划
+## 6. 前端实现
 
-第一版前端工作：
+已完成：
 
-- 新增 `api/notifications.ts`。
-- 新增 `/notifications` 页面。
-- Navbar 显示未读红点或数字 badge。
-- 通知列表展示 title、body、actor、time、read 状态。
-- 点击通知后标记已读，再跳转 `targetUrl`。
-- 提供全部已读按钮。
+- `frontend/src/api/notifications.ts`
+- `frontend/src/pages/NotificationsPage.tsx`
+- `frontend/src/components/NavbarUserMenu.tsx` 未读 badge 和通知入口
+- `frontend/src/App.tsx` 注册 `/notifications`
 
-未读数刷新：
+通知页当前能力：
 
-- 第一版只在页面加载、登录态变化、打开用户菜单或 Navbar 初始化时请求 `unread-count`。
-- 后续再考虑 60-120 秒轻量轮询。
+- 拉取最近 12 条通知。
+- 展示通知类型、标题、正文预览、actor、时间、未读状态和图片数量。
+- 本地搜索标题、正文、发送者和类型。
+- 本地按类型筛选。
+- 本地按已读/未读筛选。
+- 全部标记已读。
+- 点击通知时先标记已读，再跳转 `targetUrl`。
 
-target_url 失效处理：
+Navbar 当前能力：
 
-- 前端跳转后如果目标页 404，显示目标可能已删除。
-- 第一版不需要为失效通知做特殊后端修复。
+- 登录后请求 `unread-count`。
+- 展示未读 badge，超过 99 显示 `99+`。
+- 监听 `notifications-changed` 事件刷新未读数。
+- 登录态变化后重新加载用户和未读数。
 
-## 11. 与 ActivityLog 的关系
+当前限制：
 
-明确边界：
+- 通知页只加载第一页 12 条，没有“加载更多”或分页控件。
+- 前端筛选只作用于已加载的 12 条，不是服务端全量筛选。
+- 没有轮询或 SSE；未读数只在初始化、登录态变化和通知变更事件后刷新。
+- 通知页空状态文案仍偏向“评论回复或主页留言”，还没有覆盖作品评论。
+
+## 7. 与 ActivityLog 的关系
+
+当前边界保持不变：
 
 - Notification 不等于 ActivityLog。
 - Notification 不从 ActivityLog 反推。
 - OutboxEvent 是未来统一地基。
 - 现有 ActivityLog v1 保持冻结，不立即重构。
-- 未来新功能可以从 OutboxEvent 同时派生 ActivityLog 和 Notification。
-- 后续有空可逐步迁移旧日志点到 event handler。
+- 当前 ActivityLog 继续作为审计日志。
+- 后续新功能可以从 OutboxEvent 同时派生 ActivityLog 和 Notification。
 
-当前 ActivityLog 继续作为审计日志：
+## 8. 功能评价
 
-- 记录重要业务写操作。
-- 不记录普通页面访问。
-- 不作为通知源。
+整体功能已经具备可用的消息通知闭环：
 
-## 12. 分阶段实施计划
+- 事件源在 service 层，位置合理。
+- 通知 recipient 由后端计算，权限边界正确。
+- OutboxEvent 和 Notification 都有 dedupe key，具备重试幂等基础。
+- worker 有 claim、失败重试、dead event 和 processing 恢复，满足 SQLite 单 worker 场景。
+- 前端有入口、未读数、列表、筛选、全部已读和点击跳转，用户可直接使用。
 
-### 阶段 1：建地基
+需要优先补强的点：
 
-- 新增 `OutboxEvent` 模型。
-- 新增 `Notification` 模型。
-- 新增 outbox service。
-- 新增 notification service。
-- 新增 notification router。
-- 新增 event processor 脚本或 service。
-- 在 `main.py` include notification router。
+- 补测试，尤其是 recipient、跳过自己、去重、重试和权限。
+- 给 event processor 增加部署调度说明或 systemd timer 示例。
+- 通知页增加分页或加载更多，否则超过 12 条后无法继续查看。
+- 修正通知页空状态文案，让作品评论也被准确说明。
+- 评估 `create_notification()` 和 `create_outbox_event()` 中 `IntegrityError` 后 `session.rollback()` 对调用事务的影响；当前可能回滚同一 session 内已经处理的其他通知或事件状态，尤其是多 owner 通知和 worker 处理路径。
 
-### 阶段 2：接 comment.created
+## 9. 后续计划
 
-- 在 `create_comment` 成功后写 OutboxEvent。
-- handler 生成 `comment.reply` / `comment.user_page` 通知。
-- 跳过自己通知。
-- 加 dedupe。
+短期：
 
-### 阶段 3：前端通知
+- 增加后端测试或 smoke test，覆盖验证清单。
+- 增加通知页分页 / 加载更多。
+- 更新通知页空状态文案。
+- 补 processor 调度文档。
+- 检查并调整 IntegrityError 幂等处理，避免在 helper 内直接 rollback 外层事务。
 
-- 新增 `api/notifications.ts`。
-- 新增 `NotificationsPage`。
-- Navbar 接入 unread badge。
+中期：
 
-### 阶段 4：验证与补强
+- target_url 增加评论锚点或 query，点击后尽量定位到具体评论。
+- 增加轻量刷新策略，例如进入菜单时刷新或 60-120 秒轮询。
+- 增加管理侧 dead event 检查或运维命令说明。
 
-- 验证去重。
-- 验证重试。
-- 验证 dead event 检查。
-- 优化 target_url。
-- 增加必要的 smoke test 文档或测试脚本。
+未来扩展：
 
-### 阶段 5：未来扩展
-
-- 作品评论通知。
 - 收藏更新通知。
 - 章节创建 / 发布通知。
+- 关注 / 被关注通知。
 - ActivityLog 逐步迁移到 event handler。
 
-## 13. 需要补充确认的文件或信息
-
-进入实施前建议确认：
-
-- 是否要引入数据库迁移流程；当前项目没有迁移系统，`create_all` 不能给已有表自动加字段。
-- 前端登录态 / AuthContext 的具体文件，用于 Navbar unread-count 接入。
-- 小说、漫画详情页和章节页的最终 URL 规范。
-- event processor 是放 repo 内 Python module，还是额外提供 systemd timer 示例。
-
-## 14. 风险清单和验证清单
+## 10. 风险和验证清单
 
 风险：
 
-- 当前多个 service 内部直接 `commit()`，OutboxEvent 与业务写入的事务边界需要谨慎。
+- 当前多个 service 内部直接 `commit()`，OutboxEvent 与业务写入的事务边界需要持续谨慎。
 - SQLite 不适合多 worker 高并发，第一版应按单 worker 设计。
-- 评论硬删除后，handler 如果只查数据库可能找不到评论。
-- payload_json 可能误放敏感信息，需要明确过滤规则。
-- 前端不能决定 recipient，否则会形成越权通知。
+- 评论或目标对象硬删除后，handler 可能无法计算 recipient 或 target_url。
+- payload_json 和 metadata_json 需要持续避免保存敏感信息和完整正文。
 - OutboxEvent 不能暴露给普通用户。
+- `session.rollback()` 出现在幂等 helper 内，后续补测试时需要重点验证。
 
 验证清单：
 
 - A 回复 B，B 收到一条 `comment.reply`。
 - A 回复自己，不生成通知。
-- A 在 B 用户页留言，B 收到一条 `comment.user_page`。
+- A 在 B 用户页一级留言，B 收到一条 `comment.user_page`。
 - A 在自己用户页留言，不生成通知。
 - user_page 中回复评论时只生成 `comment.reply`。
+- A 评论 B 拥有的小说，B 收到 `comment.novel`。
+- A 评论 B 拥有的小说章节，B 收到 `comment.novel_chapter`。
+- A 评论 B 拥有的漫画分部，B 收到 `comment.comic_part`。
+- A 评论 B 拥有的漫画章节，B 收到 `comment.comic_chapter`。
+- 作品 owner 评论自己的作品，不生成给自己的通知。
+- 多 owner 作品只给非评论者 owner 各生成一条通知。
 - 重跑同一个 event 不重复创建通知。
 - worker 崩溃后，超时 `processing` event 能恢复处理。
 - 超过最大重试后 event 进入 `dead`。
 - 用户不能读取别人的通知。
 - 用户不能标记别人的通知已读。
+- `read-all` 只影响当前用户。
 - 普通用户没有 OutboxEvent 访问入口。

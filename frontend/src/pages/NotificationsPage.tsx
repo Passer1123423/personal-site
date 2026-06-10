@@ -13,6 +13,8 @@ import {
   type NotificationItem,
 } from "../api/notifications";
 
+const PAGE_SIZE = 5;
+
 function formatNotificationTime(value: string) {
   const date = new Date(value);
 
@@ -197,6 +199,7 @@ export default function NotificationsPage() {
 
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [readStateFilter, setReadStateFilter] = useState("");
@@ -208,6 +211,10 @@ export default function NotificationsPage() {
     () => items.filter((item) => !item.isRead).length,
     [items],
   );
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const canGoPrev = page > 1;
+  const canGoNext = page < totalPages;
 
   const typeOptions = useMemo<SearchablePickerOption[]>(
     () => [
@@ -303,19 +310,22 @@ export default function NotificationsPage() {
     keyword.trim() || typeFilter || readStateFilter,
   );
 
-  async function loadNotifications() {
+  async function loadNotifications(nextPage = page) {
     setLoading(true);
     setError("");
 
     try {
+      const safePage = Math.max(1, nextPage);
+
       const result = await fetchNotifications({
-        limit: 12,
-        offset: 0,
+        limit: PAGE_SIZE,
+        offset: (safePage - 1) * PAGE_SIZE,
         unreadOnly: false,
       });
 
       setItems(result.items);
       setTotal(result.total);
+      setPage(safePage);
     } catch (error) {
       setError(error instanceof Error ? error.message : "获取通知失败");
     } finally {
@@ -324,7 +334,7 @@ export default function NotificationsPage() {
   }
 
   useEffect(() => {
-    loadNotifications();
+    loadNotifications(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -334,7 +344,7 @@ export default function NotificationsPage() {
 
     try {
       await markAllNotificationsRead();
-      await loadNotifications();
+      await loadNotifications(page);
     } catch (error) {
       setError(error instanceof Error ? error.message : "全部标记已读失败");
     } finally {
@@ -356,12 +366,28 @@ export default function NotificationsPage() {
         return;
       }
 
-      await loadNotifications();
+      await loadNotifications(page);
     } catch (error) {
       setError(error instanceof Error ? error.message : "打开通知失败");
     } finally {
       setWorking(false);
     }
+  }
+
+  async function handleGoPrevPage() {
+    if (!canGoPrev || loading || working) {
+      return;
+    }
+
+    await loadNotifications(page - 1);
+  }
+
+  async function handleGoNextPage() {
+    if (!canGoNext || loading || working) {
+      return;
+    }
+
+    await loadNotifications(page + 1);
   }
 
   function handleClearFilters() {
@@ -466,6 +492,30 @@ export default function NotificationsPage() {
                     onOpen={handleOpenNotification}
                   />
                 ))}
+
+                <div className="flex items-center justify-between rounded-2xl border border-[var(--color-border-soft)] bg-white/80 px-4 py-3 text-sm text-muted">
+                  <button
+                    type="button"
+                    className="rounded-xl border border-[var(--color-border-soft)] bg-white px-3 py-1.5 font-semibold text-main transition hover:border-[var(--color-accent-border)] hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={handleGoPrevPage}
+                    disabled={!canGoPrev || loading || working}
+                  >
+                    上一页
+                  </button>
+
+                  <span>
+                    第 {page} / {totalPages} 页，每页 {PAGE_SIZE} 条
+                  </span>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border border-[var(--color-border-soft)] bg-white px-3 py-1.5 font-semibold text-main transition hover:border-[var(--color-accent-border)] hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={handleGoNextPage}
+                    disabled={!canGoNext || loading || working}
+                  >
+                    下一页
+                  </button>
+                </div>
               </div>
             )}
           </div>

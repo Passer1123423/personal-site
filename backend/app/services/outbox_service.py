@@ -75,13 +75,12 @@ def create_outbox_event(
         dedupe_key=dedupe_key,
     )
 
-    session.add(event)
-
     try:
-        session.flush()
+        with session.begin_nested():
+            session.add(event)
+            session.flush()
     except IntegrityError:
-        session.rollback()
-        return None
+        return get_outbox_event_by_dedupe_key(session, dedupe_key)
 
     return event
 

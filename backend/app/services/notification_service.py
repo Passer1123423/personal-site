@@ -72,12 +72,11 @@ def create_notification(
         dedupe_key=dedupe_key,
     )
 
-    session.add(notification)
-
     try:
-        session.flush()
+        with session.begin_nested():
+            session.add(notification)
+            session.flush()
     except IntegrityError:
-        session.rollback()
         return get_notification_by_dedupe_key(session, dedupe_key)
 
     return notification
