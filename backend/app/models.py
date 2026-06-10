@@ -269,6 +269,51 @@ class OutboxEvent(SQLModel, table=True):
 
     dedupe_key: str = Field(index=True, unique=True)
 
+class Notification(SQLModel, table=True):
+    """
+    用户通知表。
+
+    Notification 是由 OutboxEvent 派生出来的用户可见消息。
+    普通用户只能访问自己的通知。
+    """
+
+    __tablename__ = "notification"
+
+    __table_args__ = (
+        Index("ix_notification_recipient_created", "recipient_user_id", "created_at"),
+        Index("ix_notification_recipient_read_created", "recipient_user_id", "is_read", "created_at"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    recipient_user_id: str = Field(foreign_key="user.id", index=True)
+
+    actor_user_id: str | None = Field(default=None, foreign_key="user.id", index=True)
+    actor_username: str | None = Field(default=None, index=True)
+    actor_display_name: str | None = None
+
+    # 例如：
+    # comment.reply
+    # comment.user_page
+    type: str = Field(index=True)
+
+    title: str
+    body: str = ""
+
+    target_type: str | None = Field(default=None, index=True)
+    target_id: str | None = Field(default=None, index=True)
+    target_url: str | None = None
+
+    is_read: bool = Field(default=False, index=True)
+
+    created_at: datetime = Field(default_factory=now_utc, index=True)
+    read_at: datetime | None = Field(default=None, index=True)
+
+    # JSON 字符串。不要保存完整正文、密码、token。
+    metadata_json: str | None = Field(default=None, sa_column=Column(Text))
+
+    dedupe_key: str = Field(index=True, unique=True)
+
 class Comment(SQLModel, table=True):
     """
     通用评论表。

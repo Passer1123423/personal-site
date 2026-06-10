@@ -35,6 +35,8 @@ import CreatorNovelsPage from "./pages/CreatorNovelsPage";
 import CreatorNovelPage from "./pages/CreatorNovelPage";
 import CreatorNovelChapterEditorPage from "./pages/CreatorNovelChapterEditorPage";
 
+import NotificationsPage from "./pages/NotificationsPage";
+
 type NavbarMode = "standard" | "auto" | "none";
 
 function App() {
@@ -151,6 +153,8 @@ function App() {
         <Route path="/admin/novels" element={<AdminNovelsPage />} />
         <Route path="/admin/interactions" element={<AdminInteractionsPage />} />
         <Route path="/admin/activity-logs" element={<AdminActivityLogsPage />} />
+
+        <Route path="/notifications" element={<NotificationsPage />} />
       </Routes>
 
       {shouldRenderFooter && (
