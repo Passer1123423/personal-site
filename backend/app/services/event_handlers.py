@@ -226,7 +226,7 @@ def get_work_comment_owner_user_ids(
             .where(NovelUserLink.role == "owner")
         ).all()
 
-        return [link.user_id for link in links], novel.title
+        return [link.user_id for link in links], f"《{novel.title}》"
 
     if target_type == "novel_chapter":
         chapter = session.get(NovelChapter, target_id)
@@ -243,7 +243,7 @@ def get_work_comment_owner_user_ids(
             .where(NovelUserLink.role == "owner")
         ).all()
 
-        return [link.user_id for link in links], f"{novel.title} · {chapter.title}"
+        return [link.user_id for link in links], f"《{novel.title}》：{chapter.title}"
 
     if target_type == "comic_part":
         part = session.get(ComicPart, target_id)
@@ -256,7 +256,7 @@ def get_work_comment_owner_user_ids(
             .where(ComicPartUserLink.role == "owner")
         ).all()
 
-        return [link.user_id for link in links], part.title
+        return [link.user_id for link in links], f"《{part.title}》"
 
     if target_type == "comic_chapter":
         chapter = session.get(ComicChapter, target_id)
@@ -273,7 +273,7 @@ def get_work_comment_owner_user_ids(
             .where(ComicPartUserLink.role == "owner")
         ).all()
 
-        return [link.user_id for link in links], f"{part.title} · {chapter.title}"
+        return [link.user_id for link in links], f"《{part.title}》：{chapter.title}"
 
     return [], None
 
@@ -351,7 +351,7 @@ def create_work_comment_owner_notifications(
             recipient_user_id=recipient_user_id,
             actor=actor,
             type=notification_type,
-            title=f"{actor_name} 评论了你的作品",
+            title=f"{actor_name} 评论了 {target_label or '你的作品'}",
             body=content_preview,
             target_type=target_type,
             target_id=target_id,
