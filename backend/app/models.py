@@ -719,6 +719,22 @@ class ComicPartUserLink(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=now_utc)
 
+class ComicPartFavorite(SQLModel, table=True):
+    __tablename__ = "comic_part_favorite"
+
+    __table_args__ = (
+        UniqueConstraint("part_id", "user_id", name="uq_comic_part_favorite"),
+        Index("ix_comic_part_favorite_user_created", "user_id", "created_at"),
+        Index("ix_comic_part_favorite_part_created", "part_id", "created_at"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    part_id: str = Field(index=True, foreign_key="comic_part.id")
+    user_id: str = Field(index=True, foreign_key="user.id")
+
+    created_at: datetime = Field(default_factory=now_utc)
+
 class ComicUploadImage(SQLModel, table=True):
     id: str = Field(default_factory=new_id, primary_key=True)
 
@@ -816,6 +832,22 @@ class NovelUserLink(SQLModel, table=True):
     user_id: str = Field(index=True, foreign_key="user.id")
 
     role: str = "owner"
+
+    created_at: datetime = Field(default_factory=now_utc)
+
+class NovelFavorite(SQLModel, table=True):
+    __tablename__ = "novel_favorite"
+
+    __table_args__ = (
+        UniqueConstraint("novel_id", "user_id", name="uq_novel_favorite"),
+        Index("ix_novel_favorite_user_created", "user_id", "created_at"),
+        Index("ix_novel_favorite_novel_created", "novel_id", "created_at"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    novel_id: str = Field(index=True, foreign_key="novel.id")
+    user_id: str = Field(index=True, foreign_key="user.id")
 
     created_at: datetime = Field(default_factory=now_utc)
 
