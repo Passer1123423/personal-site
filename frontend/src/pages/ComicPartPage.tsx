@@ -146,8 +146,17 @@ function ComicPartPage() {
 
                 <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--color-border-soft)] pt-2 text-xs text-soft md:grid-cols-3 md:pt-4 md:text-sm">
                   <div>
-                    <p className="font-semibold text-main">章节数</p>
-                    <p className="mt-0.5 md:mt-1">{chapters.length} 章</p>
+                    <p className="font-semibold text-main">作者</p>
+                    {part.owner ? (
+                      <Link
+                        to={`/users/${part.owner.username}`}
+                        className="mt-0.5 block truncate transition hover:text-[var(--color-accent)] hover:underline hover:underline-offset-4 md:mt-1"
+                      >
+                        {part.owner.displayName || part.owner.username}
+                      </Link>
+                    ) : (
+                      <p className="mt-0.5 md:mt-1">未设置</p>
+                    )}
                   </div>
 
                   <div>

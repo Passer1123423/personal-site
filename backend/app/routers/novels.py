@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models import Asset, Novel, NovelChapter
+from app.models import Asset, Novel, NovelChapter, NovelUserLink, User
 
 
 router = APIRouter(
@@ -63,6 +63,30 @@ def chapter_to_list_item(chapter: NovelChapter) -> dict:
     }
 
 
+def get_novel_owner(session: Session, novel: Novel) -> User | None:
+    link = session.exec(
+        select(NovelUserLink)
+        .where(NovelUserLink.novel_id == novel.id)
+        .where(NovelUserLink.role == "owner")
+    ).first()
+
+    if not link:
+        return None
+
+    return session.get(User, link.user_id)
+
+
+def owner_to_public_item(user: User | None) -> dict | None:
+    if not user:
+        return None
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "displayName": user.display_name,
+    }
+
+
 @router.get("")
 def list_novels(session: Session = Depends(get_session)):
     novels = session.exec(
@@ -92,6 +116,7 @@ def get_novel_detail(
 
     return {
         **novel_to_list_item(session, novel),
+        "owner": owner_to_public_item(get_novel_owner(session, novel)),
         "chapters": [chapter_to_list_item(chapter) for chapter in chapters],
     }
 
