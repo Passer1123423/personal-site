@@ -10,7 +10,7 @@ from app.services.notification_service import (
     list_notifications_for_user,
     mark_all_notifications_read,
     mark_notification_read,
-    serialize_notification,
+    serialize_notification_with_actor,
 )
 
 
@@ -70,7 +70,7 @@ def read_notification(
             detail="通知不存在",
         )
 
-    return serialize_notification(notification)
+    return serialize_notification_with_actor(session, notification)
 
 
 @router.delete("/{notification_id}")

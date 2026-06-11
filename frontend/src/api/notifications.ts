@@ -9,6 +9,7 @@ export type NotificationItem = {
   actorUserId: string | null;
   actorUsername: string | null;
   actorDisplayName: string | null;
+  actorAvatarUrl: string | null;
   targetType: string | null;
   targetId: string | null;
   targetUrl: string | null;
@@ -39,6 +40,20 @@ function getAuthHeaders(): HeadersInit {
   return {
     Authorization: `Bearer ${token}`,
   };
+}
+
+export function resolveNotificationAssetUrl(
+  url: string | null | undefined,
+): string | null {
+  if (!url) {
+    return null;
+  }
+
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  return `${API_BASE_URL}${url}`;
 }
 
 export async function fetchNotifications(params?: {

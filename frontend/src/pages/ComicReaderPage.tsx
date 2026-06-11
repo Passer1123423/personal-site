@@ -488,7 +488,7 @@ function ComicReaderPage() {
             </span>
           )}
         </div>
-        <div className="mx-auto max-w-[920px] pb-8">
+        <div className="comic-reader-comments mx-auto mt-10 max-w-[920px] rounded-lg border p-4 pb-8 shadow-[0_18px_42px_rgba(15,23,42,0.18)] md:p-6">
           <CommentPanel
             targetType="comic_chapter"
             targetId={readerData.chapter.id}

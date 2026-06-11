@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models import Notification, User, now_utc
+from app.services.user_profile import get_avatar_url
 
 
 def safe_json_dumps(data: dict[str, Any] | None) -> str | None:
@@ -82,7 +83,11 @@ def create_notification(
     return notification
 
 
-def serialize_notification(notification: Notification) -> dict:
+def serialize_notification(
+    notification: Notification,
+    *,
+    actor_avatar_url: str | None = None,
+) -> dict:
     return {
         "id": notification.id,
         "type": notification.type,
@@ -91,6 +96,7 @@ def serialize_notification(notification: Notification) -> dict:
         "actorUserId": notification.actor_user_id,
         "actorUsername": notification.actor_username,
         "actorDisplayName": notification.actor_display_name,
+        "actorAvatarUrl": actor_avatar_url,
         "targetType": notification.target_type,
         "targetId": notification.target_id,
         "targetUrl": notification.target_url,
@@ -99,6 +105,22 @@ def serialize_notification(notification: Notification) -> dict:
         "readAt": notification.read_at,
         "metadata": safe_json_loads(notification.metadata_json),
     }
+
+
+def serialize_notification_with_actor(
+    session: Session,
+    notification: Notification,
+) -> dict:
+    actor_avatar_url = None
+
+    if notification.actor_user_id:
+        actor = session.get(User, notification.actor_user_id)
+        actor_avatar_url = get_avatar_url(session, actor) if actor else None
+
+    return serialize_notification(
+        notification,
+        actor_avatar_url=actor_avatar_url,
+    )
 
 
 def list_notifications_for_user(
@@ -129,10 +151,26 @@ def list_notifications_for_user(
         .offset(page_offset)
         .limit(page_limit)
     ).all()
+    actor_ids = {
+        notification.actor_user_id
+        for notification in notifications
+        if notification.actor_user_id
+    }
+    actors_by_id = {
+        user.id: user
+        for user in session.exec(select(User).where(User.id.in_(actor_ids))).all()
+    } if actor_ids else {}
 
     return {
         "items": [
-            serialize_notification(notification)
+            serialize_notification(
+                notification,
+                actor_avatar_url=(
+                    get_avatar_url(session, actors_by_id[notification.actor_user_id])
+                    if notification.actor_user_id in actors_by_id
+                    else None
+                ),
+            )
             for notification in notifications
         ],
         "total": total,

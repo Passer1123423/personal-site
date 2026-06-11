@@ -11,6 +11,7 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  resolveNotificationAssetUrl,
   type NotificationItem,
 } from "../api/notifications";
 
@@ -149,6 +150,7 @@ function NotificationBubble({
   isDeleting: boolean;
 }) {
   const actorName = item.actorDisplayName || item.actorUsername || "有人";
+  const actorAvatarUrl = resolveNotificationAssetUrl(item.actorAvatarUrl);
   const imageCount = getNotificationImageCount(item);
 
   return (
@@ -165,9 +167,19 @@ function NotificationBubble({
         onClick={() => onOpen(item)}
         disabled={isDeleting}
       >
-        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-accent-border)] bg-white text-sm font-semibold text-[var(--color-accent)]">
-          {actorName.slice(0, 1).toUpperCase()}
-        </div>
+        {actorAvatarUrl ? (
+          <div className="mt-0.5 h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[var(--color-accent-border)] bg-white">
+            <img
+              src={actorAvatarUrl}
+              alt={actorName}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-accent-border)] bg-white text-sm font-semibold text-[var(--color-accent)]">
+            {actorName.slice(0, 1).toUpperCase()}
+          </div>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
