@@ -3,11 +3,13 @@ from sqlmodel import Session, select
 from app.models import (
     ComicChapter,
     ComicPart,
+    ComicPartFavorite,
     ComicPartUserLink,
     ComicSeries,
     Comment,
     Novel,
     NovelChapter,
+    NovelFavorite,
     NovelUserLink,
     OutboxEvent,
     User,
@@ -371,6 +373,244 @@ def create_work_comment_owner_notifications(
 
     return created_count > 0
 
+def get_favorite_target_owner_user_ids(
+    session: Session,
+    *,
+    target_type: str,
+    target_id: str,
+) -> list[str]:
+    if target_type == "novel":
+        links = session.exec(
+            select(NovelUserLink)
+            .where(NovelUserLink.novel_id == target_id)
+            .where(NovelUserLink.role == "owner")
+        ).all()
+
+        return [link.user_id for link in links]
+
+    if target_type == "comic_part":
+        links = session.exec(
+            select(ComicPartUserLink)
+            .where(ComicPartUserLink.part_id == target_id)
+            .where(ComicPartUserLink.role == "owner")
+        ).all()
+
+        return [link.user_id for link in links]
+
+    return []
+
+
+def handle_favorite_created(
+    session: Session,
+    event: OutboxEvent,
+) -> None:
+    payload = safe_json_loads(event.payload_json)
+    actor = get_actor(session, payload.get("actor_user_id"))
+
+    favorite_id = payload.get("favorite_id")
+    actor_user_id = payload.get("actor_user_id")
+    target_type = payload.get("target_type")
+    target_id = payload.get("target_id")
+    target_label = payload.get("target_label") or "你的作品"
+    target_url = payload.get("target_url")
+
+    if not favorite_id or not actor_user_id or not target_type or not target_id:
+        return
+
+    owner_user_ids = get_favorite_target_owner_user_ids(
+        session,
+        target_type=target_type,
+        target_id=target_id,
+    )
+
+    if not owner_user_ids:
+        return
+
+    actor_name = get_user_display_name(actor)
+
+    created_count = 0
+
+    for recipient_user_id in sorted(set(owner_user_ids)):
+        if recipient_user_id == actor_user_id:
+            continue
+
+        create_notification(
+            session,
+            recipient_user_id=recipient_user_id,
+            actor=actor,
+            type="favorite.created",
+            title=f"{actor_name} 收藏了 {target_label}",
+            body="",
+            target_type=target_type,
+            target_id=target_id,
+            target_url=target_url,
+            metadata={
+                "event_id": event.id,
+                "favorite_id": favorite_id,
+                "favorite_target_type": target_type,
+                "favorite_target_id": target_id,
+                "target_label": target_label,
+            },
+            dedupe_key=f"favorite.created:{favorite_id}:{recipient_user_id}",
+        )
+
+        created_count += 1
+
+    return
+
+def get_chapter_subscription_user_ids(
+    session: Session,
+    *,
+    parent_type: str,
+    parent_id: str,
+) -> list[str]:
+    if parent_type == "novel":
+        favorites = session.exec(
+            select(NovelFavorite).where(NovelFavorite.novel_id == parent_id)
+        ).all()
+
+        return [favorite.user_id for favorite in favorites]
+
+    if parent_type == "comic_part":
+        favorites = session.exec(
+            select(ComicPartFavorite).where(ComicPartFavorite.part_id == parent_id)
+        ).all()
+
+        return [favorite.user_id for favorite in favorites]
+
+    return []
+
+
+def get_chapter_parent_owner_user_ids(
+    session: Session,
+    *,
+    parent_type: str,
+    parent_id: str,
+) -> list[str]:
+    if parent_type == "novel":
+        links = session.exec(
+            select(NovelUserLink)
+            .where(NovelUserLink.novel_id == parent_id)
+            .where(NovelUserLink.role == "owner")
+        ).all()
+
+        return [link.user_id for link in links]
+
+    if parent_type == "comic_part":
+        links = session.exec(
+            select(ComicPartUserLink)
+            .where(ComicPartUserLink.part_id == parent_id)
+            .where(ComicPartUserLink.role == "owner")
+        ).all()
+
+        return [link.user_id for link in links]
+
+    return []
+
+def handle_chapter_subscription_event(
+    session: Session,
+    event: OutboxEvent,
+    *,
+    notification_type: str,
+) -> None:
+    payload = safe_json_loads(event.payload_json)
+
+    chapter_type = payload.get("chapter_type")
+    chapter_id = payload.get("chapter_id")
+    chapter_title = payload.get("chapter_title")
+    parent_type = payload.get("parent_type")
+    parent_id = payload.get("parent_id")
+    parent_title = payload.get("parent_title")
+    target_url = payload.get("target_url")
+    event_metadata = payload.get("metadata") or {}
+
+    if (
+        not chapter_type
+        or not chapter_id
+        or not chapter_title
+        or not parent_type
+        or not parent_id
+    ):
+        return
+
+    favorite_user_ids = set(
+        get_chapter_subscription_user_ids(
+            session,
+            parent_type=parent_type,
+            parent_id=parent_id,
+        )
+    )
+
+    if not favorite_user_ids:
+        return
+
+    owner_user_ids = set(
+        get_chapter_parent_owner_user_ids(
+            session,
+            parent_type=parent_type,
+            parent_id=parent_id,
+        )
+    )
+
+    recipient_user_ids = favorite_user_ids - owner_user_ids
+
+    if not recipient_user_ids:
+        return
+
+    parent_label = f"《{parent_title}》" if parent_title else "你收藏的作品"
+
+    if notification_type == "subscription.chapter_published":
+        title = f"{parent_label}更新了新章节：{chapter_title}"
+        body = "你收藏的作品有新章节。"
+    else:
+        title = f"{parent_label}的章节有内容更新：{chapter_title}"
+        body = "你收藏的作品有章节内容更新。"
+
+    for recipient_user_id in sorted(recipient_user_ids):
+        create_notification(
+            session,
+            recipient_user_id=recipient_user_id,
+            actor=None,
+            type=notification_type,
+            title=title,
+            body=body,
+            target_type=chapter_type,
+            target_id=chapter_id,
+            target_url=target_url,
+            metadata={
+                "event_id": event.id,
+                "chapter_type": chapter_type,
+                "chapter_id": chapter_id,
+                "chapter_title": chapter_title,
+                "parent_type": parent_type,
+                "parent_id": parent_id,
+                "parent_title": parent_title,
+                **event_metadata,
+            },
+            dedupe_key=f"{notification_type}:{event.id}:{recipient_user_id}",
+        )
+
+
+def handle_chapter_published(
+    session: Session,
+    event: OutboxEvent,
+) -> None:
+    handle_chapter_subscription_event(
+        session,
+        event,
+        notification_type="subscription.chapter_published",
+    )
+
+
+def handle_chapter_updated(
+    session: Session,
+    event: OutboxEvent,
+) -> None:
+    handle_chapter_subscription_event(
+        session,
+        event,
+        notification_type="subscription.chapter_updated",
+    )
 
 def handle_comment_created(
     session: Session,
@@ -410,6 +650,9 @@ def handle_comment_created(
 
 EVENT_HANDLERS = {
     "comment.created": handle_comment_created,
+    "favorite.created": handle_favorite_created,
+    "chapter.published": handle_chapter_published,
+    "chapter.updated": handle_chapter_updated,
 }
 
 

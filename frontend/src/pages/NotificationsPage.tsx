@@ -7,6 +7,7 @@ import SearchablePicker, {
 } from "../components/SearchablePicker";
 
 import {
+  deleteNotification,
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -53,6 +54,18 @@ function getNotificationKindLabel(type: string) {
 
   if (type === "comment.comic_chapter") {
     return "漫画评论";
+  }
+
+  if (type === "favorite.created") {
+    return "作品收藏";
+  }
+
+  if (type === "subscription.chapter_published") {
+    return "收藏更新";
+  }
+
+  if (type === "subscription.chapter_updated") {
+    return "章节更新";
   }
 
   return "未分类通知";
@@ -125,50 +138,59 @@ function countByReadState(items: NotificationItem[], state: string) {
 function NotificationBubble({
   item,
   onOpen,
+  onDelete,
+  isDeleteConfirming,
+  isDeleting,
 }: {
   item: NotificationItem;
   onOpen: (item: NotificationItem) => void;
+  onDelete: (item: NotificationItem) => void;
+  isDeleteConfirming: boolean;
+  isDeleting: boolean;
 }) {
   const actorName = item.actorDisplayName || item.actorUsername || "有人";
   const imageCount = getNotificationImageCount(item);
 
   return (
-    <button
-      type="button"
+    <div
       className={`group flex w-full gap-3 rounded-2xl border px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
         item.isRead
           ? "border-[var(--color-border-soft)] bg-white/80"
           : "border-[var(--color-accent-border)] bg-[var(--color-accent-soft)]"
       }`}
-      onClick={() => onOpen(item)}
     >
-      <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-accent-border)] bg-white text-sm font-semibold text-[var(--color-accent)]">
-        {actorName.slice(0, 1).toUpperCase()}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">
-            {getNotificationKindLabel(item.type)}
-          </span>
-
-          {!item.isRead && (
-            <span className="h-2 w-2 rounded-full bg-[var(--color-danger)]" />
-          )}
-
-          {imageCount > 0 && (
-            <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-soft">
-              图片 {imageCount} 张
-            </span>
-          )}
-
-          <span className="ml-auto text-xs text-soft">
-            {formatNotificationTime(item.createdAt)}
-          </span>
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 gap-3 text-left"
+        onClick={() => onOpen(item)}
+        disabled={isDeleting}
+      >
+        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-accent-border)] bg-white text-sm font-semibold text-[var(--color-accent)]">
+          {actorName.slice(0, 1).toUpperCase()}
         </div>
 
-        <div className="mt-2 flex items-start gap-2">
-          <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">
+              {getNotificationKindLabel(item.type)}
+            </span>
+
+            {!item.isRead && (
+              <span className="h-2 w-2 rounded-full bg-[var(--color-danger)]" />
+            )}
+
+            {imageCount > 0 && (
+              <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-soft">
+                图片 {imageCount} 张
+              </span>
+            )}
+
+            <span className="ml-auto text-xs text-soft">
+              {formatNotificationTime(item.createdAt)}
+            </span>
+          </div>
+
+          <div className="mt-2 min-w-0">
             <p className="text-sm font-semibold text-main group-hover:text-[var(--color-accent)]">
               {item.title}
             </p>
@@ -179,18 +201,34 @@ function NotificationBubble({
               </p>
             )}
           </div>
-
-          <span
-            className={`mt-1 shrink-0 text-lg leading-none transition group-hover:translate-x-1 group-hover:text-[var(--color-accent)] ${
-              item.targetUrl ? "text-soft" : "text-[var(--color-border-control)]"
-            }`}
-            aria-hidden="true"
-          >
-            →
-          </span>
         </div>
+      </button>
+
+      <div className="flex w-10 shrink-0 flex-col items-center pt-8">
+        <span
+          className={`shrink-0 text-lg leading-none transition group-hover:translate-x-1 group-hover:text-[var(--color-accent)] ${
+            item.targetUrl ? "text-soft" : "text-[var(--color-border-control)]"
+          }`}
+          aria-hidden="true"
+        >
+          →
+        </span>
+
+        <button
+          type="button"
+          className={`mt-2 text-xs leading-none transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            isDeleteConfirming
+              ? "font-semibold text-[var(--color-danger)]"
+              : "text-[var(--color-danger)] opacity-60 hover:font-semibold hover:opacity-100"
+          }`}
+          onClick={() => onDelete(item)}
+          disabled={isDeleting}
+          title={isDeleteConfirming ? "再次点击确认删除" : "删除通知"}
+        >
+          {isDeleteConfirming ? "确认" : "删除"}
+        </button>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -206,6 +244,8 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const unreadCount = useMemo(
     () => items.filter((item) => !item.isRead).length,
@@ -259,6 +299,24 @@ export default function NotificationsPage() {
         label: "漫画某话评论",
         badge: String(countByType(items, "comment.comic_chapter")),
         searchText: "漫画 话 评论 comic chapter comment",
+      },
+      {
+        value: "favorite.created",
+        label: "作品收藏",
+        badge: String(countByType(items, "favorite.created")),
+        searchText: "作品 收藏 favorite created novel comic",
+      },
+      {
+        value: "subscription.chapter_published",
+        label: "收藏更新",
+        badge: String(countByType(items, "subscription.chapter_published")),
+        searchText: "收藏 更新 新章节 发布 subscription chapter published novel comic",
+      },
+      {
+        value: "subscription.chapter_updated",
+        label: "内容更新",
+        badge: String(countByType(items, "subscription.chapter_updated")),
+        searchText: "收藏 章节 内容更新 subscription chapter updated novel comic",
       },
     ],
     [items],
@@ -371,6 +429,34 @@ export default function NotificationsPage() {
       setError(error instanceof Error ? error.message : "打开通知失败");
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function handleDeleteNotification(item: NotificationItem) {
+    if (deletingId) {
+      return;
+    }
+
+    if (confirmDeleteId !== item.id) {
+      setConfirmDeleteId(item.id);
+      return;
+    }
+
+    setDeletingId(item.id);
+    setError("");
+
+    try {
+      await deleteNotification(item.id);
+
+      setItems((currentItems) =>
+        currentItems.filter((currentItem) => currentItem.id !== item.id),
+      );
+      setTotal((currentTotal) => Math.max(0, currentTotal - 1));
+      setConfirmDeleteId(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "删除通知失败");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -490,6 +576,9 @@ export default function NotificationsPage() {
                     key={item.id}
                     item={item}
                     onOpen={handleOpenNotification}
+                    onDelete={handleDeleteNotification}
+                    isDeleteConfirming={confirmDeleteId === item.id}
+                    isDeleting={deletingId === item.id}
                   />
                 ))}
 

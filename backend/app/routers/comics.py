@@ -1,4 +1,3 @@
-from ..models import Asset, ComicChapter, ComicPage, ComicPart, ComicSeries
 """
 comics.py
 
@@ -17,7 +16,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from ..database import get_session
-from ..models import Asset, ComicChapter, ComicPart, ComicSeries
+from ..models import (
+    Asset,
+    ComicChapter,
+    ComicPage,
+    ComicPart,
+    ComicPartUserLink,
+    ComicSeries,
+    User,
+)
 
 
 router = APIRouter(
@@ -57,6 +64,30 @@ def get_asset_url(session: Session, asset_id: str | None) -> str | None:
         return None
 
     return asset.url
+
+
+def get_comic_part_owner(session: Session, part: ComicPart) -> User | None:
+    link = session.exec(
+        select(ComicPartUserLink)
+        .where(ComicPartUserLink.part_id == part.id)
+        .where(ComicPartUserLink.role == "owner")
+    ).first()
+
+    if not link:
+        return None
+
+    return session.get(User, link.user_id)
+
+
+def owner_to_public_item(user: User | None) -> dict | None:
+    if not user:
+        return None
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "displayName": user.display_name,
+    }
 
 
 @router.get("")
@@ -190,6 +221,7 @@ def get_comic_detail(
                 "visibility": part.visibility,
                 "displayOrder": part.display_order,
                 "coverUrl": get_asset_url(session, part.cover_asset_id),
+                "owner": owner_to_public_item(get_comic_part_owner(session, part)),
                 "createdAt": part.created_at,
                 "updatedAt": part.updated_at,
                 "chapters": chapter_results,

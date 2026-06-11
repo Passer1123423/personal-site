@@ -25,6 +25,12 @@ export type ComicChapterItem = {
   updatedAt: string;
 };
 
+export type ComicOwnerItem = {
+  id: string;
+  username: string;
+  displayName: string;
+};
+
 export type ComicPartItem = {
   id: string;
   slug: string;
@@ -34,6 +40,7 @@ export type ComicPartItem = {
   visibility: string;
   displayOrder: number;
   coverUrl: string | null;
+  owner: ComicOwnerItem | null;
   createdAt: string;
   updatedAt: string;
   chapters: ComicChapterItem[];

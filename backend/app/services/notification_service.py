@@ -200,3 +200,23 @@ def mark_all_notifications_read(
         session.commit()
 
     return len(notifications)
+
+def delete_notification_for_user(
+    session: Session,
+    *,
+    notification_id: str,
+    user_id: str,
+) -> bool:
+    notification = session.exec(
+        select(Notification)
+        .where(Notification.id == notification_id)
+        .where(Notification.recipient_user_id == user_id)
+    ).first()
+
+    if notification is None:
+        return False
+
+    session.delete(notification)
+    session.commit()
+
+    return True

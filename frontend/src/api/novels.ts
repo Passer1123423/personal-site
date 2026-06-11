@@ -20,7 +20,14 @@ export type NovelChapterItem = {
   updatedAt: string;
 };
 
+export type NovelOwnerItem = {
+  id: string;
+  username: string;
+  displayName: string;
+};
+
 export type NovelDetail = NovelListItem & {
+  owner: NovelOwnerItem | null;
   chapters: NovelChapterItem[];
 };
 
