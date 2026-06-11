@@ -125,3 +125,25 @@ export async function markAllNotificationsRead(): Promise<{
 
   return response.json();
 }
+
+export async function deleteNotification(notificationId: string): Promise<{
+  deleted: boolean;
+  notificationId: string;
+}> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/notifications/${notificationId}`,
+    {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.detail ?? "删除通知失败");
+  }
+
+  window.dispatchEvent(new Event("notifications-changed"));
+
+  return response.json();
+}
