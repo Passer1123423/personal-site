@@ -20,6 +20,7 @@ from app.models import (
     now_utc,
 )
 from app.services.interactions import hard_delete_comments_for_target
+from app.services.outbox_service import create_outbox_event
 
 import re
 
@@ -374,6 +375,44 @@ def create_next_chapter(
 
     return chapter
 
+def create_comic_chapter_published_event(
+    session: Session,
+    *,
+    series: ComicSeries,
+    part: ComicPart,
+    chapter: ComicChapter,
+    page_count: int,
+) -> None:
+    create_outbox_event(
+        session,
+        event_type="chapter.published",
+        aggregate_type="comic_chapter",
+        aggregate_id=chapter.id,
+        actor_user_id=None,
+        payload={
+            "chapter_type": "comic_chapter",
+            "chapter_id": chapter.id,
+            "chapter_title": chapter.title,
+            "parent_type": "comic_part",
+            "parent_id": part.id,
+            "parent_title": part.title,
+            "target_url": f"/works/comics/{series.slug}/{part.slug}/{chapter.slug}",
+            "metadata": {
+                "series_id": series.id,
+                "series_slug": series.slug,
+                "series_title": series.title,
+                "part_id": part.id,
+                "part_slug": part.slug,
+                "part_title": part.title,
+                "chapter_slug": chapter.slug,
+                "page_count": page_count,
+            },
+        },
+        dedupe_key=f"chapter.published:comic_chapter:{chapter.id}",
+    )
+
+    session.commit()
+
 # ===== 导入章节 =====
 def copy_image_to_uploads(
     source_path: Path,
@@ -500,6 +539,14 @@ def import_comic_chapter_from_dir(
         )
 
         pages.append(page)
+
+    create_comic_chapter_published_event(
+        session=session,
+        series=series,
+        part=part,
+        chapter=chapter,
+        page_count=len(pages),
+    )
 
     return {
         "series": series,

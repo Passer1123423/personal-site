@@ -9,6 +9,8 @@ from app.models import (
     User,
 )
 
+from app.services.outbox_service import create_outbox_event
+
 
 def get_novel_by_slug(session: Session, novel_slug: str) -> Novel:
     novel = session.exec(
@@ -75,6 +77,36 @@ def is_comic_part_favorited(
 
     return favorite is not None
 
+def create_favorite_created_event(
+    session: Session,
+    *,
+    favorite_id: str,
+    actor_user_id: str,
+    target_type: str,
+    target_id: str,
+    target_label: str,
+    target_url: str,
+) -> None:
+    create_outbox_event(
+        session,
+        event_type="favorite.created",
+        aggregate_type="favorite",
+        aggregate_id=favorite_id,
+        actor_user_id=actor_user_id,
+        payload={
+            "favorite_id": favorite_id,
+            "actor_user_id": actor_user_id,
+            "target_type": target_type,
+            "target_id": target_id,
+            "target_label": target_label,
+            "target_url": target_url,
+        },
+        dedupe_key=f"favorite.created:{favorite_id}",
+    )
+
+
+def build_comic_part_url(series: ComicSeries, part: ComicPart) -> str:
+    return f"/works/comics/{series.slug}/{part.slug}"
 
 def favorite_novel(
     session: Session,
@@ -96,6 +128,18 @@ def favorite_novel(
             user_id=user.id,
         )
         session.add(favorite)
+        session.flush()
+
+        create_favorite_created_event(
+            session,
+            favorite_id=favorite.id,
+            actor_user_id=user.id,
+            target_type="novel",
+            target_id=novel.id,
+            target_label=f"《{novel.title}》",
+            target_url=f"/works/novels/{novel.slug}",
+        )
+
         session.commit()
         session.refresh(favorite)
 
@@ -183,6 +227,18 @@ def favorite_comic_part(
             user_id=user.id,
         )
         session.add(favorite)
+        session.flush()
+
+        create_favorite_created_event(
+            session,
+            favorite_id=favorite.id,
+            actor_user_id=user.id,
+            target_type="comic_part",
+            target_id=part.id,
+            target_label=f"《{part.title}》",
+            target_url=build_comic_part_url(series, part),
+        )
+
         session.commit()
         session.refresh(favorite)
 

@@ -55,6 +55,18 @@ function getNotificationKindLabel(type: string) {
     return "漫画评论";
   }
 
+  if (type === "favorite.created") {
+    return "作品收藏";
+  }
+
+  if (type === "subscription.chapter_published") {
+    return "收藏更新";
+  }
+  
+  if (type === "subscription.chapter_updated") {
+    return "章节更新";
+  }
+
   return "未分类通知";
 }
 
@@ -259,6 +271,24 @@ export default function NotificationsPage() {
         label: "漫画某话评论",
         badge: String(countByType(items, "comment.comic_chapter")),
         searchText: "漫画 话 评论 comic chapter comment",
+      },
+      {
+        value: "favorite.created",
+        label: "作品收藏",
+        badge: String(countByType(items, "favorite.created")),
+        searchText: "作品 收藏 favorite created novel comic",
+      },
+      {
+        value: "subscription.chapter_published",
+        label: "收藏更新",
+        badge: String(countByType(items, "subscription.chapter_published")),
+        searchText: "收藏 更新 新章节 发布 subscription chapter published novel comic",
+      },
+      {
+        value: "subscription.chapter_updated",
+        label: "内容更新",
+        badge: String(countByType(items, "subscription.chapter_updated")),
+        searchText: "收藏 章节 内容更新 subscription chapter updated novel comic",
       },
     ],
     [items],

@@ -18,6 +18,7 @@ from app.models import (
     now_utc,
 )
 from app.services.interactions import hard_delete_comments_for_target
+from app.services.outbox_service import create_outbox_event
 from fastapi import UploadFile
 
 
@@ -422,6 +423,72 @@ def compact_chapter_orders(
     return chapters
 
 
+def create_novel_chapter_published_event(
+    session: Session,
+    *,
+    novel: Novel,
+    chapter: NovelChapter,
+) -> None:
+    create_outbox_event(
+        session,
+        event_type="chapter.published",
+        aggregate_type="novel_chapter",
+        aggregate_id=chapter.id,
+        actor_user_id=None,
+        payload={
+            "chapter_type": "novel_chapter",
+            "chapter_id": chapter.id,
+            "chapter_title": chapter.title,
+            "parent_type": "novel",
+            "parent_id": novel.id,
+            "parent_title": novel.title,
+            "target_url": f"/works/novels/{novel.slug}/{chapter.slug}",
+            "metadata": {
+                "novel_slug": novel.slug,
+                "chapter_slug": chapter.slug,
+                "content_length": len(chapter.content or ""),
+            },
+        },
+        dedupe_key=f"chapter.published:novel_chapter:{chapter.id}",
+    )
+
+    session.commit()
+
+
+def create_novel_chapter_updated_event(
+    session: Session,
+    *,
+    novel: Novel,
+    chapter: NovelChapter,
+) -> None:
+    updated_at_key = chapter.updated_at.isoformat()
+
+    create_outbox_event(
+        session,
+        event_type="chapter.updated",
+        aggregate_type="novel_chapter",
+        aggregate_id=chapter.id,
+        actor_user_id=None,
+        payload={
+            "chapter_type": "novel_chapter",
+            "chapter_id": chapter.id,
+            "chapter_title": chapter.title,
+            "parent_type": "novel",
+            "parent_id": novel.id,
+            "parent_title": novel.title,
+            "target_url": f"/works/novels/{novel.slug}/{chapter.slug}",
+            "metadata": {
+                "novel_slug": novel.slug,
+                "chapter_slug": chapter.slug,
+                "content_length": len(chapter.content or ""),
+                "updated_at": chapter.updated_at,
+            },
+        },
+        dedupe_key=f"chapter.updated:novel_chapter:{chapter.id}:{updated_at_key}",
+    )
+
+    session.commit()
+
 # ===== 创建 =====
 def create_novel(
     session: Session,
@@ -536,13 +603,21 @@ def create_chapter(
     session.commit()
     session.refresh(chapter)
 
-    touch_chapter_and_novel(
+    chapter, novel = touch_chapter_and_novel(
         session=session,
         chapter=chapter,
         novel=novel,
     )
 
+    create_novel_chapter_published_event(
+        session=session,
+        novel=novel,
+        chapter=chapter,
+    )
+
     session.refresh(chapter)
+
+    return chapter
 
     return chapter
 
@@ -683,17 +758,27 @@ def reset_chapter_content(
         chapter_slug=chapter_slug,
     )
 
-    chapter.content = content or ""
+    new_content = content or ""
+    content_changed = (chapter.content or "") != new_content
+
+    chapter.content = new_content
 
     session.add(chapter)
     session.commit()
     session.refresh(chapter)
 
-    touch_chapter_and_novel(
+    chapter, novel = touch_chapter_and_novel(
         session=session,
         chapter=chapter,
         novel=novel,
     )
+
+    if content_changed:
+        create_novel_chapter_updated_event(
+            session=session,
+            novel=novel,
+            chapter=chapter,
+        )
 
     session.refresh(chapter)
 
