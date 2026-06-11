@@ -7,6 +7,13 @@ import {
   type ComicPartItem,
   type ComicSeriesDetail,
 } from "../api/comics";
+import {
+  favoriteComicPart,
+  getComicPartFavoriteState,
+  unfavoriteComicPart,
+} from "../api/favorites";
+import { getAccessToken } from "../api/auth";
+import FavoriteStarButton from "../components/FavoriteStarButton";
 import CommentPanel from "../components/CommentPanel.tsx";
 import { formatChinaDate } from "../utils/time";
 
@@ -50,6 +57,9 @@ function ComicPartPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
+
   useEffect(() => {
     async function loadPart() {
       if (!seriesSlug || !partSlug) {
@@ -86,6 +96,33 @@ function ComicPartPage() {
     return series.parts.find((item) => item.slug === partSlug) ?? null;
   }, [series, partSlug]);
 
+  useEffect(() => {
+    async function loadFavoriteState() {
+      if (!seriesSlug || !partSlug || !part) {
+        setIsFavorited(false);
+        return;
+      }
+
+      if (!getAccessToken()) {
+        setIsFavorited(false);
+        return;
+      }
+
+      try {
+        const favoriteState = await getComicPartFavoriteState(
+          seriesSlug,
+          partSlug,
+        );
+
+        setIsFavorited(favoriteState.isFavorited);
+      } catch {
+        setIsFavorited(false);
+      }
+    }
+
+    loadFavoriteState();
+  }, [seriesSlug, partSlug, part]);
+
   const chapters = useMemo(() => {
     if (!part) return [];
 
@@ -93,6 +130,31 @@ function ComicPartPage() {
       (a, b) => a.displayOrder - b.displayOrder,
     );
   }, [part]);
+
+  async function handleToggleFavorite() {
+    if (!seriesSlug || !partSlug || !part || isFavoriteLoading) {
+      return;
+    }
+
+    if (!getAccessToken()) {
+      setErrorMessage("请先登录后再收藏。");
+      return;
+    }
+
+    try {
+      setIsFavoriteLoading(true);
+
+      const result = isFavorited
+        ? await unfavoriteComicPart(seriesSlug, partSlug)
+        : await favoriteComicPart(seriesSlug, partSlug);
+
+      setIsFavorited(result.isFavorited);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "收藏操作失败。");
+    } finally {
+      setIsFavoriteLoading(false);
+    }
+  }
 
   return (
     <main className="page-shell min-h-[100dvh] pb-10 md:pb-16">
@@ -135,9 +197,18 @@ function ComicPartPage() {
                     Comic Part
                   </p>
 
-                  <h1 className="mt-1.5 line-clamp-2 text-xl font-bold leading-7 text-main md:mt-3 md:text-4xl md:leading-tight">
-                    {part.title}
-                  </h1>
+                  <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 md:mt-3 md:gap-x-2">
+                    <h1 className="min-w-0 line-clamp-2 text-xl font-bold leading-7 text-main md:text-4xl md:leading-tight">
+                      {part.title}
+                    </h1>
+
+                    <FavoriteStarButton
+                      isFavorited={isFavorited}
+                      isLoading={isFavoriteLoading}
+                      title={isFavorited ? "取消收藏这本小说" : "收藏这本小说"}
+                      onClick={handleToggleFavorite}
+                    />
+                  </div>
 
                   <p className="mt-2 hidden max-w-3xl whitespace-pre-line text-sm leading-6 text-muted md:mt-4 md:block md:text-base md:leading-7">
                     {part.summary || "暂无分部简介。"}

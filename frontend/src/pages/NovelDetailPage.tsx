@@ -9,6 +9,12 @@ import {
   resolveAssetUrl,
   type NovelDetail,
 } from "../api/novels";
+import {
+  favoriteNovel,
+  getNovelFavoriteState,
+  unfavoriteNovel,
+} from "../api/favorites";
+import FavoriteStarButton from "../components/FavoriteStarButton";
 import CommentPanel from "../components/CommentPanel.tsx";
 import { formatChinaDate } from "../utils/time";
 
@@ -51,6 +57,9 @@ function NovelDetailPage() {
 
   const [canManageNovel, setCanManageNovel] = useState(false);
 
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
+
   useEffect(() => {
     async function loadNovel() {
       if (!novelSlug) {
@@ -69,8 +78,16 @@ function NovelDetailPage() {
         const token = getAccessToken();
 
         if (!token) {
+          setIsFavorited(false);
           setCanManageNovel(false);
           return;
+        }
+
+        try {
+          const favoriteState = await getNovelFavoriteState(data.slug);
+          setIsFavorited(favoriteState.isFavorited);
+        } catch {
+          setIsFavorited(false);
         }
 
         try {
@@ -106,6 +123,31 @@ function NovelDetailPage() {
     );
   }, [novel]);
 
+  async function handleToggleFavorite() {
+    if (!novel || isFavoriteLoading) {
+      return;
+    }
+
+    if (!getAccessToken()) {
+      setErrorMessage("请先登录后再收藏。");
+      return;
+    }
+
+    try {
+      setIsFavoriteLoading(true);
+
+      const result = isFavorited
+        ? await unfavoriteNovel(novel.slug)
+        : await favoriteNovel(novel.slug);
+
+      setIsFavorited(result.isFavorited);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "收藏操作失败。");
+    } finally {
+      setIsFavoriteLoading(false);
+    }
+  }
+
   return (
     <main className="page-shell min-h-[100dvh] pb-10 md:pb-16">
       <section className="mx-auto max-w-[1250px] px-4 py-6 md:px-8 md:py-8">
@@ -135,7 +177,7 @@ function NovelDetailPage() {
                 <NovelCover novel={novel} />
               </div>
 
-              <div className="flex min-w-0 flex-col justify-between md:pr-36">
+              <div className="flex min-w-0 flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between gap-3 md:block">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent md:text-sm md:tracking-[0.22em]">
@@ -154,9 +196,18 @@ function NovelDetailPage() {
                     )}
                   </div>
 
-                  <h1 className="mt-1.5 line-clamp-2 text-xl font-bold leading-7 text-main md:mt-3 md:text-4xl md:leading-tight">
-                    {novel.title}
-                  </h1>
+                  <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 md:mt-3 md:gap-x-2">
+                    <h1 className="min-w-0 line-clamp-2 text-xl font-bold leading-7 text-main md:text-4xl md:leading-tight">
+                      {novel.title}
+                    </h1>
+
+                    <FavoriteStarButton
+                      isFavorited={isFavorited}
+                      isLoading={isFavoriteLoading}
+                      title={isFavorited ? "取消收藏这本小说" : "收藏这本小说"}
+                      onClick={handleToggleFavorite}
+                    />
+                  </div>
 
                   <p className="mt-2 hidden max-w-3xl whitespace-pre-line text-sm leading-6 text-muted md:mt-4 md:block md:text-base md:leading-7">
                     {novel.summary || "暂无小说简介。"}
