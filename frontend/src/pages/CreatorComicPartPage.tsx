@@ -8,8 +8,13 @@ import {
   deleteAuthorUploadImage,
   fetchAuthorUploadPreviewObjectUrl,
   listAuthorUploadImages,
+  loadAuthorComicChapterToUploads,
   publishAuthorComicChapter,
+  publishAuthorComicChapterUpdate,
+  reorderAuthorUploadImages,
   type AuthorUploadImage,
+  type AuthorUploadState,
+  type ComicUploadMode,
   uploadAuthorComicImageWithProgress,
 } from "../api/authorComicUpload";
 
@@ -165,6 +170,8 @@ function ChapterRow({
   partSlug,
   chapter,
   submitting,
+  uploadTargetActive,
+  onLoadToUploads,
   onReload,
   onMessage,
 }: {
@@ -172,6 +179,8 @@ function ChapterRow({
   partSlug: string;
   chapter: AuthorComicChapter;
   submitting: boolean;
+  uploadTargetActive: boolean;
+  onLoadToUploads: (chapter: AuthorComicChapter) => Promise<void>;
   onReload: () => Promise<void>;
   onMessage: (message: Message) => void;
 }) {
@@ -291,6 +300,19 @@ function ChapterRow({
 
         <button
           type="button"
+          className={
+            uploadTargetActive
+              ? "admin-button-primary px-3 py-1 text-sm disabled:opacity-50"
+              : "admin-button-secondary px-3 py-1 text-sm disabled:opacity-50"
+          }
+          disabled={submitting}
+          onClick={() => onLoadToUploads(chapter)}
+        >
+          编辑
+        </button>
+
+        <button
+          type="button"
           className="admin-button-danger px-3 py-1 text-sm disabled:opacity-50"
           disabled={submitting}
           onClick={handleDelete}
@@ -318,6 +340,10 @@ export default function CreatorComicPartPage() {
   const [totalSizeBytes, setTotalSizeBytes] = useState(0);
   const [limitBytes, setLimitBytes] = useState(500 * 1024 * 1024);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+
+  const [uploadMode, setUploadMode] = useState<ComicUploadMode>("new_chapter");
+  const [targetChapterId, setTargetChapterId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<AuthorUploadImage | null>(null);
 
   const [chapterTitle, setChapterTitle] = useState("");
   const [pageLoading, setPageLoading] = useState(true);
@@ -361,6 +387,19 @@ export default function CreatorComicPartPage() {
 
   const chapters = partDetail?.chapters ?? [];
 
+  const targetChapter = useMemo(
+    () => chapters.find((chapter) => chapter.id === targetChapterId) ?? null,
+    [chapters, targetChapterId],
+  );
+
+  const isNewUploadTarget = uploadMode === "new_chapter";
+
+  const uploadTargetLabel = isNewUploadTarget
+    ? "新建章节"
+    : targetChapter
+      ? `修改：${targetChapter.title}`
+      : "修改已有章节";
+
   const hasUploadingImages = pendingUploads.some(
     (item) => item.status === "waiting" || item.status === "uploading",
   );
@@ -389,12 +428,30 @@ export default function CreatorComicPartPage() {
     setPartDetail(data);
   }
 
-  async function refreshUploadImages() {
-    const state = await listAuthorUploadImages();
-
+  function applyUploadState(
+    state: AuthorUploadState,
+    options: { preserveEmptyTarget?: boolean } = {},
+  ) {
     setImages(state.images);
     setTotalSizeBytes(state.totalSizeBytes);
     setLimitBytes(state.limitBytes);
+
+    if (
+      options.preserveEmptyTarget &&
+      state.images.length === 0 &&
+      uploadMode === "edit_chapter" &&
+      targetChapterId
+    ) {
+      return;
+    }
+
+    setUploadMode(state.uploadMode);
+    setTargetChapterId(state.targetChapterId);
+  }
+
+  async function refreshUploadImages() {
+    const state = await listAuthorUploadImages();
+    applyUploadState(state);
   }
 
   async function loadPageData() {
@@ -549,6 +606,13 @@ export default function CreatorComicPartPage() {
               uploadBatchId,
               uploadBatchIndex: index + 1,
               uploadBatchTotal: pendingItems.length,
+              uploadMode,
+              seriesSlug,
+              partSlug,
+              chapterSlug:
+                uploadMode === "edit_chapter" && targetChapter
+                  ? targetChapter.slug
+                  : undefined,
             },
           );
 
@@ -599,17 +663,153 @@ export default function CreatorComicPartPage() {
     removePendingUpload(id);
   }
 
+  async function handleMoveUploadImage(imageId: string, direction: "left" | "right") {
+    const currentIndex = images.findIndex((image) => image.id === imageId);
+
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const targetIndex =
+      direction === "left" ? currentIndex - 1 : currentIndex + 1;
+
+    if (targetIndex < 0 || targetIndex >= images.length) {
+      return;
+    }
+
+    const nextImages = [...images];
+    const currentImage = nextImages[currentIndex];
+    nextImages[currentIndex] = nextImages[targetIndex];
+    nextImages[targetIndex] = currentImage;
+
+    setSubmitting(true);
+    setMessage(null);
+
+    try {
+      const state = await reorderAuthorUploadImages({
+        ordered_image_ids: nextImages.map((image) => image.id),
+      });
+
+      applyUploadState(state);
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : "排序失败";
+      setMessage({ type: "error", text });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleDeleteImage(imageId: string) {
     setSubmitting(true);
     setMessage(null);
 
     try {
       const state = await deleteAuthorUploadImage(imageId);
-      setImages(state.images);
-      setTotalSizeBytes(state.totalSizeBytes);
-      setLimitBytes(state.limitBytes);
+      applyUploadState(state, { preserveEmptyTarget: true });
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : "删除失败";
+      setMessage({ type: "error", text });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleStartNewChapterUpload() {
+    if (hasUploadingImages) {
+      setMessage({
+        type: "error",
+        text: "仍有图片正在上传，请等待上传完成。",
+      });
+      return;
+    }
+
+    if (uploadMode === "new_chapter") {
+      setDrawerOpen(true);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "当前待传区正在修改已有章节。切换为新建章节会清空当前待传区，是否继续？",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage(null);
+
+    try {
+      const state = await clearAuthorUploadImages();
+      applyUploadState(state);
+      setChapterTitle("");
+      setDrawerOpen(true);
+
+      setMessage({
+        type: "success",
+        text: "已切换为新建章节。",
+      });
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : "切换失败";
+      setMessage({ type: "error", text });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleLoadChapterToUploads(chapter: AuthorComicChapter) {
+    if (!seriesSlug || !partSlug) {
+      setMessage({
+        type: "error",
+        text: "当前路由缺少 seriesSlug 或 partSlug。",
+      });
+      return;
+    }
+
+    if (hasUploadingImages) {
+      setMessage({
+        type: "error",
+        text: "仍有图片正在上传，请等待上传完成。",
+      });
+      return;
+    }
+
+    if (uploadMode === "edit_chapter" && targetChapterId === chapter.id) {
+      setDrawerOpen(true);
+      return;
+    }
+
+    const needsConfirm = images.length > 0 || pendingUploads.length > 0;
+
+    if (needsConfirm) {
+      const confirmed = window.confirm(
+        `切换到修改「${chapter.title}」会清空当前待传区，并载入该章节已有页面。是否继续？`,
+      );
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    setMessage(null);
+
+    try {
+      const state = await loadAuthorComicChapterToUploads({
+        series_slug: seriesSlug,
+        part_slug: partSlug,
+        chapter_slug: chapter.slug,
+      });
+
+      applyUploadState(state);
+      setDrawerOpen(true);
+
+      setMessage({
+        type: "success",
+        text: `已载入「${chapter.title}」到待传区。`,
+      });
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : "载入章节失败";
       setMessage({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -627,9 +827,7 @@ export default function CreatorComicPartPage() {
     try {
       const state = await clearAuthorUploadImages();
 
-      setImages(state.images);
-      setTotalSizeBytes(state.totalSizeBytes);
-      setLimitBytes(state.limitBytes);
+      applyUploadState(state, { preserveEmptyTarget: true });
 
       setMessage({
         type: "success",
@@ -769,15 +967,55 @@ export default function CreatorComicPartPage() {
     if (images.length === 0) {
       setMessage({
         type: "error",
-        text: "待传区没有图片。",
+        text:
+          uploadMode === "edit_chapter" && targetChapter
+            ? `「${targetChapter.title}」的待传区为空，不能覆盖更新。请先上传至少一张图片。`
+            : "待传区为空，不能发布新章节。请先上传至少一张图片。",
+      });
+      setDrawerOpen(true);
+      return;
+    }
+
+    if (uploadMode === "edit_chapter" && !targetChapter) {
+      setMessage({
+        type: "error",
+        text: "当前待传区处于修改模式，但没有匹配到目标章节，请重新载入章节。",
       });
       return;
+    }
+
+    if (uploadMode === "edit_chapter" && targetChapter) {
+      const confirmed = window.confirm(
+        `确认用当前待传区内容覆盖「${targetChapter.title}」？此操作会替换该章节全部页面。`,
+      );
+
+      if (!confirmed) {
+        return;
+      }
     }
 
     setSubmitting(true);
     setMessage(null);
 
     try {
+      if (uploadMode === "edit_chapter" && targetChapter) {
+        const result = await publishAuthorComicChapterUpdate({
+          series_slug: seriesSlug,
+          part_slug: partSlug,
+          chapter_slug: targetChapter.slug,
+          ordered_image_ids: orderedImageIds,
+        });
+
+        await Promise.all([refreshUploadImages(), loadPartDetail()]);
+
+        setMessage({
+          type: "success",
+          text: `已更新 ${result.chapter.title}，共 ${result.pageCount} 页。`,
+        });
+
+        return;
+      }
+
       const result = await publishAuthorComicChapter({
         series_slug: seriesSlug,
         part_slug: partSlug,
@@ -829,8 +1067,14 @@ export default function CreatorComicPartPage() {
 
               <button
                 type="button"
-                className="admin-button-primary px-4 py-2 text-sm font-semibold md:px-5 md:py-3 md:text-base"
-                onClick={() => setDrawerOpen(true)}
+                className={
+                  uploadMode === "new_chapter" && drawerOpen
+                    ? "admin-button-primary px-4 py-2 text-sm font-semibold md:px-5 md:py-3 md:text-base"
+                    : uploadMode === "new_chapter"
+                      ? "rounded-[var(--radius-control-sm)] border border-[var(--color-accent-border)] bg-[var(--color-accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--color-accent)] transition hover:border-[var(--color-accent-border-strong)] hover:bg-[var(--color-accent-soft)] md:px-5 md:py-3 md:text-base"
+                      : "admin-button-secondary px-4 py-2 text-sm font-semibold md:px-5 md:py-3 md:text-base"
+                }
+                onClick={handleStartNewChapterUpload}
               >
                 上传新章节
               </button>
@@ -1016,8 +1260,14 @@ export default function CreatorComicPartPage() {
 
                     <button
                       type="button"
-                      className="admin-button-primary flex-1 px-4 py-2 text-sm font-semibold md:flex-none"
-                      onClick={() => setDrawerOpen(true)}
+                      className={
+                        uploadMode === "new_chapter" && drawerOpen
+                          ? "admin-button-primary px-4 py-2 text-sm font-semibold md:px-5 md:py-3 md:text-base"
+                          : uploadMode === "new_chapter"
+                            ? "rounded-[var(--radius-control-sm)] border border-[var(--color-accent-border)] bg-[var(--color-accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--color-accent)] transition hover:border-[var(--color-accent-border-strong)] hover:bg-[var(--color-accent-soft)] md:px-5 md:py-3 md:text-base"
+                            : "admin-button-secondary px-4 py-2 text-sm font-semibold md:px-5 md:py-3 md:text-base"
+                      }
+                      onClick={handleStartNewChapterUpload}
                     >
                       上传新章节
                     </button>
@@ -1036,6 +1286,10 @@ export default function CreatorComicPartPage() {
                           partSlug={partSlug ?? ""}
                           chapter={chapter}
                           submitting={submitting}
+                          uploadTargetActive={
+                            uploadMode === "edit_chapter" && targetChapterId === chapter.id
+                          }
+                          onLoadToUploads={handleLoadChapterToUploads}
                           onReload={loadPartDetail}
                           onMessage={setMessage}
                         />
@@ -1067,6 +1321,10 @@ export default function CreatorComicPartPage() {
 
                     <p className="mt-1.5 text-sm leading-6 text-muted md:mt-2">
                       图片先进入当前用户缓存区，发布后才写入正式漫画目录。
+                    </p>
+
+                    <p className="mt-1 text-xs font-semibold text-[var(--color-accent)]">
+                      当前目标：{uploadTargetLabel}
                     </p>
                   </div>
 
@@ -1108,18 +1366,57 @@ export default function CreatorComicPartPage() {
                           {images.map((image) => (
                             <article
                               key={image.id}
-                              className="overflow-hidden rounded-lg border border-[var(--color-border-soft)] bg-white md:rounded-xl"
+                              className="group overflow-hidden rounded-lg border border-[var(--color-border-soft)] bg-white md:rounded-xl"
                             >
-                              <div className="flex h-24 items-center justify-center bg-[var(--color-panel-muted-bg)] md:h-28">
-                                {previewUrls[image.id] ? (
-                                  <img
-                                    src={previewUrls[image.id]}
-                                    alt={image.originalFilename}
-                                    className="h-full w-full object-contain"
-                                  />
-                                ) : (
-                                  <span className="text-xs text-soft">加载中</span>
-                                )}
+                              <div className="relative flex h-24 items-center justify-center bg-[var(--color-panel-muted-bg)] md:h-28">
+                                <button
+                                  type="button"
+                                  className="flex h-full w-full cursor-zoom-in items-center justify-center"
+                                  onClick={() => setPreviewImage(image)}
+                                >
+                                  {previewUrls[image.id] ? (
+                                    <img
+                                      src={previewUrls[image.id]}
+                                      alt={image.originalFilename}
+                                      className="h-full w-full object-contain"
+                                    />
+                                  ) : (
+                                    <span className="text-xs text-soft">加载中</span>
+                                  )}
+                                </button>
+
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex w-4 items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+                                  <button
+                                    type="button"
+                                    className="pointer-events-auto flex h-full w-full items-center justify-center bg-[color-mix(in_srgb,var(--color-accent)_38%,transparent)] text-sm font-semibold text-white backdrop-blur-[1px] transition hover:bg-[color-mix(in_srgb,var(--color-accent)_62%,transparent)] disabled:cursor-not-allowed disabled:opacity-30"
+                                    disabled={submitting || images.findIndex((item) => item.id === image.id) <= 0}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleMoveUploadImage(image.id, "left");
+                                    }}
+                                    aria-label="向前移动"
+                                  >
+                                    ‹
+                                  </button>
+                                </div>
+
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex w-4 items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+                                  <button
+                                    type="button"
+                                    className="pointer-events-auto flex h-full w-full items-center justify-center bg-[color-mix(in_srgb,var(--color-accent)_38%,transparent)] text-sm font-semibold text-white backdrop-blur-[1px] transition hover:bg-[color-mix(in_srgb,var(--color-accent)_62%,transparent)] disabled:cursor-not-allowed disabled:opacity-30"
+                                    disabled={
+                                      submitting ||
+                                      images.findIndex((item) => item.id === image.id) >= images.length - 1
+                                    }
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleMoveUploadImage(image.id, "right");
+                                    }}
+                                    aria-label="向后移动"
+                                  >
+                                    ›
+                                  </button>
+                                </div>
                               </div>
 
                               <div className="space-y-1.5 px-2 py-2 md:space-y-2">
@@ -1247,22 +1544,24 @@ export default function CreatorComicPartPage() {
                       />
                     </label>
 
-                    <div className="mt-4">
-                      <label className="text-sm font-semibold text-main">
-                        新章节标题后缀
-                      </label>
+                    {uploadMode === "new_chapter" && (
+                      <div className="mt-4">
+                        <label className="text-sm font-semibold text-main">
+                          新章节标题后缀
+                        </label>
 
-                      <input
-                        className="admin-input mt-2 w-full px-3 py-2.5 md:px-4 md:py-3"
-                        value={chapterTitle}
-                        onChange={(event) => setChapterTitle(event.target.value)}
-                        placeholder="可空，例如：开始"
-                      />
+                        <input
+                          className="admin-input mt-2 w-full px-3 py-2.5 md:px-4 md:py-3"
+                          value={chapterTitle}
+                          onChange={(event) => setChapterTitle(event.target.value)}
+                          placeholder="可空，例如：开始"
+                        />
 
-                      <p className="mt-2 text-xs text-soft">
-                        后端会生成“第N话”，这里只填后缀。
-                      </p>
-                    </div>
+                        <p className="mt-2 text-xs text-soft">
+                          后端会生成“第N话”，这里只填后缀。
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </section>
               </div>
@@ -1272,16 +1571,16 @@ export default function CreatorComicPartPage() {
                   <button
                     type="button"
                     className="admin-button-primary flex-1 px-4 py-2 text-sm font-semibold md:flex-none"
-                    disabled={submitting || hasUploadingImages || images.length === 0}
+                    disabled={submitting || hasUploadingImages}
                     onClick={handlePublish}
                   >
-                    发布 chapter
+                    {uploadMode === "edit_chapter" ? "覆盖更新章节" : "发布新章节"}
                   </button>
 
                   <button
                     type="button"
                     className="admin-button-danger flex-1 px-4 py-2 text-sm font-semibold md:flex-none"
-                    disabled={submitting || hasUploadingImages || images.length === 0}
+                    disabled={submitting || hasUploadingImages}
                     onClick={handleClearImages}
                   >
                     清空缓存区
@@ -1292,6 +1591,50 @@ export default function CreatorComicPartPage() {
           )}
         </aside>
       </div>
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-[var(--color-panel-bg)] shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border-soft)] px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-main">
+                  {previewImage.originalFilename}
+                </p>
+                <p className="mt-0.5 text-xs text-soft">
+                  #{previewImage.displayOrder} · {formatBytes(previewImage.sizeBytes)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="admin-button-secondary px-3 py-1.5 text-sm"
+                onClick={() => setPreviewImage(null)}
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="flex max-h-[calc(92vh-4rem)] items-center justify-center bg-[var(--color-panel-soft-bg)] p-3">
+              {previewUrls[previewImage.id] ? (
+                <img
+                  src={previewUrls[previewImage.id]}
+                  alt={previewImage.originalFilename}
+                  className="max-h-[calc(92vh-6rem)] max-w-full object-contain"
+                />
+              ) : (
+                <div className="py-20 text-sm text-soft">加载中</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

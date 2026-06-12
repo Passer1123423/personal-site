@@ -15,6 +15,8 @@ from app.services.comic_admin import (
     get_part,
     get_part_owner,
     import_comic_chapter_from_dir,
+    create_next_chapter,
+    create_comic_chapter_published_event,
     replace_comic_chapter_pages_from_dir,
 )
 from app.services.comic_upload import (
@@ -969,11 +971,23 @@ def load_chapter_to_uploads(
 
         raise_service_error(exc)
 
-    return upload_state_to_public(
+    state = upload_state_to_public(
         session=session,
         user_id=current_user.id,
         images=images,
     )
+
+    if not images:
+        state.update(
+            {
+                "uploadMode": UPLOAD_MODE_EDIT_CHAPTER,
+                "targetPartId": part.id,
+                "targetChapterId": chapter.id,
+                "targetInconsistent": False,
+            }
+        )
+
+    return state
 
 @router.post("/publish")
 def publish_upload_as_chapter(

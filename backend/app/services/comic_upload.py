@@ -396,7 +396,11 @@ def load_chapter_pages_to_uploads(
     pages = list(session.exec(page_statement).all())
 
     if not pages:
-        raise ValueError("当前章节没有可载入的页面")
+        clear_user_upload_images(
+            session=session,
+            user_id=user_id,
+        )
+        return []
 
     page_sources: list[tuple[ComicPage, Asset, Path]] = []
 

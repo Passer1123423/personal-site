@@ -111,6 +111,23 @@ export async function listAuthorUploadImages(): Promise<AuthorUploadState> {
   return readJsonOrThrow<AuthorUploadState>(response);
 }
 
+export type LoadComicChapterUploadPayload = {
+  series_slug: string;
+  part_slug: string;
+  chapter_slug: string;
+};
+
+export type PublishComicChapterUpdatePayload = {
+  series_slug: string;
+  part_slug: string;
+  chapter_slug: string;
+  ordered_image_ids?: string[] | null;
+};
+
+export type ReorderUploadImagesPayload = {
+  ordered_image_ids: string[];
+};
+
 function appendUploadTargetFormData(
   formData: FormData,
   batchInfo: UploadComicImageBatchInfo,
@@ -279,4 +296,58 @@ export async function fetchAuthorUploadPreviewObjectUrl(
 
   const blob = await response.blob();
   return URL.createObjectURL(blob);
+}
+
+export async function loadAuthorComicChapterToUploads(
+  payload: LoadComicChapterUploadPayload,
+): Promise<AuthorUploadState> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/comic-upload/load-chapter`,
+    {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  return readJsonOrThrow<AuthorUploadState>(response);
+}
+
+export async function publishAuthorComicChapterUpdate(
+  payload: PublishComicChapterUpdatePayload,
+): Promise<PublishComicChapterResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/comic-upload/publish-to-chapter`,
+    {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  return readJsonOrThrow<PublishComicChapterResult>(response);
+}
+
+export async function reorderAuthorUploadImages(
+  payload: ReorderUploadImagesPayload,
+): Promise<AuthorUploadState> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/comic-upload/images/reorder`,
+    {
+      method: "PATCH",
+      headers: {
+        ...getAuthHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  return readJsonOrThrow<AuthorUploadState>(response);
 }
