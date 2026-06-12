@@ -15,6 +15,7 @@ from app.services.comic_admin import (
     get_part,
     get_part_owner,
     import_comic_chapter_from_dir,
+    replace_comic_chapter_pages_from_dir,
 )
 from app.services.comic_upload import (
     STAGING_LIMIT_BYTES,
@@ -29,7 +30,9 @@ from app.services.comic_upload import (
     get_upload_image_path,
     get_user_staging_size,
     list_user_upload_images,
+    load_chapter_pages_to_uploads,
     save_upload_images,
+    update_upload_image_order,
     validate_upload_mode,
 )
 
@@ -52,6 +55,22 @@ class PublishComicChapterPayload(BaseModel):
     # 第一版发布到已存在 part。
     # series_title / part_title 暂时不从这里处理，后续新建 series/part 另开接口。
     ordered_image_ids: list[str] | None = None
+
+class LoadComicChapterUploadPayload(BaseModel):
+    series_slug: str
+    part_slug: str
+    chapter_slug: str
+
+
+class PublishComicChapterUpdatePayload(BaseModel):
+    series_slug: str
+    part_slug: str
+    chapter_slug: str
+    ordered_image_ids: list[str] | None = None
+
+
+class ReorderUploadImagesPayload(BaseModel):
+    ordered_image_ids: list[str]
 
 
 def upload_image_to_public(image: ComicUploadImage) -> dict:
@@ -294,9 +313,52 @@ def summarize_upload_images(images: list[ComicUploadImage]) -> dict:
         "original_filenames": [image.original_filename for image in images],
     }
 
+def ensure_uploads_new_chapter(
+    *,
+    images: list[ComicUploadImage],
+    part: ComicPart,
+) -> None:
+    if not images:
+        raise ValueError("当前待传区没有图片")
+
+    invalid_images = [
+        image.id
+        for image in images
+        if image.upload_mode != UPLOAD_MODE_NEW_CHAPTER
+        or image.target_chapter_id is not None
+        or image.target_part_id not in {None, part.id}
+    ]
+
+    if invalid_images:
+        raise ValueError("当前待传区不是新建章节状态，请清空或切换为新建章节后再发布")
+
+
+def ensure_uploads_target_chapter(
+    *,
+    images: list[ComicUploadImage],
+    part: ComicPart,
+    chapter_id: str,
+) -> None:
+    if not images:
+        raise ValueError("当前待传区没有图片")
+
+    invalid_images = [
+        image.id
+        for image in images
+        if image.upload_mode != UPLOAD_MODE_EDIT_CHAPTER
+        or image.target_part_id != part.id
+        or image.target_chapter_id != chapter_id
+    ]
+
+    if invalid_images:
+        raise ValueError("当前待传区不属于要覆盖的漫画章节，请重新载入该章节后再发布")
+
 def upload_image_snapshot(image: ComicUploadImage) -> dict:
     return {
         "image_id": image.id,
+        "target_part_id": image.target_part_id,
+        "target_chapter_id": image.target_chapter_id,
+        "upload_mode": image.upload_mode,
         "original_filename": image.original_filename,
         "stored_filename": image.stored_filename,
         "content_type": image.content_type,
@@ -721,6 +783,35 @@ def delete_many_upload_images(
     )
 
 
+@router.patch("/images/reorder")
+def reorder_upload_images(
+    request: Request,
+    payload: ReorderUploadImagesPayload,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_current_user),
+):
+    images_before = list_user_upload_images(
+        session=session,
+        user_id=current_user.id,
+    )
+
+    try:
+        images = update_upload_image_order(
+            session=session,
+            user_id=current_user.id,
+            ordered_image_ids=payload.ordered_image_ids,
+            append_missing=False,
+        )
+    except Exception as exc:
+        raise_service_error(exc)
+
+    return upload_state_to_public(
+        session=session,
+        user_id=current_user.id,
+        images=images,
+    )
+
+
 @router.delete("/images")
 def clear_upload_images(
     request: Request,
@@ -807,6 +898,83 @@ def clear_upload_images(
     }
 
 
+@router.post("/load-chapter")
+def load_chapter_to_uploads(
+    request: Request,
+    payload: LoadComicChapterUploadPayload,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_current_user),
+):
+    series_slug = normalize_slug(payload.series_slug, "series_slug")
+    part_slug = normalize_slug(payload.part_slug, "part_slug")
+    chapter_slug = normalize_slug(payload.chapter_slug, "chapter_slug")
+
+    part = get_part_for_publish(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+    )
+
+    ensure_current_user_is_part_owner(
+        session=session,
+        part=part,
+        current_user=current_user,
+    )
+
+    chapter = None
+
+    try:
+        chapter = get_chapter(
+            session=session,
+            series_slug=series_slug,
+            part=part,
+            part_slug=part_slug,
+            chapter_slug=chapter_slug,
+        )
+
+        images = load_chapter_pages_to_uploads(
+            session=session,
+            user_id=current_user.id,
+            part_id=part.id,
+            chapter=chapter,
+        )
+
+    except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.chapter.load.failed",
+            category="comic_upload",
+            target_type="comic_chapter",
+            target_id=chapter.id if chapter else None,
+            target_label=chapter.title if chapter else chapter_slug,
+            status="failed",
+            message="载入漫画章节到待传区失败",
+            error_code="comic_upload_chapter_load_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "series_slug": series_slug,
+                    "part_slug": part_slug,
+                    "chapter_slug": chapter_slug,
+                    "part_id": part.id,
+                    "part_title": part.title,
+                },
+            ),
+            request=request,
+        )
+
+        raise_service_error(exc)
+
+    return upload_state_to_public(
+        session=session,
+        user_id=current_user.id,
+        images=images,
+    )
+
 @router.post("/publish")
 def publish_upload_as_chapter(
     request: Request,
@@ -841,6 +1009,11 @@ def publish_upload_as_chapter(
 
         if not images:
             raise ValueError("当前待传区没有图片")
+
+        ensure_uploads_new_chapter(
+            images=images,
+            part=part,
+        )
 
         images_before_publish = [
             upload_image_snapshot(image)
@@ -947,6 +1120,172 @@ def publish_upload_as_chapter(
             "chapter_slug": chapter.slug,
             "chapter_title": chapter.title,
             "chapter_display_order": chapter.display_order,
+            "page_count": page_count,
+            "image_count": len(images_before_publish),
+            "ordered_image_ids": ordered_image_ids,
+            "ordered_file_names": ordered_file_names,
+            "published_images": images_before_publish,
+        },
+        request=request,
+    )
+
+    return publish_result_to_public(result)
+
+@router.post("/publish-to-chapter")
+def publish_upload_to_existing_chapter(
+    request: Request,
+    payload: PublishComicChapterUpdatePayload,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_current_user),
+):
+    series_slug = normalize_slug(payload.series_slug, "series_slug")
+    part_slug = normalize_slug(payload.part_slug, "part_slug")
+    chapter_slug = normalize_slug(payload.chapter_slug, "chapter_slug")
+
+    part = get_part_for_publish(
+        session=session,
+        series_slug=series_slug,
+        part_slug=part_slug,
+    )
+
+    ensure_current_user_is_part_owner(
+        session=session,
+        part=part,
+        current_user=current_user,
+    )
+
+    images_before_publish: list[dict] = []
+    ordered_image_ids: list[str] = []
+    ordered_file_names: list[str] = []
+    chapter = None
+
+    try:
+        chapter = get_chapter(
+            session=session,
+            series_slug=series_slug,
+            part=part,
+            part_slug=part_slug,
+            chapter_slug=chapter_slug,
+        )
+
+        images = list_user_upload_images(
+            session=session,
+            user_id=current_user.id,
+        )
+
+        ensure_uploads_target_chapter(
+            images=images,
+            part=part,
+            chapter_id=chapter.id,
+        )
+
+        images_before_publish = [
+            upload_image_snapshot(image)
+            for image in images
+        ]
+
+        if payload.ordered_image_ids is None:
+            ordered_image_ids = [image.id for image in images]
+        else:
+            ordered_image_ids = payload.ordered_image_ids
+
+        image_ids = {image.id for image in images}
+
+        if (
+            len(ordered_image_ids) != len(images)
+            or set(ordered_image_ids) != image_ids
+        ):
+            raise ValueError("发布列表必须包含当前待传区全部图片")
+
+        source_dir = get_staging_source_dir_for_publish(current_user.id)
+
+        ordered_file_names = get_ordered_stored_file_names(
+            session=session,
+            user_id=current_user.id,
+            ordered_image_ids=ordered_image_ids,
+        )
+
+        result = replace_comic_chapter_pages_from_dir(
+            session=session,
+            source_dir=source_dir,
+            series_slug=series_slug,
+            part_slug=part_slug,
+            chapter_slug=chapter_slug,
+            uploads_root=UPLOADS_ROOT,
+            ordered_file_names=ordered_file_names,
+            actor_user_id=current_user.id,
+        )
+
+        delete_upload_images(
+            session=session,
+            user_id=current_user.id,
+            image_ids=ordered_image_ids,
+        )
+
+    except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.chapter.update.failed",
+            category="comic_upload",
+            target_type="comic_chapter",
+            target_id=chapter.id if chapter else None,
+            target_label=chapter.title if chapter else chapter_slug,
+            status="failed",
+            message="用待传区覆盖漫画章节失败",
+            error_code="comic_upload_chapter_update_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "series_slug": series_slug,
+                    "part_slug": part_slug,
+                    "chapter_slug": chapter_slug,
+                    "part_id": part.id,
+                    "part_title": part.title,
+                    "ordered_image_ids": ordered_image_ids,
+                    "ordered_file_names": ordered_file_names,
+                    "image_count": len(images_before_publish),
+                    "published_images": images_before_publish,
+                },
+            ),
+            request=request,
+        )
+
+        raise_service_error(exc)
+
+    series = result["series"]
+    published_part = result["part"]
+    updated_chapter = result["chapter"]
+    page_count = result["page_count"]
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="comic_upload.chapter.update",
+        category="comic_upload",
+        target_type="comic_chapter",
+        target_id=updated_chapter.id,
+        target_label=updated_chapter.title,
+        status="success",
+        message="用待传区覆盖漫画章节",
+        metadata={
+            "source": "author",
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "series_id": series.id,
+            "series_slug": series.slug,
+            "series_title": series.title,
+            "part_id": published_part.id,
+            "part_slug": published_part.slug,
+            "part_title": published_part.title,
+            "chapter_id": updated_chapter.id,
+            "chapter_slug": updated_chapter.slug,
+            "chapter_title": updated_chapter.title,
+            "chapter_display_order": updated_chapter.display_order,
+            "old_page_count": result.get("old_page_count"),
             "page_count": page_count,
             "image_count": len(images_before_publish),
             "ordered_image_ids": ordered_image_ids,

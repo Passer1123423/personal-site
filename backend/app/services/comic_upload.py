@@ -1,10 +1,12 @@
+import os
 from collections.abc import Sequence
 from pathlib import Path
+from shutil import copy2
 
 from fastapi import UploadFile
 from sqlmodel import Session, func, select
 
-from app.models import ComicUploadImage, new_id, now_utc
+from app.models import Asset, ComicChapter, ComicPage, ComicUploadImage, new_id, now_utc
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 STAGING_LIMIT_BYTES = 100 * 1024 * 1024
@@ -21,6 +23,9 @@ UPLOAD_MODES = {
 # backend/app/services/comic_upload.py
 # parents[2] = backend/
 IMPORT_DATA_ROOT = Path(__file__).resolve().parents[2] / "import_data"
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", BACKEND_DIR / "uploads")).resolve()
+COMIC_UPLOADS_ROOT = UPLOADS_DIR / "comics"
 
 
 def get_user_staging_dir(user_id: str) -> Path:
@@ -39,6 +44,18 @@ def get_upload_image_path(image: ComicUploadImage) -> Path:
 
     return IMPORT_DATA_ROOT / relative_path
 
+def get_comic_asset_upload_path(asset: Asset) -> Path:
+    prefix = "/uploads/comics/"
+
+    if not asset.url.startswith(prefix):
+        raise ValueError("asset 不是漫画正式图片资源")
+
+    relative_path = Path(asset.url.removeprefix(prefix))
+
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise ValueError("asset 文件路径非法")
+
+    return COMIC_UPLOADS_ROOT / relative_path
 
 def clean_original_filename(filename: str | None) -> str:
     if not filename:
@@ -355,6 +372,103 @@ def clear_user_upload_images(
     if staging_dir.exists() and not any(staging_dir.iterdir()):
         staging_dir.rmdir()
 
+def load_chapter_pages_to_uploads(
+    session: Session,
+    user_id: str,
+    *,
+    part_id: str,
+    chapter: ComicChapter,
+) -> list[ComicUploadImage]:
+    """
+    将已有正式漫画章节 pages 复制到当前用户待传区。
+
+    注意：
+    1. 这是复制正式文件到 staging，不直接复用正式文件。
+    2. 调用前端应已弹窗确认，因为这里会清空当前用户 uploads。
+    3. 清空 uploads 后，如果正式文件异常，会抛错，前端需要提示用户重新进入。
+    """
+
+    page_statement = (
+        select(ComicPage)
+        .where(ComicPage.chapter_id == chapter.id)
+        .order_by(ComicPage.display_order)
+    )
+    pages = list(session.exec(page_statement).all())
+
+    if not pages:
+        raise ValueError("当前章节没有可载入的页面")
+
+    page_sources: list[tuple[ComicPage, Asset, Path]] = []
+
+    for page in pages:
+        asset = session.get(Asset, page.asset_id)
+
+        if not asset:
+            raise ValueError("章节页面关联的 asset 不存在")
+
+        source_path = get_comic_asset_upload_path(asset)
+
+        if not source_path.exists() or not source_path.is_file():
+            raise FileNotFoundError(f"正式漫画图片文件不存在：{asset.url}")
+
+        page_sources.append((page, asset, source_path))
+
+    clear_user_upload_images(
+        session=session,
+        user_id=user_id,
+    )
+
+    staging_dir = get_user_staging_dir(user_id)
+    staging_dir.mkdir(parents=True, exist_ok=True)
+
+    created_paths: list[Path] = []
+
+    try:
+        now = now_utc()
+
+        for index, (_, asset, source_path) in enumerate(page_sources, start=1):
+            suffix = source_path.suffix.lower()
+            stored_filename = f"{new_id()}{suffix}"
+            target_path = staging_dir / stored_filename
+
+            copy2(source_path, target_path)
+            created_paths.append(target_path)
+
+            image = ComicUploadImage(
+                user_id=user_id,
+                target_part_id=part_id,
+                target_chapter_id=chapter.id,
+                upload_mode=UPLOAD_MODE_EDIT_CHAPTER,
+                original_filename=asset.original_name or asset.filename,
+                stored_filename=stored_filename,
+                storage_path=get_user_staging_relative_path(user_id, stored_filename),
+                content_type=asset.mime_type,
+                size_bytes=target_path.stat().st_size,
+                display_order=index,
+                created_at=now,
+                updated_at=now,
+            )
+
+            session.add(image)
+
+        session.commit()
+
+        return list_user_upload_images(
+            session=session,
+            user_id=user_id,
+        )
+
+    except Exception:
+        session.rollback()
+
+        for path in created_paths:
+            if path.exists():
+                path.unlink()
+
+        if staging_dir.exists() and not any(staging_dir.iterdir()):
+            staging_dir.rmdir()
+
+        raise
 
 def update_upload_image_order(
     session: Session,
