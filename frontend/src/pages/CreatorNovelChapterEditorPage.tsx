@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEvent,
   type ImgHTMLAttributes,
 } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -22,6 +23,7 @@ import {
   publishAuthorBufferToNewChapter,
   renameAuthorNovelChapter,
   updateAuthorNovelBuffer,
+  uploadAuthorNovelChapterImage,
   type AuthorNovel,
   type AuthorNovelBuffer,
   type AuthorNovelChapter,
@@ -205,6 +207,7 @@ export default function CreatorNovelChapterEditorPage() {
   const [contentMode, setContentMode] = useState<ContentMode>("markdown");
 
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const dropImageUploadingRef = useRef(false);
   const [imagePanelOpen, setImagePanelOpen] = useState(false);
 
   const [chapterSlugDraft, setChapterSlugDraft] = useState("");
@@ -674,6 +677,76 @@ export default function CreatorNovelChapterEditorPage() {
     }, 0);
   }
 
+  function getDraggedImageFile(event: DragEvent<HTMLTextAreaElement>) {
+    return (
+      Array.from(event.dataTransfer.files).find((file) =>
+        file.type.startsWith("image/"),
+      ) ?? null
+    );
+  }
+
+  function hasDraggedImageFile(event: DragEvent<HTMLTextAreaElement>) {
+    return Array.from(event.dataTransfer.items).some((item) => {
+      return item.kind === "file" && item.type.startsWith("image/");
+    });
+  }
+
+  function handleEditorDragOver(event: DragEvent<HTMLTextAreaElement>) {
+    if (!hasDraggedImageFile(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  async function handleEditorDrop(event: DragEvent<HTMLTextAreaElement>) {
+    const imageFile = getDraggedImageFile(event);
+
+    if (!imageFile) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (!currentNovel || !currentChapter || isNewChapter) {
+      setMessage({
+        type: "error",
+        text: "新建章节需要先发布生成 chapter 后，才能拖入上传正文图片。",
+      });
+      return;
+    }
+
+    if (dropImageUploadingRef.current) {
+      setMessage({
+        type: "error",
+        text: "图片正在上传，请稍后再拖入新的图片。",
+      });
+      return;
+    }
+
+    dropImageUploadingRef.current = true;
+    setMessage(null);
+
+    try {
+      const image = await uploadAuthorNovelChapterImage({
+        novelSlug: currentNovel.slug,
+        chapterSlug: currentChapter.slug,
+        file: imageFile,
+      });
+
+      insertMarkdownAtCursor(image.markdown);
+      setMessage({ type: "success", text: "图片已上传并插入正文。" });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "上传章节图片失败",
+      });
+    } finally {
+      dropImageUploadingRef.current = false;
+    }
+  }
+
   function renderMessage(className = "mx-4 mt-4 px-4 py-3") {
     if (!message) {
       return null;
@@ -1044,6 +1117,8 @@ export default function CreatorNovelChapterEditorPage() {
               setContent(event.target.value);
               setDirty(true);
             }}
+            onDragOver={handleEditorDragOver}
+            onDrop={handleEditorDrop}
             placeholder={
               contentMode === "markdown"
                 ? "在这里编写 Markdown 正文..."

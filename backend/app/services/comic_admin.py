@@ -4,6 +4,7 @@ from pathlib import Path
 from shutil import copy2
 from uuid import uuid4
 from shutil import rmtree
+from collections.abc import Sequence
 
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -413,6 +414,50 @@ def create_comic_chapter_published_event(
 
     session.commit()
 
+def create_comic_chapter_updated_event(
+    session: Session,
+    *,
+    series: ComicSeries,
+    part: ComicPart,
+    chapter: ComicChapter,
+    old_page_count: int,
+    new_page_count: int,
+    actor_user_id: str | None = None,
+) -> None:
+    updated_at_key = chapter.updated_at.isoformat()
+
+    create_outbox_event(
+        session,
+        event_type="chapter.updated",
+        aggregate_type="comic_chapter",
+        aggregate_id=chapter.id,
+        actor_user_id=actor_user_id,
+        payload={
+            "chapter_type": "comic_chapter",
+            "chapter_id": chapter.id,
+            "chapter_title": chapter.title,
+            "parent_type": "comic_part",
+            "parent_id": part.id,
+            "parent_title": part.title,
+            "target_url": f"/works/comics/{series.slug}/{part.slug}/{chapter.slug}",
+            "metadata": {
+                "series_id": series.id,
+                "series_slug": series.slug,
+                "series_title": series.title,
+                "part_id": part.id,
+                "part_slug": part.slug,
+                "part_title": part.title,
+                "chapter_slug": chapter.slug,
+                "old_page_count": old_page_count,
+                "new_page_count": new_page_count,
+                "updated_at": chapter.updated_at,
+            },
+        },
+        dedupe_key=f"chapter.updated:comic_chapter:{chapter.id}:{updated_at_key}",
+    )
+
+    session.commit()
+
 # ===== 导入章节 =====
 def copy_image_to_uploads(
     source_path: Path,
@@ -555,6 +600,199 @@ def import_comic_chapter_from_dir(
         "pages": pages,
         "page_count": len(pages),
     }
+
+def replace_comic_chapter_pages_from_dir(
+    session: Session,
+    source_dir: Path,
+    series_slug: str,
+    part_slug: str,
+    chapter_slug: str,
+    uploads_root: Path | None = UPLOADS_ROOT,
+    ordered_file_names: Sequence[str] | None = None,
+    actor_user_id: str | None = None,
+):
+    """
+    用 source_dir 中的图片替换已有漫画 chapter 的全部 pages。
+
+    注意：
+    1. 不删除 ComicChapter 本体。
+    2. 不重排 chapter。
+    3. 不删除评论。
+    4. 会替换 ComicPage、Asset 和正式 chapter 图片目录。
+    5. 会触发 chapter.updated outbox event，而不是 chapter.published。
+    """
+
+    if uploads_root is None:
+        raise ValueError("uploads_root 不能为空")
+
+    image_files = list_image_files(
+        source_dir=source_dir,
+        ordered_file_names=ordered_file_names,
+    )
+
+    series = get_series(
+        session=session,
+        series_slug=series_slug,
+    )
+
+    part = get_part(
+        session=session,
+        series=series,
+        series_slug=series_slug,
+        part_slug=part_slug,
+    )
+
+    chapter = get_chapter(
+        session=session,
+        series=series,
+        part=part,
+        series_slug=series_slug,
+        part_slug=part_slug,
+        chapter_slug=chapter_slug,
+    )
+
+    old_pages = list(
+        session.exec(
+            select(ComicPage)
+            .where(ComicPage.chapter_id == chapter.id)
+            .order_by(ComicPage.display_order)
+        ).all()
+    )
+
+    old_asset_ids = [
+        page.asset_id
+        for page in old_pages
+        if page.asset_id
+    ]
+    old_page_count = len(old_pages)
+
+    part_dir = uploads_root / series.slug / part.slug
+    final_chapter_dir = part_dir / chapter.slug
+    temp_chapter_dir = part_dir / f".{chapter.slug}-replace-{uuid4()}"
+    backup_chapter_dir = part_dir / f".{chapter.slug}-backup-{uuid4()}"
+
+    created_assets: list[Asset] = []
+    created_pages: list[ComicPage] = []
+    final_dir_swapped = False
+    backup_created = False
+
+    try:
+        temp_chapter_dir.mkdir(parents=True, exist_ok=False)
+
+        copied_files: list[tuple[Path, str]] = []
+
+        for index, source_path in enumerate(image_files, start=1):
+            suffix = source_path.suffix.lower()
+            filename = f"{index:03d}{suffix}"
+            temp_path = temp_chapter_dir / filename
+
+            copy2(source_path, temp_path)
+
+            asset_url = (
+                f"/uploads/comics/"
+                f"{series.slug}/"
+                f"{part.slug}/"
+                f"{chapter.slug}/"
+                f"{filename}"
+            )
+
+            copied_files.append((temp_path, asset_url))
+
+        # 先写新 Asset / Page 到数据库，但暂不 commit。
+        for page in old_pages:
+            session.delete(page)
+
+        session.flush()
+
+        for asset_id in old_asset_ids:
+            asset = session.get(Asset, asset_id)
+            if asset:
+                session.delete(asset)
+
+        session.flush()
+
+        now = now_utc()
+
+        for index, (temp_path, asset_url) in enumerate(copied_files, start=1):
+            asset = Asset(
+                id=str(uuid4()),
+                filename=Path(asset_url).name,
+                original_name=temp_path.name,
+                mime_type=guess_mime_type(temp_path),
+                size=temp_path.stat().st_size,
+                url=asset_url,
+                usage="comic_page",
+            )
+
+            session.add(asset)
+            session.flush()
+            created_assets.append(asset)
+
+            page = ComicPage(
+                id=str(uuid4()),
+                chapter_id=chapter.id,
+                asset_id=asset.id,
+                display_order=index,
+                width=None,
+                height=None,
+            )
+
+            session.add(page)
+            session.flush()
+            created_pages.append(page)
+
+        chapter.updated_at = now
+        session.add(chapter)
+        session.flush()
+
+        # 文件目录替换。先把旧正式目录挪到 backup，再把 temp 挪成正式目录。
+        if final_chapter_dir.exists():
+            final_chapter_dir.rename(backup_chapter_dir)
+            backup_created = True
+
+        temp_chapter_dir.rename(final_chapter_dir)
+        final_dir_swapped = True
+
+        session.commit()
+        session.refresh(chapter)
+
+        create_comic_chapter_updated_event(
+            session=session,
+            series=series,
+            part=part,
+            chapter=chapter,
+            old_page_count=old_page_count,
+            new_page_count=len(created_pages),
+            actor_user_id=actor_user_id,
+        )
+
+        if backup_chapter_dir.exists():
+            rmtree(backup_chapter_dir)
+
+        return {
+            "series": series,
+            "part": part,
+            "chapter": chapter,
+            "pages": created_pages,
+            "page_count": len(created_pages),
+            "old_page_count": old_page_count,
+        }
+
+    except Exception:
+        session.rollback()
+
+        if temp_chapter_dir.exists():
+            rmtree(temp_chapter_dir)
+
+        # 如果已经把新目录换上去了，但后续失败，尽量删掉新目录。
+        if final_dir_swapped and final_chapter_dir.exists():
+            rmtree(final_chapter_dir)
+
+        # 如果旧目录已经备份，尽量恢复。
+        if backup_created and backup_chapter_dir.exists():
+            backup_chapter_dir.rename(final_chapter_dir)
+
+        raise
 
 # ===== 删除 =====
 def delete_chapter_files(

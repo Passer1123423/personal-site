@@ -10,6 +10,7 @@ database.py
 
 from pathlib import Path
 
+from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, Session, create_engine
 
 
@@ -34,6 +35,61 @@ engine = create_engine(
 )
 
 
+def get_existing_columns(table_name: str) -> set[str]:
+    inspector = inspect(engine)
+
+    if not inspector.has_table(table_name):
+        return set()
+
+    return {
+        column["name"]
+        for column in inspector.get_columns(table_name)
+    }
+
+
+def add_column_if_missing(
+    table_name: str,
+    column_name: str,
+    column_sql: str,
+) -> None:
+    existing_columns = get_existing_columns(table_name)
+
+    if column_name in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(f"ALTER TABLE {table_name} ADD COLUMN {column_sql}")
+        )
+
+
+def apply_lightweight_schema_patches() -> None:
+    """
+    轻量 SQLite 表结构补丁。
+
+    只用于给已有表补新增的可空字段或带默认值字段。
+    不处理字段改名、删字段、改类型、复杂数据迁移。
+    """
+
+    add_column_if_missing(
+        table_name="comicuploadimage",
+        column_name="target_part_id",
+        column_sql="target_part_id VARCHAR",
+    )
+
+    add_column_if_missing(
+        table_name="comicuploadimage",
+        column_name="target_chapter_id",
+        column_sql="target_chapter_id VARCHAR",
+    )
+
+    add_column_if_missing(
+        table_name="comicuploadimage",
+        column_name="upload_mode",
+        column_sql="upload_mode VARCHAR DEFAULT 'new_chapter' NOT NULL",
+    )
+
+
 def create_db_and_tables():
     """
     创建数据库表。
@@ -48,8 +104,8 @@ def create_db_and_tables():
     # 必须在 create_all 前面
     from . import models
 
-
     SQLModel.metadata.create_all(engine)
+    apply_lightweight_schema_patches()
 
 
 def get_session():
