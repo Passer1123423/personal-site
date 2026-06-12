@@ -740,6 +740,12 @@ class ComicUploadImage(SQLModel, table=True):
 
     user_id: str = Field(foreign_key="user.id", index=True)
 
+    # 当前待传区归属。
+    # 仍然只有一个 user 级 uploads，但用这些字段标记它当前属于哪个 part/chapter 操作。
+    target_part_id: str | None = Field(default=None, foreign_key="comic_part.id", index=True)
+    target_chapter_id: str | None = Field(default=None, foreign_key="comic_chapter.id", index=True)
+    upload_mode: str = Field(default="new_chapter", index=True)
+
     original_filename: str
     stored_filename: str
     storage_path: str
