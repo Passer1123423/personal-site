@@ -170,6 +170,33 @@ export async function uploadAuthorComicImages(
   return readJsonOrThrow<UploadImagesResult>(response);
 }
 
+export async function uploadAuthorComicPdf(
+  file: File,
+  payload: {
+    seriesSlug?: string;
+    partSlug?: string;
+  } = {},
+): Promise<AuthorUploadState> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  if (payload.seriesSlug) {
+    formData.append("series_slug", payload.seriesSlug);
+  }
+
+  if (payload.partSlug) {
+    formData.append("part_slug", payload.partSlug);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/author/comic-upload/pdf`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: formData,
+  });
+
+  return readJsonOrThrow<AuthorUploadState>(response);
+}
+
 export function uploadAuthorComicImageWithProgress(
   file: File,
   onProgress: (progress: number) => void,

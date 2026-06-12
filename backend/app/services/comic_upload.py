@@ -2,6 +2,7 @@ import os
 from collections.abc import Sequence
 from pathlib import Path
 from shutil import copy2
+import fitz
 
 from fastapi import UploadFile
 from sqlmodel import Session, func, select
@@ -11,6 +12,10 @@ from app.models import Asset, ComicChapter, ComicPage, ComicUploadImage, new_id,
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 STAGING_LIMIT_BYTES = 100 * 1024 * 1024
 UPLOAD_FILE_LIMIT_BYTES = 20 * 1024 * 1024
+
+PDF_UPLOAD_FILE_LIMIT_BYTES = 100 * 1024 * 1024
+PDF_RENDER_ZOOM = 4.0
+PDF_MAX_PAGE_COUNT = 300
 
 UPLOAD_MODE_NEW_CHAPTER = "new_chapter"
 UPLOAD_MODE_EDIT_CHAPTER = "edit_chapter"
@@ -278,6 +283,132 @@ async def save_upload_images(
         "rejected": rejected,
         "total_size": get_user_staging_size(session, user_id),
     }
+
+async def save_pdf_as_upload_images(
+    session: Session,
+    user_id: str,
+    upload_file: UploadFile,
+    target_part_id: str | None = None,
+) -> dict:
+    original_filename = clean_original_filename(upload_file.filename)
+
+    if not original_filename.lower().endswith(".pdf"):
+        raise ValueError("只支持 PDF 文件")
+
+    content_type = (upload_file.content_type or "").split(";")[0].strip().lower()
+    if content_type and content_type not in {"application/pdf", "application/octet-stream"}:
+        raise ValueError("上传文件不是 PDF")
+
+    clean_upload_mode = UPLOAD_MODE_NEW_CHAPTER
+
+    staging_dir = get_user_staging_dir(user_id)
+    staging_dir.mkdir(parents=True, exist_ok=True)
+
+    current_size = get_user_staging_size(session, user_id)
+    written_pdf_size = 0
+    pdf_bytes = bytearray()
+
+    await upload_file.seek(0)
+
+    while True:
+      chunk = await upload_file.read(1024 * 1024)
+
+      if not chunk:
+          break
+
+      written_pdf_size += len(chunk)
+
+      if written_pdf_size > PDF_UPLOAD_FILE_LIMIT_BYTES:
+          raise ValueError("PDF 文件不能超过 100MB")
+
+      pdf_bytes.extend(chunk)
+
+    if written_pdf_size <= 0:
+        raise ValueError("PDF 文件为空")
+
+    saved: list[ComicUploadImage] = []
+    created_paths: list[Path] = []
+
+    try:
+        document = fitz.open(stream=bytes(pdf_bytes), filetype="pdf")
+
+        if document.page_count <= 0:
+            raise ValueError("PDF 中没有页面")
+
+        if document.page_count > PDF_MAX_PAGE_COUNT:
+            raise ValueError(f"PDF 页数不能超过 {PDF_MAX_PAGE_COUNT} 页")
+
+        next_order = get_next_display_order(session, user_id)
+        now = now_utc()
+        matrix = fitz.Matrix(PDF_RENDER_ZOOM, PDF_RENDER_ZOOM)
+
+        for page_index in range(document.page_count):
+            page = document.load_page(page_index)
+            pixmap = page.get_pixmap(matrix=matrix, alpha=False)
+            image_bytes = pixmap.tobytes("png")
+            image_size = len(image_bytes)
+
+            if image_size <= 0:
+                raise ValueError(f"PDF 第 {page_index + 1} 页转换失败")
+
+            if image_size > UPLOAD_FILE_LIMIT_BYTES:
+                raise ValueError(f"PDF 第 {page_index + 1} 页转换后的图片超过 20MB")
+
+            if current_size + sum(image.size_bytes for image in saved) + image_size > STAGING_LIMIT_BYTES:
+                raise ValueError("待传区容量超过 100MB")
+
+            stored_filename = f"{new_id()}.png"
+            target_path = staging_dir / stored_filename
+            target_path.write_bytes(image_bytes)
+            created_paths.append(target_path)
+
+            original_page_name = f"{Path(original_filename).stem}-p{page_index + 1:03d}.png"
+
+            image = ComicUploadImage(
+                user_id=user_id,
+                target_part_id=target_part_id,
+                target_chapter_id=None,
+                upload_mode=clean_upload_mode,
+                original_filename=original_page_name,
+                stored_filename=stored_filename,
+                storage_path=get_user_staging_relative_path(user_id, stored_filename),
+                content_type="image/png",
+                size_bytes=image_size,
+                display_order=next_order + page_index,
+                created_at=now,
+                updated_at=now,
+            )
+
+            session.add(image)
+            saved.append(image)
+
+        document.close()
+
+        session.commit()
+
+        for image in saved:
+            session.refresh(image)
+
+        compact_user_upload_orders(session, user_id)
+
+        return {
+            "saved": saved,
+            "rejected": [],
+            "total_size": get_user_staging_size(session, user_id),
+            "page_count": len(saved),
+        }
+
+    except Exception:
+        session.rollback()
+
+        for path in created_paths:
+            if path.exists():
+                path.unlink()
+
+        if staging_dir.exists() and not any(staging_dir.iterdir()):
+            staging_dir.rmdir()
+
+        raise
 
 
 def delete_upload_image(

@@ -9,6 +9,7 @@ import {
   fetchAuthorUploadPreviewObjectUrl,
   listAuthorUploadImages,
   loadAuthorComicChapterToUploads,
+  uploadAuthorComicPdf,
   publishAuthorComicChapter,
   publishAuthorComicChapterUpdate,
   reorderAuthorUploadImages,
@@ -341,6 +342,8 @@ export default function CreatorComicPartPage() {
   const [limitBytes, setLimitBytes] = useState(500 * 1024 * 1024);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
 
+  const [uploadInputMode, setUploadInputMode] = useState<"images" | "pdf">("images");
+
   const [uploadMode, setUploadMode] = useState<ComicUploadMode>("new_chapter");
   const [targetChapterId, setTargetChapterId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<AuthorUploadImage | null>(null);
@@ -653,6 +656,50 @@ export default function CreatorComicPartPage() {
       }
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : "上传失败";
+      setMessage({ type: "error", text });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleUploadPdf(file: File | null | undefined) {
+    if (!file || !seriesSlug || !partSlug) {
+      return;
+    }
+
+    if (uploadMode !== "new_chapter") {
+      setMessage({
+        type: "error",
+        text: "PDF 导入只支持新建 chapter。",
+      });
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setMessage({
+        type: "error",
+        text: "请选择 PDF 文件。",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage(null);
+
+    try {
+      const state = await uploadAuthorComicPdf(file, {
+        seriesSlug,
+        partSlug,
+      });
+
+      applyUploadState(state);
+
+      setMessage({
+        type: "success",
+        text: "PDF 已拆分为图片并加入待传区。",
+      });
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : "PDF 导入失败";
       setMessage({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -1036,6 +1083,48 @@ export default function CreatorComicPartPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  useEffect(() => {
+    if (uploadMode !== "new_chapter" && uploadInputMode !== "images") {
+      setUploadInputMode("images");
+    }
+  }, [uploadMode, uploadInputMode]);
+
+  function renderUploadInputModeSwitcher() {
+    if (uploadMode !== "new_chapter") {
+      return null;
+    }
+
+    return (
+      <div className="flex rounded-lg border border-[var(--color-border-soft)] bg-white p-1 text-xs">
+        <button
+          type="button"
+          className={
+            uploadInputMode === "images"
+              ? "rounded-md bg-[var(--color-panel-soft-bg)] px-3 py-1 font-semibold text-main"
+              : "rounded-md px-3 py-1 text-soft"
+          }
+          disabled={submitting}
+          onClick={() => setUploadInputMode("images")}
+        >
+          图片
+        </button>
+
+        <button
+          type="button"
+          className={
+            uploadInputMode === "pdf"
+              ? "rounded-md bg-[var(--color-panel-soft-bg)] px-3 py-1 font-semibold text-main"
+              : "rounded-md px-3 py-1 text-soft"
+          }
+          disabled={submitting}
+          onClick={() => setUploadInputMode("pdf")}
+        >
+          PDF
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -1525,24 +1614,55 @@ export default function CreatorComicPartPage() {
                   </div>
 
                   <div className="shrink-0">
-                    <label className="block cursor-pointer rounded-xl border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] px-4 py-3 text-center text-sm text-muted hover:border-[var(--color-accent-border-strong)] md:rounded-2xl">
-                      <span className="font-semibold text-main">选择图片上传</span>
-                      <span className="mt-1 block text-xs">
-                        支持 jpg、jpeg、png、webp
-                      </span>
+                    <div className="rounded-xl border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] px-4 py-3 text-sm text-muted hover:border-[var(--color-accent-border-strong)] md:rounded-2xl">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <span className="font-semibold text-main">
+                            {uploadInputMode === "pdf" ? "选择 PDF 导入" : "选择图片上传"}
+                          </span>
+                          <span className="mt-1 block text-xs">
+                            {uploadInputMode === "pdf"
+                              ? "支持 pdf，导入后会自动拆分为图片"
+                              : "支持 jpg、jpeg、png、webp"}
+                          </span>
+                        </div>
 
-                      <input
-                        className="hidden"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        multiple
-                        disabled={submitting}
-                        onChange={(event) => {
-                          handleUploadFiles(event.currentTarget.files);
-                          event.currentTarget.value = "";
-                        }}
-                      />
-                    </label>
+                        {renderUploadInputModeSwitcher()}
+                      </div>
+
+                      <div className="mt-3">
+                        {uploadInputMode === "pdf" ? (
+                          <label className="admin-button-secondary inline-flex cursor-pointer items-center justify-center px-3 py-2 text-sm">
+                            选择 PDF
+                            <input
+                              className="hidden"
+                              type="file"
+                              accept="application/pdf,.pdf"
+                              disabled={submitting || hasUploadingImages || uploadMode !== "new_chapter"}
+                              onChange={(event) => {
+                                handleUploadPdf(event.currentTarget.files?.[0]);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+                        ) : (
+                          <label className="admin-button-secondary inline-flex cursor-pointer items-center justify-center px-3 py-2 text-sm">
+                            选择图片
+                            <input
+                              className="hidden"
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              multiple
+                              disabled={submitting || hasUploadingImages}
+                              onChange={(event) => {
+                                handleUploadFiles(event.currentTarget.files);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
 
                     {uploadMode === "new_chapter" && (
                       <div className="mt-4">

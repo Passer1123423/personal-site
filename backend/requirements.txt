@@ -16,6 +16,7 @@ pyasn1==0.6.3
 pycparser==3.0
 pydantic==2.13.4
 pydantic_core==2.46.4
+PyMuPDF==1.26.6
 python-jose==3.5.0
 python-multipart==0.0.27
 rsa==4.9.1

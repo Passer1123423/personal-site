@@ -15,8 +15,6 @@ from app.services.comic_admin import (
     get_part,
     get_part_owner,
     import_comic_chapter_from_dir,
-    create_next_chapter,
-    create_comic_chapter_published_event,
     replace_comic_chapter_pages_from_dir,
 )
 from app.services.comic_upload import (
@@ -34,6 +32,7 @@ from app.services.comic_upload import (
     list_user_upload_images,
     load_chapter_pages_to_uploads,
     save_upload_images,
+    save_pdf_as_upload_images,
     update_upload_image_order,
     validate_upload_mode,
 )
@@ -898,6 +897,119 @@ def clear_upload_images(
         "targetPartId": None,
         "targetChapterId": None,
     }
+
+@router.post("/pdf")
+async def upload_pdf_as_images(
+    request: Request,
+    file: UploadFile = File(...),
+    series_slug: str | None = Form(default=None),
+    part_slug: str | None = Form(default=None),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_current_user),
+):
+    target_part_id = None
+    clean_series_slug = None
+    clean_part_slug = None
+    part = None
+
+    if series_slug or part_slug:
+        if not series_slug or not part_slug:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PDF 上传目标必须同时提供 series_slug 和 part_slug",
+            )
+
+        clean_series_slug = normalize_slug(series_slug, "series_slug")
+        clean_part_slug = normalize_slug(part_slug, "part_slug")
+
+        part = get_part_for_publish(
+            session=session,
+            series_slug=clean_series_slug,
+            part_slug=clean_part_slug,
+        )
+
+        ensure_current_user_is_part_owner(
+            session=session,
+            part=part,
+            current_user=current_user,
+        )
+
+        target_part_id = part.id
+
+    try:
+        result = await save_pdf_as_upload_images(
+            session=session,
+            user_id=current_user.id,
+            upload_file=file,
+            target_part_id=target_part_id,
+        )
+
+        images = list_user_upload_images(
+            session=session,
+            user_id=current_user.id,
+        )
+
+    except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.pdf.import.failed",
+            category="comic_upload",
+            target_type="comic_part",
+            target_id=part.id if part else None,
+            target_label=part.title if part else None,
+            status="failed",
+            message="导入 PDF 到漫画待传区失败",
+            error_code="comic_upload_pdf_import_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "series_slug": clean_series_slug,
+                    "part_slug": clean_part_slug,
+                    "original_filename": file.filename,
+                },
+            ),
+            request=request,
+        )
+
+        raise_service_error(exc)
+
+    saved_images = result["saved"]
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="comic_upload.pdf.import",
+        category="comic_upload",
+        target_type="comic_part",
+        target_id=part.id if part else None,
+        target_label=part.title if part else None,
+        status="success",
+        message=f"导入 PDF 到漫画待传区 {len(saved_images)} 页",
+        metadata={
+            "source": "author",
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "series_slug": clean_series_slug,
+            "part_slug": clean_part_slug,
+            "original_filename": file.filename,
+            "page_count": len(saved_images),
+            "saved": [
+                upload_image_snapshot(image)
+                for image in saved_images
+            ],
+        },
+        request=request,
+    )
+
+    return upload_state_to_public(
+        session=session,
+        user_id=current_user.id,
+        images=images,
+    )
 
 
 @router.post("/load-chapter")
