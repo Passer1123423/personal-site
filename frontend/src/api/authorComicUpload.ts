@@ -24,8 +24,13 @@ async function readJsonOrThrow<T>(response: Response): Promise<T> {
   return data as T;
 }
 
+export type ComicUploadMode = "new_chapter" | "edit_chapter";
+
 export type AuthorUploadImage = {
   id: string;
+  targetPartId: string | null;
+  targetChapterId: string | null;
+  uploadMode: ComicUploadMode;
   originalFilename: string;
   storedFilename: string;
   contentType: string | null;
@@ -40,6 +45,10 @@ export type AuthorUploadState = {
   images: AuthorUploadImage[];
   totalSizeBytes: number;
   limitBytes: number;
+  uploadMode: ComicUploadMode;
+  targetPartId: string | null;
+  targetChapterId: string | null;
+  targetInconsistent?: boolean;
 };
 
 export type UploadImagesResult = {
@@ -50,12 +59,20 @@ export type UploadImagesResult = {
   }[];
   totalSizeBytes: number;
   limitBytes: number;
+  uploadMode: ComicUploadMode;
+  targetPartId: string | null;
+  targetChapterId: string | null;
+  targetInconsistent?: boolean;
 };
 
 export type UploadComicImageBatchInfo = {
   uploadBatchId?: string;
   uploadBatchIndex?: number;
   uploadBatchTotal?: number;
+  uploadMode?: ComicUploadMode;
+  seriesSlug?: string;
+  partSlug?: string;
+  chapterSlug?: string;
 };
 
 export type PublishComicChapterPayload = {
@@ -94,14 +111,38 @@ export async function listAuthorUploadImages(): Promise<AuthorUploadState> {
   return readJsonOrThrow<AuthorUploadState>(response);
 }
 
+function appendUploadTargetFormData(
+  formData: FormData,
+  batchInfo: UploadComicImageBatchInfo,
+) {
+  if (batchInfo.uploadMode) {
+    formData.append("upload_mode", batchInfo.uploadMode);
+  }
+
+  if (batchInfo.seriesSlug) {
+    formData.append("series_slug", batchInfo.seriesSlug);
+  }
+
+  if (batchInfo.partSlug) {
+    formData.append("part_slug", batchInfo.partSlug);
+  }
+
+  if (batchInfo.chapterSlug) {
+    formData.append("chapter_slug", batchInfo.chapterSlug);
+  }
+}
+
 export async function uploadAuthorComicImages(
   files: File[],
+  batchInfo: UploadComicImageBatchInfo = {},
 ): Promise<UploadImagesResult> {
   const formData = new FormData();
 
   for (const file of files) {
     formData.append("files", file);
   }
+
+  appendUploadTargetFormData(formData, batchInfo);
 
   const response = await fetch(`${API_BASE_URL}/api/author/comic-upload/images`, {
     method: "POST",
@@ -139,6 +180,8 @@ export function uploadAuthorComicImageWithProgress(
     if (typeof batchInfo.uploadBatchTotal === "number") {
       formData.append("upload_batch_total", String(batchInfo.uploadBatchTotal));
     }
+
+    appendUploadTargetFormData(formData, batchInfo);
 
     const xhr = new XMLHttpRequest();
 

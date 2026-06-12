@@ -10,6 +10,13 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 STAGING_LIMIT_BYTES = 100 * 1024 * 1024
 UPLOAD_FILE_LIMIT_BYTES = 20 * 1024 * 1024
 
+UPLOAD_MODE_NEW_CHAPTER = "new_chapter"
+UPLOAD_MODE_EDIT_CHAPTER = "edit_chapter"
+UPLOAD_MODES = {
+    UPLOAD_MODE_NEW_CHAPTER,
+    UPLOAD_MODE_EDIT_CHAPTER,
+}
+
 # 当前文件位置：
 # backend/app/services/comic_upload.py
 # parents[2] = backend/
@@ -58,6 +65,16 @@ def validate_image_filename(filename: str) -> str:
 
     return original_filename
 
+def validate_upload_mode(upload_mode: str | None) -> str:
+    if upload_mode is None:
+        return UPLOAD_MODE_NEW_CHAPTER
+
+    upload_mode = upload_mode.strip()
+
+    if upload_mode not in UPLOAD_MODES:
+        raise ValueError("upload_mode 必须是 new_chapter 或 edit_chapter")
+
+    return upload_mode
 
 def get_user_staging_size(session: Session, user_id: str) -> int:
     statement = select(func.sum(ComicUploadImage.size_bytes)).where(
@@ -132,9 +149,17 @@ async def save_upload_image(
     session: Session,
     user_id: str,
     upload_file: UploadFile,
+    target_part_id: str | None = None,
+    target_chapter_id: str | None = None,
+    upload_mode: str | None = None,
 ) -> ComicUploadImage:
     original_filename = validate_image_filename(upload_file.filename)
     suffix = Path(original_filename).suffix.lower()
+
+    clean_upload_mode = validate_upload_mode(upload_mode)
+
+    if clean_upload_mode == UPLOAD_MODE_EDIT_CHAPTER and not target_chapter_id:
+        raise ValueError("edit_chapter 模式必须指定 target_chapter_id")
 
     staging_dir = get_user_staging_dir(user_id)
     staging_dir.mkdir(parents=True, exist_ok=True)
@@ -170,6 +195,9 @@ async def save_upload_image(
 
         image = ComicUploadImage(
             user_id=user_id,
+            target_part_id=target_part_id,
+            target_chapter_id=target_chapter_id,
+            upload_mode=clean_upload_mode,
             original_filename=original_filename,
             stored_filename=stored_filename,
             storage_path=get_user_staging_relative_path(user_id, stored_filename),
@@ -197,6 +225,9 @@ async def save_upload_images(
     session: Session,
     user_id: str,
     upload_files: Sequence[UploadFile],
+    target_part_id: str | None = None,
+    target_chapter_id: str | None = None,
+    upload_mode: str | None = None,
 ) -> dict:
     saved: list[ComicUploadImage] = []
     rejected: list[dict] = []
@@ -209,6 +240,9 @@ async def save_upload_images(
                 session=session,
                 user_id=user_id,
                 upload_file=upload_file,
+                target_part_id=target_part_id,
+                target_chapter_id=target_chapter_id,
+                upload_mode=upload_mode,
             )
             saved.append(image)
 

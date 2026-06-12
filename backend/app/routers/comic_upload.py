@@ -11,12 +11,15 @@ from app.models import ActivityLog, ComicPart, ComicUploadImage, User
 from app.services.activity_logs import build_error_metadata, log_activity
 from app.services.comic_admin import (
     UPLOADS_ROOT,
+    get_chapter,
     get_part,
     get_part_owner,
     import_comic_chapter_from_dir,
 )
 from app.services.comic_upload import (
     STAGING_LIMIT_BYTES,
+    UPLOAD_MODE_EDIT_CHAPTER,
+    UPLOAD_MODE_NEW_CHAPTER,
     clear_user_upload_images,
     delete_upload_image,
     delete_upload_images,
@@ -27,6 +30,7 @@ from app.services.comic_upload import (
     get_user_staging_size,
     list_user_upload_images,
     save_upload_images,
+    validate_upload_mode,
 )
 
 router = APIRouter(
@@ -53,6 +57,9 @@ class PublishComicChapterPayload(BaseModel):
 def upload_image_to_public(image: ComicUploadImage) -> dict:
     return {
         "id": image.id,
+        "targetPartId": image.target_part_id,
+        "targetChapterId": image.target_chapter_id,
+        "uploadMode": image.upload_mode,
         "originalFilename": image.original_filename,
         "storedFilename": image.stored_filename,
         "contentType": image.content_type,
@@ -61,6 +68,30 @@ def upload_image_to_public(image: ComicUploadImage) -> dict:
         "createdAt": image.created_at,
         "updatedAt": image.updated_at,
         "previewUrl": f"/api/author/comic-upload/images/{image.id}/preview",
+    }
+
+def upload_target_to_public(images: list[ComicUploadImage]) -> dict:
+    if not images:
+        return {
+            "uploadMode": UPLOAD_MODE_NEW_CHAPTER,
+            "targetPartId": None,
+            "targetChapterId": None,
+        }
+
+    first_image = images[0]
+
+    inconsistent = any(
+        image.upload_mode != first_image.upload_mode
+        or image.target_part_id != first_image.target_part_id
+        or image.target_chapter_id != first_image.target_chapter_id
+        for image in images
+    )
+
+    return {
+        "uploadMode": first_image.upload_mode,
+        "targetPartId": first_image.target_part_id,
+        "targetChapterId": first_image.target_chapter_id,
+        "targetInconsistent": inconsistent,
     }
 
 
@@ -73,6 +104,7 @@ def upload_state_to_public(
         "images": [upload_image_to_public(image) for image in images],
         "totalSizeBytes": get_user_staging_size(session, user_id),
         "limitBytes": STAGING_LIMIT_BYTES,
+        **upload_target_to_public(images),
     }
 
 
@@ -181,6 +213,78 @@ def ensure_current_user_is_part_owner(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="你不是该作品分部的 owner",
         )
+
+def resolve_upload_target(
+    session: Session,
+    *,
+    current_user: User,
+    upload_mode: str | None,
+    series_slug: str | None,
+    part_slug: str | None,
+    chapter_slug: str | None,
+) -> dict:
+    clean_upload_mode = validate_upload_mode(upload_mode)
+
+    if not series_slug and not part_slug and not chapter_slug:
+        return {
+            "upload_mode": clean_upload_mode,
+            "target_part_id": None,
+            "target_chapter_id": None,
+        }
+
+    if not series_slug or not part_slug:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="指定上传目标时必须同时提供 series_slug 和 part_slug",
+        )
+
+    clean_series_slug = normalize_slug(series_slug, "series_slug")
+    clean_part_slug = normalize_slug(part_slug, "part_slug")
+
+    part = get_part_for_publish(
+        session=session,
+        series_slug=clean_series_slug,
+        part_slug=clean_part_slug,
+    )
+
+    ensure_current_user_is_part_owner(
+        session=session,
+        part=part,
+        current_user=current_user,
+    )
+
+    target_chapter_id = None
+
+    if clean_upload_mode == UPLOAD_MODE_EDIT_CHAPTER:
+        if not chapter_slug:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="edit_chapter 模式必须提供 chapter_slug",
+            )
+
+        clean_chapter_slug = normalize_slug(chapter_slug, "chapter_slug")
+
+        try:
+            chapter = get_chapter(
+                session=session,
+                series_slug=clean_series_slug,
+                part=part,
+                part_slug=clean_part_slug,
+                chapter_slug=clean_chapter_slug,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+
+        target_chapter_id = chapter.id
+
+    return {
+        "upload_mode": clean_upload_mode,
+        "target_part_id": part.id,
+        "target_chapter_id": target_chapter_id,
+    }
 
 def summarize_upload_images(images: list[ComicUploadImage]) -> dict:
     return {
@@ -354,6 +458,10 @@ async def upload_images(
     upload_batch_id: str | None = Form(default=None),
     upload_batch_index: int | None = Form(default=None),
     upload_batch_total: int | None = Form(default=None),
+    upload_mode: str | None = Form(default=None),
+    series_slug: str | None = Form(default=None),
+    part_slug: str | None = Form(default=None),
+    chapter_slug: str | None = Form(default=None),
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
@@ -363,11 +471,23 @@ async def upload_images(
             detail="没有选择文件",
         )
 
+    target = resolve_upload_target(
+        session=session,
+        current_user=current_user,
+        upload_mode=upload_mode,
+        series_slug=series_slug,
+        part_slug=part_slug,
+        chapter_slug=chapter_slug,
+    )
+
     try:
         result = await save_upload_images(
             session=session,
             user_id=current_user.id,
             upload_files=files,
+            target_part_id=target["target_part_id"],
+            target_chapter_id=target["target_chapter_id"],
+            upload_mode=target["upload_mode"],
         )
     except Exception as exc:
         raise_service_error(exc)
@@ -395,6 +515,7 @@ async def upload_images(
         "rejected": rejected_items,
         "totalSizeBytes": result["total_size"],
         "limitBytes": STAGING_LIMIT_BYTES,
+        **upload_target_to_public(list_user_upload_images(session, current_user.id)),
     }
 
 @router.get("/images/{image_id}/preview")
@@ -680,6 +801,9 @@ def clear_upload_images(
         "images": [],
         "totalSizeBytes": 0,
         "limitBytes": STAGING_LIMIT_BYTES,
+        "uploadMode": UPLOAD_MODE_NEW_CHAPTER,
+        "targetPartId": None,
+        "targetChapterId": None,
     }
 
 
