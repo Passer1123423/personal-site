@@ -9,7 +9,7 @@ import {
   fetchAuthorUploadPreviewObjectUrl,
   listAuthorUploadImages,
   loadAuthorComicChapterToUploads,
-  uploadAuthorComicPdf,
+  uploadAuthorComicPdfWithProgress,
   publishAuthorComicChapter,
   publishAuthorComicChapterUpdate,
   reorderAuthorUploadImages,
@@ -48,6 +48,14 @@ type PendingUploadImage = {
   progress: number;
   status: "waiting" | "uploading" | "error";
   errorText?: string;
+};
+
+type PendingPdfUpload = {
+  id: string;
+  filename: string;
+  sizeBytes: number;
+  progress: number;
+  status: "uploading" | "processing";
 };
 
 function formatBytes(value: number) {
@@ -342,6 +350,8 @@ export default function CreatorComicPartPage() {
   const [limitBytes, setLimitBytes] = useState(500 * 1024 * 1024);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
 
+  const [pendingPdfUpload, setPendingPdfUpload] = useState<PendingPdfUpload | null>(null);
+
   const [uploadInputMode, setUploadInputMode] = useState<"images" | "pdf">("images");
   const [uploadDropActive, setUploadDropActive] = useState(false);
 
@@ -404,15 +414,18 @@ export default function CreatorComicPartPage() {
       ? `修改：${targetChapter.title}`
       : "修改已有章节";
 
-  const hasUploadingImages = pendingUploads.some(
-    (item) => item.status === "waiting" || item.status === "uploading",
-  );
+  const hasUploadingImages =
+    pendingUploads.some((item) => item.status === "uploading") ||
+    pendingPdfUpload !== null;
 
-  const visibleUploadCount = images.length + pendingUploads.length;
+  const visibleUploadCount =
+    images.length + pendingUploads.length + (pendingPdfUpload ? 1 : 0);
 
   const pendingUploadTotalSize = useMemo(
-    () => pendingUploads.reduce((sum, item) => sum + item.sizeBytes, 0),
-    [pendingUploads],
+    () =>
+      pendingUploads.reduce((sum, item) => sum + item.sizeBytes, 0) +
+      (pendingPdfUpload?.sizeBytes ?? 0),
+    [pendingUploads, pendingPdfUpload],
   );
 
   useEffect(() => {
@@ -684,13 +697,35 @@ export default function CreatorComicPartPage() {
       return;
     }
 
+    const pendingId = `pdf-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
     setSubmitting(true);
     setMessage(null);
+    setPendingPdfUpload({
+      id: pendingId,
+      filename: file.name,
+      sizeBytes: file.size,
+      progress: 0,
+      status: "uploading",
+    });
 
     try {
-      const state = await uploadAuthorComicPdf(file, {
+      const state = await uploadAuthorComicPdfWithProgress(file, {
         seriesSlug,
         partSlug,
+        onProgress: (progress) => {
+          setPendingPdfUpload((current) => {
+            if (!current || current.id !== pendingId) {
+              return current;
+            }
+
+            return {
+              ...current,
+              progress,
+              status: progress >= 100 ? "processing" : "uploading",
+            };
+          });
+        },
       });
 
       applyUploadState(state);
@@ -703,6 +738,7 @@ export default function CreatorComicPartPage() {
       const text = error instanceof Error ? error.message : "PDF 导入失败";
       setMessage({ type: "error", text });
     } finally {
+      setPendingPdfUpload(null);
       setSubmitting(false);
     }
   }
@@ -1561,7 +1597,7 @@ export default function CreatorComicPartPage() {
                     <div className="min-h-0 flex-1 overflow-y-auto pr-1 max-md:overscroll-contain">
                       {visibleUploadCount === 0 ? (
                         <div className="flex h-full min-h-48 items-center justify-center rounded-xl border border-dashed border-[var(--color-border-control)] bg-white px-4 py-10 text-center text-sm text-soft">
-                          待传区为空。点击下方区域上传新章节图片。
+                          待传区为空。拖动或点击下方区域上传图片或导入 PDF。
                         </div>
                       ) : (
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-2 md:grid-cols-[repeat(auto-fill,minmax(116px,1fr))] md:gap-3">
@@ -1721,6 +1757,55 @@ export default function CreatorComicPartPage() {
                               </div>
                             </article>
                           ))}
+
+                          {pendingPdfUpload ? (
+                            <article className="overflow-hidden rounded-lg border border-[var(--color-accent-border)] bg-white md:rounded-xl">
+                              <div className="flex h-24 items-center justify-center bg-[var(--color-accent-soft)] md:h-28">
+                                <div className="text-center">
+                                  <div className="text-sm font-semibold text-[var(--color-accent)]">
+                                    PDF
+                                  </div>
+                                  <div className="mt-1 text-xs text-soft">
+                                    {pendingPdfUpload.status === "processing"
+                                      ? "正在拆分页面"
+                                      : "正在上传"}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 px-2 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="badge-accent px-2 py-0.5 text-xs">
+                                    待处理
+                                  </span>
+
+                                  <span className="text-[11px] text-soft">
+                                    {formatBytes(pendingPdfUpload.sizeBytes)}
+                                  </span>
+                                </div>
+
+                                <p className="truncate text-xs font-medium text-main">
+                                  {pendingPdfUpload.filename}
+                                </p>
+
+                                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-border-soft)]">
+                                  <div
+                                    className="h-full rounded-full bg-[var(--color-accent)] transition-all"
+                                    style={{
+                                      width: `${pendingPdfUpload.progress}%`,
+                                    }}
+                                  />
+                                </div>
+
+                                <p className="text-[11px] text-soft">
+                                  {pendingPdfUpload.status === "processing"
+                                    ? "上传完成，正在拆分为图片..."
+                                    : `${pendingPdfUpload.progress}%`}
+                                </p>
+                              </div>
+                            </article>
+                          ) : null}
+
                         </div>
                       )}
                     </div>

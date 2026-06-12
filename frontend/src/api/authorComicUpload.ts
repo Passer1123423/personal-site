@@ -271,6 +271,83 @@ export function uploadAuthorComicImageWithProgress(
   });
 }
 
+export function uploadAuthorComicPdfWithProgress(
+  file: File,
+  payload: {
+    seriesSlug?: string;
+    partSlug?: string;
+    onProgress?: (progress: number) => void;
+  } = {},
+): Promise<AuthorUploadState> {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    if (payload.seriesSlug) {
+      formData.append("series_slug", payload.seriesSlug);
+    }
+
+    if (payload.partSlug) {
+      formData.append("part_slug", payload.partSlug);
+    }
+
+    const request = new XMLHttpRequest();
+
+    request.open("POST", `${API_BASE_URL}/api/author/comic-upload/pdf`);
+
+    const authHeaders = getAuthHeaders();
+
+    for (const [key, value] of Object.entries(authHeaders)) {
+      request.setRequestHeader(key, value);
+    }
+
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable) {
+        return;
+      }
+
+      const progress = Math.round((event.loaded / event.total) * 100);
+      payload.onProgress?.(progress);
+    };
+
+    request.onload = () => {
+      let parsed: unknown = null;
+
+      try {
+        parsed = request.responseText ? JSON.parse(request.responseText) : null;
+      } catch {
+        reject(new Error("PDF 导入响应解析失败"));
+        return;
+      }
+
+      if (request.status >= 200 && request.status < 300) {
+        resolve(parsed as AuthorUploadState);
+        return;
+      }
+
+      const detail =
+        parsed &&
+        typeof parsed === "object" &&
+        "detail" in parsed &&
+        typeof (parsed as { detail?: unknown }).detail === "string"
+          ? (parsed as { detail: string }).detail
+          : "PDF 导入失败";
+
+      reject(new Error(detail));
+    };
+
+    request.onerror = () => {
+      reject(new Error("PDF 导入请求失败"));
+    };
+
+    request.onabort = () => {
+      reject(new Error("PDF 导入已取消"));
+    };
+
+    request.send(formData);
+  });
+}
+
 export async function deleteAuthorUploadImage(
   imageId: string,
 ): Promise<AuthorUploadState> {
