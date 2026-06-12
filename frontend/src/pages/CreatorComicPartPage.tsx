@@ -343,6 +343,7 @@ export default function CreatorComicPartPage() {
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
 
   const [uploadInputMode, setUploadInputMode] = useState<"images" | "pdf">("images");
+  const [uploadDropActive, setUploadDropActive] = useState(false);
 
   const [uploadMode, setUploadMode] = useState<ComicUploadMode>("new_chapter");
   const [targetChapterId, setTargetChapterId] = useState<string | null>(null);
@@ -558,7 +559,7 @@ export default function CreatorComicPartPage() {
     });
   }
 
-  async function handleUploadFiles(files: FileList | null) {
+  async function handleUploadFiles(files: FileList | File[] | null) {
     if (!files || files.length === 0) {
       return;
     }
@@ -704,6 +705,108 @@ export default function CreatorComicPartPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function isSupportedImageFile(file: File) {
+    return (
+      file.type === "image/jpeg" ||
+      file.type === "image/png" ||
+      file.type === "image/webp" ||
+      /\.(jpe?g|png|webp)$/i.test(file.name)
+    );
+  }
+
+  function isSupportedPdfFile(file: File) {
+    return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  }
+
+  function handleUploadDragEnter(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setUploadDropActive(true);
+  }
+
+  function handleUploadDragOver(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setUploadDropActive(true);
+  }
+
+  function handleUploadDragLeave(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const nextTarget = event.relatedTarget as Node | null;
+
+    if (nextTarget && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setUploadDropActive(false);
+  }
+
+  async function handleUploadDrop(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setUploadDropActive(false);
+
+    if (submitting || hasUploadingImages) {
+      return;
+    }
+
+    const droppedFiles = Array.from(event.dataTransfer.files).filter(
+      (file) => file.size > 0,
+    );
+
+    if (droppedFiles.length === 0) {
+      return;
+    }
+
+    const pdfFiles = droppedFiles.filter(isSupportedPdfFile);
+    const imageFiles = droppedFiles.filter(isSupportedImageFile);
+    const supportedCount = pdfFiles.length + imageFiles.length;
+
+    if (supportedCount === 0) {
+      setMessage({
+        type: "error",
+        text: "请拖入 jpg、jpeg、png、webp 图片或 PDF 文件。",
+      });
+      return;
+    }
+
+    if (supportedCount !== droppedFiles.length) {
+      setMessage({
+        type: "error",
+        text: "拖入的文件中包含不支持的格式。请只拖入图片或 PDF。",
+      });
+      return;
+    }
+
+    if (pdfFiles.length > 0 && imageFiles.length > 0) {
+      setMessage({
+        type: "error",
+        text: "图片和 PDF 不能混合拖入。请分开上传。",
+      });
+      return;
+    }
+
+    if (pdfFiles.length > 1) {
+      setMessage({
+        type: "error",
+        text: "一次只能拖入一个 PDF 文件。",
+      });
+      return;
+    }
+
+    if (pdfFiles.length === 1) {
+      setUploadInputMode("pdf");
+      await handleUploadPdf(pdfFiles[0]);
+      return;
+    }
+
+    setUploadInputMode("images");
+    await handleUploadFiles(imageFiles);
   }
 
   function handleRemovePendingUpload(id: string) {
@@ -1408,10 +1511,6 @@ export default function CreatorComicPartPage() {
                       待传缓存区
                     </h2>
 
-                    <p className="mt-1.5 text-sm leading-6 text-muted md:mt-2">
-                      图片先进入当前用户缓存区，发布后才写入正式漫画目录。
-                    </p>
-
                     <p className="mt-1 text-xs font-semibold text-[var(--color-accent)]">
                       当前目标：{uploadTargetLabel}
                     </p>
@@ -1429,7 +1528,17 @@ export default function CreatorComicPartPage() {
 
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 max-md:overscroll-contain md:px-6 md:py-5">
                 <section className="flex h-full min-h-0 flex-col gap-4 md:gap-5">
-                  <div className="flex min-h-0 flex-1 flex-col border-y border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] py-3 md:rounded-2xl md:border md:p-4">
+                  <div
+                    className={
+                      uploadDropActive
+                        ? "flex min-h-0 flex-1 flex-col border-y border-[var(--color-accent-border-strong)] bg-[var(--color-accent-soft)] py-3 md:rounded-2xl md:border md:p-4"
+                        : "flex min-h-0 flex-1 flex-col border-y border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] py-3 md:rounded-2xl md:border md:p-4"
+                    }
+                    onDragEnter={handleUploadDragEnter}
+                    onDragOver={handleUploadDragOver}
+                    onDragLeave={handleUploadDragLeave}
+                    onDrop={handleUploadDrop}
+                  >
                     <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
                       <div>
                         <h3 className="text-sm font-semibold text-main">
@@ -1440,9 +1549,13 @@ export default function CreatorComicPartPage() {
                         </p>
                       </div>
 
-                      <span className="shrink-0 text-xs text-soft">
-                        {formatBytes(totalSizeBytes + pendingUploadTotalSize)} / {formatBytes(limitBytes)}
-                      </span>
+                      <div className="flex shrink-0 items-center gap-3">
+                        {renderUploadInputModeSwitcher()}
+
+                        <span className="text-xs text-soft">
+                          {formatBytes(totalSizeBytes + pendingUploadTotalSize)} / {formatBytes(limitBytes)}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-y-auto pr-1 max-md:overscroll-contain">
@@ -1614,55 +1727,56 @@ export default function CreatorComicPartPage() {
                   </div>
 
                   <div className="shrink-0">
-                    <div className="rounded-xl border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] px-4 py-3 text-sm text-muted hover:border-[var(--color-accent-border-strong)] md:rounded-2xl">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <span className="font-semibold text-main">
-                            {uploadInputMode === "pdf" ? "选择 PDF 导入" : "选择图片上传"}
-                          </span>
-                          <span className="mt-1 block text-xs">
-                            {uploadInputMode === "pdf"
-                              ? "支持 pdf，导入后会自动拆分为图片"
-                              : "支持 jpg、jpeg、png、webp"}
-                          </span>
-                        </div>
+                    <label
+                      className={
+                        uploadDropActive
+                          ? "block cursor-pointer rounded-xl border border-dashed border-[var(--color-accent-border-strong)] bg-[var(--color-accent-soft)] px-4 py-3 text-center text-sm text-muted md:rounded-2xl"
+                          : "block cursor-pointer rounded-xl border border-dashed border-[var(--color-border-control)] bg-[var(--color-panel-soft-bg)] px-4 py-3 text-center text-sm text-muted hover:border-[var(--color-accent-border-strong)] md:rounded-2xl"
+                      }
+                      onDragEnter={handleUploadDragEnter}
+                      onDragOver={handleUploadDragOver}
+                      onDragLeave={handleUploadDragLeave}
+                      onDrop={handleUploadDrop}
+                    >
+                      <span className="font-semibold text-main">
+                        {uploadDropActive
+                          ? "松开后自动上传"
+                          : uploadInputMode === "pdf"
+                            ? "选择 PDF 导入"
+                            : "选择图片上传"}
+                      </span>
 
-                        {renderUploadInputModeSwitcher()}
-                      </div>
+                      <span className="mt-1 block text-xs">
+                        {uploadInputMode === "pdf"
+                          ? "支持 pdf，导入后会自动拆分为图片，也可以直接拖入 PDF"
+                          : "支持 jpg、jpeg、png、webp，也可以直接拖入图片"}
+                      </span>
 
-                      <div className="mt-3">
-                        {uploadInputMode === "pdf" ? (
-                          <label className="admin-button-secondary inline-flex cursor-pointer items-center justify-center px-3 py-2 text-sm">
-                            选择 PDF
-                            <input
-                              className="hidden"
-                              type="file"
-                              accept="application/pdf,.pdf"
-                              disabled={submitting || hasUploadingImages || uploadMode !== "new_chapter"}
-                              onChange={(event) => {
-                                handleUploadPdf(event.currentTarget.files?.[0]);
-                                event.currentTarget.value = "";
-                              }}
-                            />
-                          </label>
-                        ) : (
-                          <label className="admin-button-secondary inline-flex cursor-pointer items-center justify-center px-3 py-2 text-sm">
-                            选择图片
-                            <input
-                              className="hidden"
-                              type="file"
-                              accept="image/jpeg,image/png,image/webp"
-                              multiple
-                              disabled={submitting || hasUploadingImages}
-                              onChange={(event) => {
-                                handleUploadFiles(event.currentTarget.files);
-                                event.currentTarget.value = "";
-                              }}
-                            />
-                          </label>
-                        )}
-                      </div>
-                    </div>
+                      {uploadInputMode === "pdf" ? (
+                        <input
+                          className="hidden"
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          disabled={submitting || hasUploadingImages || uploadMode !== "new_chapter"}
+                          onChange={(event) => {
+                            handleUploadPdf(event.currentTarget.files?.[0]);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      ) : (
+                        <input
+                          className="hidden"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          multiple
+                          disabled={submitting || hasUploadingImages}
+                          onChange={(event) => {
+                            handleUploadFiles(event.currentTarget.files);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      )}
+                    </label>
 
                     {uploadMode === "new_chapter" && (
                       <div className="mt-4">
