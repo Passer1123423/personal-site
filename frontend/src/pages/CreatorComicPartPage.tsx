@@ -1028,6 +1028,11 @@ export default function CreatorComicPartPage() {
       const result = await mergeAuthorComicPdfJob(jobId);
 
       applyUploadState(result.uploadState);
+
+      if (uploadMode === "edit_chapter") {
+        setEditUploadDirty(true);
+      }
+
       setPdfJobs((current) =>
         current
           .map((item) => (item.id === result.job.id ? result.job : item))
@@ -1244,13 +1249,14 @@ export default function CreatorComicPartPage() {
       return;
     }
 
-    if (editUploadDirty) {
+    if (!isCleanEditUpload) {
       const confirmed = window.confirm(
         "当前待传区正在修改已有章节。切换为新建章节会清空当前待传区，是否继续？",
       );
+
       if (!confirmed) {
-          return;
-        }
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -1299,7 +1305,7 @@ export default function CreatorComicPartPage() {
       return;
     }
 
-    const needsConfirm = hasUploadWork;
+    const needsConfirm = hasUploadWork && !isCleanEditUpload;
 
     if (needsConfirm) {
       const confirmed = window.confirm(
@@ -1534,6 +1540,7 @@ export default function CreatorComicPartPage() {
         await Promise.all([refreshUploadImages(), loadPartDetail()]);
         setPdfJobs([]);
         setPendingPdfUploads([]);
+        setEditUploadDirty(false);
 
         setMessage({
           type: "success",
@@ -1553,6 +1560,7 @@ export default function CreatorComicPartPage() {
       await Promise.all([refreshUploadImages(), loadPartDetail()]);
       setPdfJobs([]);
       setPendingPdfUploads([]);
+      setEditUploadDirty(false);
       setChapterTitle("");
 
       setMessage({
