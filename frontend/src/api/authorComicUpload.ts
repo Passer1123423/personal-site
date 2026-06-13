@@ -346,6 +346,20 @@ export async function mergeAuthorComicPdfJob(
   return readJsonOrThrow<MergeAuthorComicPdfJobResult>(response);
 }
 
+export async function discardAuthorComicPdfJob(
+  jobId: string,
+): Promise<AuthorComicPdfJob> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/comic-upload/pdf-jobs/${jobId}/discard`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  return readJsonOrThrow<AuthorComicPdfJob>(response);
+}
+
 export function uploadAuthorComicImageWithProgress(
   file: File,
   onProgress: (progress: number) => void,

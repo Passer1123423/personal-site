@@ -1,9 +1,10 @@
 import json
 import os
 from collections.abc import Sequence
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from shutil import copy2, rmtree
+from threading import Lock
 from uuid import uuid4
 import fitz
 
@@ -58,6 +59,8 @@ PDF_JOB_TERMINAL_STATUSES = {
 }
 
 PDF_IMPORT_EXECUTOR = ThreadPoolExecutor(max_workers=1)
+PDF_IMPORT_WORKER_LOCK = Lock()
+PDF_IMPORT_WORKER_FUTURE: Future | None = None
 
 # 当前文件位置：
 # backend/app/services/comic_upload.py
@@ -164,6 +167,16 @@ def cleanup_pdf_job_pages(job: ComicUploadJob) -> None:
 def cleanup_pdf_job_work_files(job: ComicUploadJob) -> None:
     cleanup_pdf_job_source_file(job)
     cleanup_pdf_job_pages(job)
+
+
+def pdf_job_has_work_files(job: ComicUploadJob) -> bool:
+    if job.source_path:
+        source_path = get_pdf_job_source_path_from_relative(job.source_path)
+
+        if source_path.exists():
+            return True
+
+    return get_pdf_job_pages_dir(job.user_id, job.id).exists()
 
 
 def rollback_pdf_import_job_outputs(
@@ -617,6 +630,17 @@ def list_comic_upload_jobs(
     return list(session.exec(statement).all())
 
 
+def get_next_queued_pdf_import_job(session: Session) -> ComicUploadJob | None:
+    statement = (
+        select(ComicUploadJob)
+        .where(ComicUploadJob.kind == PDF_JOB_KIND)
+        .where(ComicUploadJob.status == PDF_JOB_STATUS_QUEUED)
+        .order_by(ComicUploadJob.created_at)
+    )
+
+    return session.exec(statement).first()
+
+
 def get_active_comic_upload_job(
     session: Session,
     user_id: str,
@@ -842,11 +866,6 @@ async def create_pdf_import_job(
     upload_file: UploadFile,
     target_part_id: str | None = None,
 ) -> ComicUploadJob:
-    ensure_no_active_comic_upload_job(
-        session=session,
-        user_id=user_id,
-    )
-
     original_filename = clean_original_filename(upload_file.filename)
 
     if not original_filename.lower().endswith(".pdf"):
@@ -975,6 +994,128 @@ def request_cancel_pdf_import_job(
         return job
 
     raise ValueError("当前任务状态不支持取消")
+
+
+def discard_pdf_import_job(
+    *,
+    session: Session,
+    user_id: str,
+    job_id: str,
+) -> ComicUploadJob:
+    job = get_comic_upload_job(
+        session=session,
+        user_id=user_id,
+        job_id=job_id,
+    )
+
+    if job.status in PDF_JOB_ACTIVE_STATUSES:
+        raise ValueError("PDF 导入任务仍在进行中，请先取消任务")
+
+    if job.merged_at is not None:
+        raise ValueError("PDF 页面已加入待传区，不能清除任务结果")
+
+    if job.status not in PDF_JOB_TERMINAL_STATUSES:
+        raise ValueError("当前任务状态不支持清除")
+
+    now = now_utc()
+
+    cleanup_pdf_job_work_files(job)
+
+    job.status = PDF_JOB_STATUS_CANCELED
+    job.output_pages_json = None
+    job.output_size_bytes = 0
+    job.created_image_ids_json = None
+    job.created_size_bytes = 0
+    job.message = "PDF 导入结果已清除。"
+    job.error_message = None
+    job.canceled_at = now
+    job.updated_at = now
+
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    return job
+
+
+def cancel_user_pdf_import_jobs_for_staging_reset(
+    *,
+    session: Session,
+    user_id: str,
+    reason: str,
+) -> list[ComicUploadJob]:
+    statement = (
+        select(ComicUploadJob)
+        .where(ComicUploadJob.user_id == user_id)
+        .where(ComicUploadJob.kind == PDF_JOB_KIND)
+        .where(
+            ComicUploadJob.status.in_(
+                PDF_JOB_ACTIVE_STATUSES | PDF_JOB_TERMINAL_STATUSES,
+            )
+        )
+        .order_by(ComicUploadJob.created_at)
+    )
+    jobs = list(session.exec(statement).all())
+    changed_jobs: list[ComicUploadJob] = []
+    now = now_utc()
+
+    for job in jobs:
+        has_work_files = pdf_job_has_work_files(job)
+        has_output_metadata = bool(job.output_pages_json) or job.output_size_bytes > 0
+
+        if job.status == PDF_JOB_STATUS_RUNNING:
+            job.status = PDF_JOB_STATUS_CANCELING
+            job.message = reason
+            job.updated_at = now
+            session.add(job)
+            changed_jobs.append(job)
+            continue
+
+        if job.status == PDF_JOB_STATUS_CANCELING:
+            job.message = reason
+            job.updated_at = now
+            session.add(job)
+            changed_jobs.append(job)
+            continue
+
+        if job.merged_at is not None:
+            if not has_work_files:
+                continue
+
+            cleanup_pdf_job_work_files(job)
+            job.updated_at = now
+            session.add(job)
+            changed_jobs.append(job)
+            continue
+
+        if (
+            job.status in {PDF_JOB_STATUS_FAILED, PDF_JOB_STATUS_CANCELED}
+            and not has_work_files
+            and not has_output_metadata
+        ):
+            continue
+
+        cleanup_pdf_job_work_files(job)
+        job.status = PDF_JOB_STATUS_CANCELED
+        job.canceled_at = job.canceled_at or now
+        job.output_pages_json = None
+        job.output_size_bytes = 0
+        job.created_image_ids_json = None
+        job.created_size_bytes = 0
+        job.message = reason
+        job.updated_at = now
+        session.add(job)
+        changed_jobs.append(job)
+
+    if not changed_jobs:
+        return []
+
+    session.commit()
+
+    for job in changed_jobs:
+        session.refresh(job)
+
+    return changed_jobs
 
 
 def merge_pdf_import_job_to_uploads(
@@ -1302,8 +1443,48 @@ def run_pdf_import_job(job_id: str) -> None:
                 exc=exc,
             )
 
+def run_pdf_import_worker_loop() -> None:
+    global PDF_IMPORT_WORKER_FUTURE
+
+    try:
+        while True:
+            with Session(engine) as session:
+                job = get_next_queued_pdf_import_job(session)
+
+                if job is None:
+                    return
+
+                job_id = job.id
+
+            try:
+                run_pdf_import_job(job_id)
+            except Exception:
+                continue
+    finally:
+        with PDF_IMPORT_WORKER_LOCK:
+            PDF_IMPORT_WORKER_FUTURE = None
+
+        with Session(engine) as session:
+            has_queued_job = get_next_queued_pdf_import_job(session) is not None
+
+        if has_queued_job:
+            ensure_pdf_import_worker_running()
+
+
+def ensure_pdf_import_worker_running() -> None:
+    global PDF_IMPORT_WORKER_FUTURE
+
+    with PDF_IMPORT_WORKER_LOCK:
+        if PDF_IMPORT_WORKER_FUTURE is not None and not PDF_IMPORT_WORKER_FUTURE.done():
+            return
+
+        PDF_IMPORT_WORKER_FUTURE = PDF_IMPORT_EXECUTOR.submit(
+            run_pdf_import_worker_loop,
+        )
+
+
 def submit_pdf_import_job(job_id: str) -> None:
-    PDF_IMPORT_EXECUTOR.submit(run_pdf_import_job, job_id)
+    ensure_pdf_import_worker_running()
 
 def recover_interrupted_pdf_import_jobs() -> None:
     with Session(engine) as session:
