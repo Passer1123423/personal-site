@@ -1630,17 +1630,31 @@ export default function CreatorComicPartPage() {
                 >
                   返回
                 </Link>
+                <span className="mx-2 text-sm text-soft">/</span>
+                <Link
+                  to={
+                    seriesSlug && partSlug
+                      ? `/works/comics/${seriesSlug}/${partSlug}`
+                      : "/works/comics"
+                  }
+                  className="link-accent text-sm"
+                >
+                  查看当前漫画
+                </Link>
 
                 <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em] max-md:hidden">
                   Creator Comics
                 </p>
 
-                <h1 className="mt-2 text-2xl font-bold leading-tight text-main md:text-3xl">
-                  {partDetail?.part.title ?? partSlug ?? "Part"} 作者页
-                </h1>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <h1 className="text-2xl font-bold leading-tight text-main md:text-3xl">
+                    {partDetail?.part.title ?? partSlug ?? "Part"} 作者页
+                  </h1>
+                </div>
 
                 <p className="mt-2 text-sm text-muted md:mt-3">
-                  {seriesSlug ?? "-"} / {partSlug ?? "-"}
+                  {seriesSlug ?? "-"} / {partSlug ?? "-"} /
+                   with {chapters.length} chapter
                 </p>
               </div>
 
@@ -1707,73 +1721,81 @@ export default function CreatorComicPartPage() {
                     </label>
 
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                        {isPartTitleEditing ? (
-                          <>
-                            <input
-                              className="admin-input min-w-0 flex-1 px-3 py-2 text-base font-semibold md:text-lg"
-                              value={partTitleDraft}
-                              disabled={submitting}
-                              onChange={(event) => setPartTitleDraft(event.target.value)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") {
-                                  handleSavePartTitle();
-                                }
+                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-4">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:gap-3">
+                          {isPartTitleEditing ? (
+                            <>
+                              <input
+                                className="admin-input min-w-0 flex-1 px-3 py-2 text-base font-semibold md:text-lg"
+                                value={partTitleDraft}
+                                disabled={submitting}
+                                onChange={(event) => setPartTitleDraft(event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    handleSavePartTitle();
+                                  }
 
-                                if (event.key === "Escape") {
+                                  if (event.key === "Escape") {
+                                    setPartTitleDraft(partDetail?.part.title ?? "");
+                                    setIsPartTitleEditing(false);
+                                  }
+                                }}
+                                autoFocus
+                              />
+
+                              <button
+                                type="button"
+                                className="admin-button-secondary px-3 py-2 text-sm"
+                                disabled={submitting}
+                                onClick={handleSavePartTitle}
+                              >
+                                保存
+                              </button>
+
+                              <button
+                                type="button"
+                                className="admin-button-danger px-3 py-2 text-sm"
+                                disabled={submitting}
+                                onClick={() => {
                                   setPartTitleDraft(partDetail?.part.title ?? "");
                                   setIsPartTitleEditing(false);
-                                }
-                              }}
-                              autoFocus
-                            />
-
+                                }}
+                              >
+                                取消
+                              </button>
+                            </>
+                          ) : (
                             <button
                               type="button"
-                              className="admin-button-secondary px-3 py-2 text-sm"
+                              className="group inline-flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60 md:gap-3"
                               disabled={submitting}
-                              onClick={handleSavePartTitle}
-                            >
-                              保存
-                            </button>
-
-                            <button
-                              type="button"
-                              className="admin-button-danger px-3 py-2 text-sm"
-                              disabled={submitting}
+                              title="编辑 part 标题"
                               onClick={() => {
                                 setPartTitleDraft(partDetail?.part.title ?? "");
-                                setIsPartTitleEditing(false);
+                                setIsPartTitleEditing(true);
                               }}
                             >
-                              取消
+                              <h2 className="line-clamp-2 text-lg font-bold leading-6 text-main group-hover:underline group-hover:underline-offset-4 md:text-2xl md:leading-tight">
+                                {partDetail?.part.title ?? partSlug}
+                              </h2>
+
+                              <span className="admin-button-secondary px-2 py-1 text-xs group-hover:border-[var(--color-accent-border-strong)] group-hover:text-[var(--color-accent)] md:px-3 md:text-sm">
+                                ✎
+                              </span>
                             </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="group inline-flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60 md:gap-3"
-                            disabled={submitting}
-                            title="编辑 part 标题"
-                            onClick={() => {
-                              setPartTitleDraft(partDetail?.part.title ?? "");
-                              setIsPartTitleEditing(true);
-                            }}
-                          >
-                            <h2 className="line-clamp-2 text-lg font-bold leading-6 text-main group-hover:underline group-hover:underline-offset-4 md:text-2xl md:leading-tight">
-                              {partDetail?.part.title ?? partSlug}
-                            </h2>
+                          )}
+                        </div>
 
-                            <span className="admin-button-secondary px-2 py-1 text-xs group-hover:border-[var(--color-accent-border-strong)] group-hover:text-[var(--color-accent)] md:px-3 md:text-sm">
-                              ✎
-                            </span>
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="mt-3 text-xs leading-5 text-soft md:mt-4 md:text-sm md:leading-6">
-                        <p>{seriesSlug ?? "-"} / {partSlug ?? "-"}</p>
-                        <p className="mt-1">{chapters.length} 个 chapter</p>
+                        <Link
+                          to={
+                            seriesSlug && partSlug
+                              ? `/works/comics/${seriesSlug}/${partSlug}`
+                              : "/works/comics"
+                          }
+                          className="inline-flex shrink-0 self-start whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold leading-none transition hover:bg-[var(--color-panel-soft-bg)] link-accent md:mt-2 md:rounded-xl md:px-3 md:py-1.5"
+                        >
+                          查看当前漫画
+                        </Link>
                       </div>
 
                       <div className="mt-3 hidden md:mt-4 md:block">
