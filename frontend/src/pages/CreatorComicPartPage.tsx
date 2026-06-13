@@ -501,7 +501,23 @@ export default function CreatorComicPartPage() {
       : "修改已有章节";
 
   const activePdfJobs = pdfJobs.filter(isActivePdfJob);
-  const visiblePdfJobs = pdfJobs.filter(shouldShowPdfJob);
+  const visiblePdfJobs = useMemo(
+    () =>
+      pdfJobs
+        .filter(shouldShowPdfJob)
+        .slice()
+        .sort((left, right) => {
+          const leftTime = new Date(left.createdAt).getTime();
+          const rightTime = new Date(right.createdAt).getTime();
+
+          if (leftTime !== rightTime) {
+            return leftTime - rightTime;
+          }
+
+          return left.id.localeCompare(right.id);
+        }),
+    [pdfJobs],
+  );
   const visiblePdfJobCount = visiblePdfJobs.length;
   const activePdfJobKey = activePdfJobs
     .map((job) => `${job.id}:${job.status}:${job.processedPages}:${job.progress}`)
@@ -510,6 +526,10 @@ export default function CreatorComicPartPage() {
   const hasUploadingImages = pendingUploads.some(
     (item) => item.status === "uploading",
   );
+
+  const hasPdfUploadWork = pendingPdfUploads.length > 0 || visiblePdfJobCount > 0;
+  const hasUploadWork =
+    images.length > 0 || pendingUploads.length > 0 || hasPdfUploadWork;
 
   const visibleUploadCount = images.length + pendingUploads.length;
 
@@ -630,6 +650,13 @@ export default function CreatorComicPartPage() {
         }
 
         const previousActiveIds = new Set(activePdfJobs.map((job) => job.id));
+        const newlyMergedJob = result.jobs.find(
+          (job) =>
+            previousActiveIds.has(job.id) &&
+            job.status === "done" &&
+            Boolean(job.mergedAt),
+        );
+
         const newlyDoneJob = result.jobs.find(
           (job) =>
             previousActiveIds.has(job.id) &&
@@ -638,6 +665,16 @@ export default function CreatorComicPartPage() {
         );
 
         setPdfJobs(result.jobs);
+
+        if (newlyMergedJob) {
+          await refreshUploadImages();
+
+          setMessage({
+            type: "success",
+            text: "PDF 已拆分并加入待传区。",
+          });
+          return;
+        }
 
         if (newlyDoneJob) {
           setMessage({
@@ -843,8 +880,13 @@ export default function CreatorComicPartPage() {
 
   function upsertPdfJob(job: AuthorComicPdfJob) {
     setPdfJobs((current) => {
-      const withoutSame = current.filter((item) => item.id !== job.id);
-      return [job, ...withoutSame];
+      const existingIndex = current.findIndex((item) => item.id === job.id);
+
+      if (existingIndex >= 0) {
+        return current.map((item) => (item.id === job.id ? job : item));
+      }
+
+      return [...current, job];
     });
   }
 
@@ -1194,7 +1236,9 @@ export default function CreatorComicPartPage() {
 
     try {
       const state = await clearAuthorUploadImages();
-      applyUploadState(state);
+      applyUploadState(state, { preserveEmptyTarget: true });
+      setPdfJobs([]);
+      setPendingPdfUploads([]);
       setChapterTitle("");
       setDrawerOpen(true);
 
@@ -1232,7 +1276,7 @@ export default function CreatorComicPartPage() {
       return;
     }
 
-    const needsConfirm = images.length > 0 || pendingUploads.length > 0;
+    const needsConfirm = hasUploadWork;
 
     if (needsConfirm) {
       const confirmed = window.confirm(
@@ -1255,6 +1299,8 @@ export default function CreatorComicPartPage() {
       });
 
       applyUploadState(state);
+      setPdfJobs([]);
+      setPendingPdfUploads([]);
       setDrawerOpen(true);
 
       setMessage({
@@ -1270,7 +1316,7 @@ export default function CreatorComicPartPage() {
   }
 
   async function handleClearImages() {
-    if (images.length === 0) {
+    if (!hasUploadWork) {
       return;
     }
 
@@ -1281,10 +1327,12 @@ export default function CreatorComicPartPage() {
       const state = await clearAuthorUploadImages();
 
       applyUploadState(state, { preserveEmptyTarget: true });
+      setPdfJobs([]);
+      setPendingPdfUploads([]);
 
       setMessage({
         type: "success",
-        text: "已清空待传区。",
+        text: "待传区和 PDF 导入任务已清空。",
       });
     } catch (error: unknown) {
       const text = getFriendlyUploadErrorMessage(error, "清空失败");
@@ -1460,6 +1508,8 @@ export default function CreatorComicPartPage() {
         });
 
         await Promise.all([refreshUploadImages(), loadPartDetail()]);
+        setPdfJobs([]);
+        setPendingPdfUploads([]);
 
         setMessage({
           type: "success",
@@ -1477,6 +1527,8 @@ export default function CreatorComicPartPage() {
       });
 
       await Promise.all([refreshUploadImages(), loadPartDetail()]);
+      setPdfJobs([]);
+      setPendingPdfUploads([]);
       setChapterTitle("");
 
       setMessage({
@@ -2027,53 +2079,6 @@ export default function CreatorComicPartPage() {
                             </article>
                           ))}
 
-                          {pendingPdfUploads.map((pendingPdfUpload) => (
-                            <article
-                              key={pendingPdfUpload.id}
-                              className="overflow-hidden rounded-lg border border-[var(--color-accent-border)] bg-white md:rounded-xl"
-                            >
-                              <div className="flex h-24 items-center justify-center bg-[var(--color-accent-soft)] md:h-28">
-                                <div className="text-center">
-                                  <div className="text-sm font-semibold text-[var(--color-accent)]">
-                                    PDF
-                                  </div>
-                                  <div className="mt-1 text-xs text-soft">
-                                    正在上传源文件
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2 px-2 py-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="badge-accent px-2 py-0.5 text-xs">
-                                    待处理
-                                  </span>
-
-                                  <span className="text-[11px] text-soft">
-                                    {formatBytes(pendingPdfUpload.sizeBytes)}
-                                  </span>
-                                </div>
-
-                                <p className="truncate text-xs font-medium text-main">
-                                  {pendingPdfUpload.filename}
-                                </p>
-
-                                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-border-soft)]">
-                                  <div
-                                    className="h-full rounded-full bg-[var(--color-accent)] transition-all"
-                                    style={{
-                                      width: `${pendingPdfUpload.progress}%`,
-                                    }}
-                                  />
-                                </div>
-
-                                <p className="text-[11px] text-soft">
-                                  正在上传源 PDF {pendingPdfUpload.progress}%
-                                </p>
-                              </div>
-                            </article>
-                          ))}
-
                           {visiblePdfJobs.map((job) => (
                             <article
                               key={job.id}
@@ -2201,6 +2206,53 @@ export default function CreatorComicPartPage() {
                                     收起
                                   </button>
                                 )}
+                              </div>
+                            </article>
+                          ))}
+
+                          {pendingPdfUploads.map((pendingPdfUpload) => (
+                            <article
+                              key={pendingPdfUpload.id}
+                              className="overflow-hidden rounded-lg border border-[var(--color-accent-border)] bg-white md:rounded-xl"
+                            >
+                              <div className="flex h-24 items-center justify-center bg-[var(--color-accent-soft)] md:h-28">
+                                <div className="text-center">
+                                  <div className="text-sm font-semibold text-[var(--color-accent)]">
+                                    PDF
+                                  </div>
+                                  <div className="mt-1 text-xs text-soft">
+                                    正在上传源文件
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 px-2 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="badge-accent px-2 py-0.5 text-xs">
+                                    待处理
+                                  </span>
+
+                                  <span className="text-[11px] text-soft">
+                                    {formatBytes(pendingPdfUpload.sizeBytes)}
+                                  </span>
+                                </div>
+
+                                <p className="truncate text-xs font-medium text-main">
+                                  {pendingPdfUpload.filename}
+                                </p>
+
+                                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-border-soft)]">
+                                  <div
+                                    className="h-full rounded-full bg-[var(--color-accent)] transition-all"
+                                    style={{
+                                      width: `${pendingPdfUpload.progress}%`,
+                                    }}
+                                  />
+                                </div>
+
+                                <p className="text-[11px] text-soft">
+                                  正在上传源 PDF {pendingPdfUpload.progress}%
+                                </p>
                               </div>
                             </article>
                           ))}

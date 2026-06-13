@@ -299,9 +299,37 @@ def mark_pdf_import_job_done(
     now = now_utc()
     job.status = PDF_JOB_STATUS_DONE
     job.progress = 100
-    job.message = "PDF 已拆分完成，等待加入待传区"
+    job.message = "PDF 已拆分完成，正在加入待传区。"
     job.error_message = None
     job.finished_at = now
+    job.updated_at = now
+
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    return job
+
+def mark_pdf_import_job_auto_merge_failed(
+    session: Session,
+    job_id: str,
+    exc: Exception,
+) -> ComicUploadJob | None:
+    session.rollback()
+
+    job = session.get(ComicUploadJob, job_id)
+
+    if job is None:
+        return None
+
+    # 如果用户在拆分完成和自动 merge 之间已经清空/切换了待传区，
+    # 不要把 canceled/canceling 任务重新写回 done。
+    if job.status != PDF_JOB_STATUS_DONE or job.merged_at is not None:
+        return job
+
+    now = now_utc()
+    job.message = "PDF 已拆分完成，但暂时无法自动加入待传区。"
+    job.error_message = str(exc)[:1000]
     job.updated_at = now
 
     session.add(job)
@@ -1417,10 +1445,23 @@ def run_pdf_import_job(job_id: str) -> None:
                 document.close()
                 document = None
 
-            mark_pdf_import_job_done(
+            done_job = mark_pdf_import_job_done(
                 session=session,
                 job=job,
             )
+
+            try:
+                merge_pdf_import_job_to_uploads(
+                    session=session,
+                    user_id=done_job.user_id,
+                    job_id=done_job.id,
+                )
+            except Exception as merge_exc:
+                mark_pdf_import_job_auto_merge_failed(
+                    session=session,
+                    job_id=done_job.id,
+                    exc=merge_exc,
+                )
 
         except PdfImportCanceled:
             if document is not None:
