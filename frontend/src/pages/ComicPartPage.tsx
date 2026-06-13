@@ -2,22 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import {
-  getComicSeriesDetail,
+  getComicPartDetail,
   resolveAssetUrl,
-  type ComicPartItem,
-  type ComicSeriesDetail,
+  type ComicPartDetailPart,
+  type ComicPartDetailResponse,
 } from "../api/comics";
 import {
   favoriteComicPart,
   getComicPartFavoriteState,
   unfavoriteComicPart,
 } from "../api/favorites";
-import { getAccessToken } from "../api/auth";
+import { getAccessToken, getMe } from "../api/auth";
 import FavoriteStarButton from "../components/FavoriteStarButton";
 import CommentPanel from "../components/CommentPanel.tsx";
 import { formatChinaDate } from "../utils/time";
 
-function ComicPartCover({ part }: { part: ComicPartItem }) {
+function ComicPartCover({ part }: { part: ComicPartDetailPart }) {
   const coverUrl = resolveAssetUrl(part.coverUrl);
 
   if (coverUrl) {
@@ -53,9 +53,11 @@ function ComicPartPage() {
     partSlug: string;
   }>();
 
-  const [series, setSeries] = useState<ComicSeriesDetail | null>(null);
+  const [detail, setDetail] = useState<ComicPartDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [canManagePart, setCanManagePart] = useState(false);
 
   const [isFavorited, setIsFavorited] = useState(false);
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
@@ -71,13 +73,34 @@ function ComicPartPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setDetail(null);
+        setCanManagePart(false);
 
-        const data = await getComicSeriesDetail(seriesSlug);
-        setSeries(data);
+        const data = await getComicPartDetail(seriesSlug, partSlug);
+        setDetail(data);
+
+        const token = getAccessToken();
+
+        if (!token) {
+          setCanManagePart(false);
+          return;
+        }
+
+        try {
+          const currentUser = await getMe();
+          setCanManagePart(data.part.owner?.id === currentUser.id);
+        } catch {
+          setCanManagePart(false);
+        }
       } catch (error) {
         console.error(error);
 
         if (error instanceof Error) {
+          if (error.message === "请求的内容不存在。") {
+            setErrorMessage(null);
+            return;
+          }
+
           setErrorMessage(error.message);
         } else {
           setErrorMessage("漫画分部加载失败。");
@@ -90,11 +113,8 @@ function ComicPartPage() {
     loadPart();
   }, [seriesSlug, partSlug]);
 
-  const part = useMemo(() => {
-    if (!series || !partSlug) return null;
-
-    return series.parts.find((item) => item.slug === partSlug) ?? null;
-  }, [series, partSlug]);
+  const series = detail?.series ?? null;
+  const part = detail?.part ?? null;
 
   useEffect(() => {
     async function loadFavoriteState() {
@@ -124,12 +144,12 @@ function ComicPartPage() {
   }, [seriesSlug, partSlug, part]);
 
   const chapters = useMemo(() => {
-    if (!part) return [];
+    if (!detail) return [];
 
-    return [...part.chapters].sort(
+    return [...detail.chapters].sort(
       (a, b) => a.displayOrder - b.displayOrder,
     );
-  }, [part]);
+  }, [detail]);
 
   async function handleToggleFavorite() {
     if (!seriesSlug || !partSlug || !part || isFavoriteLoading) {
@@ -193,9 +213,22 @@ function ComicPartPage() {
 
               <div className="flex min-w-0 flex-col justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent md:text-sm md:tracking-[0.22em]">
-                    Comic Part
-                  </p>
+                  <div className="flex items-center justify-between gap-3 md:block">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] link-accent md:text-sm md:tracking-[0.22em]">
+                      Comic Part
+                    </p>
+
+                    {canManagePart && (
+                      <div className="shrink-0 md:absolute md:right-8 md:top-7">
+                        <Link
+                          to={`/creator/comics/${series.slug}/${part.slug}`}
+                          className="inline-flex rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:bg-[var(--color-panel-soft-bg)] link-accent md:rounded-xl md:px-4 md:py-2 md:text-sm"
+                        >
+                          管理这个分部
+                        </Link>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 md:mt-3 md:gap-x-2">
                     <h1 className="min-w-0 line-clamp-2 text-xl font-bold leading-7 text-main md:text-4xl md:leading-tight">
@@ -205,7 +238,9 @@ function ComicPartPage() {
                     <FavoriteStarButton
                       isFavorited={isFavorited}
                       isLoading={isFavoriteLoading}
-                      title={isFavorited ? "取消收藏这本小说" : "收藏这本小说"}
+                      title={
+                        isFavorited ? "取消收藏这个漫画分部" : "收藏这个漫画分部"
+                      }
                       onClick={handleToggleFavorite}
                     />
                   </div>

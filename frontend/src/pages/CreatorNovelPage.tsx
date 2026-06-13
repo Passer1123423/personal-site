@@ -236,7 +236,7 @@ function ChapterRow({
             to={`/creator/novels/${novelSlug}/${chapter.slug}/edit`}
             className="admin-button-primary px-3 py-1.5 text-xs font-semibold md:py-2"
           >
-            编辑正文
+            编辑
           </Link>
 
           <button
@@ -245,7 +245,7 @@ function ChapterRow({
             disabled={submitting}
             onClick={() => handleMove("up")}
           >
-            上移
+            ↑
           </button>
 
           <button
@@ -254,7 +254,7 @@ function ChapterRow({
             disabled={submitting}
             onClick={() => handleMove("down")}
           >
-            下移
+            ↓
           </button>
 
           <button
@@ -456,6 +456,13 @@ export default function CreatorNovelPage() {
               <div className="min-w-0">
                 <Link to="/creator/novels" className="link-accent text-sm">
                   返回小说书架
+                </Link>
+                <span className="mx-2 text-sm text-soft">/</span>
+                <Link
+                  to={novel ? `/works/novels/${novel.slug}` : "/works/novels"}
+                  className="link-accent text-sm"
+                >
+                  查看当前小说
                 </Link>
 
                 <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] link-accent md:text-sm md:tracking-[0.25em] max-md:hidden">

@@ -46,6 +46,8 @@ export type ComicPartItem = {
   chapters: ComicChapterItem[];
 };
 
+export type ComicPartDetailPart = Omit<ComicPartItem, "chapters">;
+
 export type ComicSeriesDetail = {
   id: string;
   slug: string;
@@ -58,6 +60,16 @@ export type ComicSeriesDetail = {
   createdAt: string;
   updatedAt: string;
   parts: ComicPartItem[];
+};
+
+export type ComicPartDetailResponse = {
+  series: {
+    id: string;
+    slug: string;
+    title: string;
+  };
+  part: ComicPartDetailPart;
+  chapters: ComicChapterItem[];
 };
 
 export type ComicReaderPage = {
@@ -121,6 +133,12 @@ export function getComicSeriesList() {
 export function getComicSeriesDetail(seriesSlug: string) {
   return fetchJson<ComicSeriesDetail>(
     `${API_BASE_URL}/api/comics/${seriesSlug}`,
+  );
+}
+
+export function getComicPartDetail(seriesSlug: string, partSlug: string) {
+  return fetchJson<ComicPartDetailResponse>(
+    `${API_BASE_URL}/api/comics/${seriesSlug}/${partSlug}`,
   );
 }
 

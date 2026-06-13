@@ -14,14 +14,46 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+export class ApiError extends Error {
+  status: number;
+  detail: string;
+
+  constructor(status: number, detail: string) {
+    super(detail);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 async function readJsonOrThrow<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(data?.detail ?? "请求失败");
+    const detail =
+      data &&
+      typeof data === "object" &&
+      "detail" in data &&
+      typeof (data as { detail?: unknown }).detail === "string"
+        ? (data as { detail: string }).detail
+        : "请求失败";
+
+    throw new ApiError(response.status, detail);
   }
 
   return data as T;
+}
+
+export function isComicUploadBusyError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 409 &&
+    error.detail.includes("PDF 导入任务")
+  );
+}
+
+export function getComicUploadBusyMessage(): string {
+  return "PDF 正在导入中，待传区暂时锁定。完成或取消后就可以继续操作。";
 }
 
 export type ComicUploadMode = "new_chapter" | "edit_chapter";
@@ -63,6 +95,54 @@ export type UploadImagesResult = {
   targetPartId: string | null;
   targetChapterId: string | null;
   targetInconsistent?: boolean;
+};
+
+export type AuthorComicPdfJobStatus =
+  | "queued"
+  | "running"
+  | "done"
+  | "failed"
+  | "canceling"
+  | "canceled";
+
+export type AuthorComicPdfJob = {
+  id: string;
+  kind: string;
+  status: AuthorComicPdfJobStatus;
+  originalFilename: string;
+  totalPages: number | null;
+  processedPages: number;
+  progress: number;
+  message: string | null;
+  errorMessage: string | null;
+  targetPartId: string | null;
+  uploadMode: ComicUploadMode;
+  createdImageIds: string[];
+  createdSizeBytes: number;
+  outputPages: {
+    page: number;
+    filename: string;
+    relativePath: string;
+    sizeBytes: number;
+  }[];
+  outputSizeBytes: number;
+  mergedAt: string | null;
+  mergedImageIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  canceledAt: string | null;
+};
+
+export type AuthorComicPdfJobsResult = {
+  jobs: AuthorComicPdfJob[];
+  activeJob: AuthorComicPdfJob | null;
+};
+
+export type MergeAuthorComicPdfJobResult = {
+  job: AuthorComicPdfJob;
+  uploadState: AuthorUploadState;
 };
 
 export type UploadComicImageBatchInfo = {
@@ -195,6 +275,89 @@ export async function uploadAuthorComicPdf(
   });
 
   return readJsonOrThrow<AuthorUploadState>(response);
+}
+
+export async function listAuthorComicPdfJobs(
+  options: {
+    activeOnly?: boolean;
+    limit?: number;
+  } = {},
+): Promise<AuthorComicPdfJobsResult> {
+  const params = new URLSearchParams();
+
+  if (options.activeOnly) {
+    params.set("active_only", "true");
+  }
+
+  if (typeof options.limit === "number") {
+    params.set("limit", String(options.limit));
+  }
+
+  const queryString = params.toString();
+  const url = queryString
+    ? `${API_BASE_URL}/api/author/comic-upload/pdf-jobs?${queryString}`
+    : `${API_BASE_URL}/api/author/comic-upload/pdf-jobs`;
+
+  const response = await fetch(url, {
+    headers: getAuthHeaders(),
+  });
+
+  return readJsonOrThrow<AuthorComicPdfJobsResult>(response);
+}
+
+export async function getAuthorComicPdfJob(
+  jobId: string,
+): Promise<AuthorComicPdfJob> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/comic-upload/pdf-jobs/${jobId}`,
+    {
+      headers: getAuthHeaders(),
+    },
+  );
+
+  return readJsonOrThrow<AuthorComicPdfJob>(response);
+}
+
+export async function cancelAuthorComicPdfJob(
+  jobId: string,
+): Promise<AuthorComicPdfJob> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/comic-upload/pdf-jobs/${jobId}/cancel`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  return readJsonOrThrow<AuthorComicPdfJob>(response);
+}
+
+export async function mergeAuthorComicPdfJob(
+  jobId: string,
+): Promise<MergeAuthorComicPdfJobResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/comic-upload/pdf-jobs/${jobId}/merge`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  return readJsonOrThrow<MergeAuthorComicPdfJobResult>(response);
+}
+
+export async function discardAuthorComicPdfJob(
+  jobId: string,
+): Promise<AuthorComicPdfJob> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/comic-upload/pdf-jobs/${jobId}/discard`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  return readJsonOrThrow<AuthorComicPdfJob>(response);
 }
 
 export function uploadAuthorComicImageWithProgress(
@@ -342,6 +505,84 @@ export function uploadAuthorComicPdfWithProgress(
 
     request.onabort = () => {
       reject(new Error("PDF 导入已取消"));
+    };
+
+    request.send(formData);
+  });
+}
+
+export function createAuthorComicPdfJobWithProgress(
+  file: File,
+  payload: {
+    seriesSlug?: string;
+    partSlug?: string;
+    onProgress?: (progress: number) => void;
+  } = {},
+): Promise<AuthorComicPdfJob> {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    if (payload.seriesSlug) {
+      formData.append("series_slug", payload.seriesSlug);
+    }
+
+    if (payload.partSlug) {
+      formData.append("part_slug", payload.partSlug);
+    }
+
+    const request = new XMLHttpRequest();
+
+    request.open("POST", `${API_BASE_URL}/api/author/comic-upload/pdf-jobs`);
+
+    const authHeaders = getAuthHeaders();
+
+    for (const [key, value] of Object.entries(authHeaders)) {
+      request.setRequestHeader(key, value);
+    }
+
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable) {
+        return;
+      }
+
+      const progress = Math.round((event.loaded / event.total) * 100);
+      payload.onProgress?.(Math.min(100, Math.max(0, progress)));
+    };
+
+    request.onload = () => {
+      let parsed: unknown = null;
+
+      try {
+        parsed = request.responseText ? JSON.parse(request.responseText) : null;
+      } catch {
+        reject(new Error("PDF 导入任务响应解析失败"));
+        return;
+      }
+
+      if (request.status >= 200 && request.status < 300) {
+        payload.onProgress?.(100);
+        resolve(parsed as AuthorComicPdfJob);
+        return;
+      }
+
+      const detail =
+        parsed &&
+        typeof parsed === "object" &&
+        "detail" in parsed &&
+        typeof (parsed as { detail?: unknown }).detail === "string"
+          ? (parsed as { detail: string }).detail
+          : "PDF 导入任务创建失败";
+
+      reject(new ApiError(request.status, detail));
+    };
+
+    request.onerror = () => {
+      reject(new Error("PDF 导入任务请求失败"));
+    };
+
+    request.onabort = () => {
+      reject(new Error("PDF 导入任务已取消"));
     };
 
     request.send(formData);

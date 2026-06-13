@@ -243,6 +243,83 @@ def get_comic_detail(
         "parts": part_results,
     }
 
+
+@router.get("/{series_slug}/{part_slug}")
+def get_comic_part_detail(
+    series_slug: str,
+    part_slug: str,
+    session: Session = Depends(get_session),
+):
+    series = session.exec(
+        select(ComicSeries).where(
+            ComicSeries.slug == series_slug,
+            ComicSeries.visibility == "public",
+        )
+    ).first()
+
+    if not series:
+        raise HTTPException(status_code=404, detail="Comic series not found")
+
+    part = session.exec(
+        select(ComicPart).where(
+            ComicPart.series_id == series.id,
+            ComicPart.slug == part_slug,
+            ComicPart.visibility == "public",
+        )
+    ).first()
+
+    if not part:
+        raise HTTPException(status_code=404, detail="Comic part not found")
+
+    chapters = session.exec(
+        select(ComicChapter)
+        .where(
+            ComicChapter.part_id == part.id,
+            ComicChapter.visibility == "public",
+        )
+        .order_by(ComicChapter.display_order)
+    ).all()
+
+    chapter_results = []
+
+    for chapter in chapters:
+        chapter_results.append(
+            {
+                "id": chapter.id,
+                "slug": chapter.slug,
+                "title": chapter.title,
+                "summary": chapter.summary,
+                "visibility": chapter.visibility,
+                "displayOrder": chapter.display_order,
+                "publishedAt": chapter.published_at,
+                "createdAt": chapter.created_at,
+                "updatedAt": chapter.updated_at,
+            }
+        )
+
+    return {
+        "series": {
+            "id": series.id,
+            "slug": series.slug,
+            "title": series.title,
+        },
+        "part": {
+            "id": part.id,
+            "slug": part.slug,
+            "title": part.title,
+            "summary": part.summary,
+            "status": part.status,
+            "visibility": part.visibility,
+            "displayOrder": part.display_order,
+            "coverUrl": get_asset_url(session, part.cover_asset_id),
+            "owner": owner_to_public_item(get_comic_part_owner(session, part)),
+            "createdAt": part.created_at,
+            "updatedAt": part.updated_at,
+        },
+        "chapters": chapter_results,
+    }
+
+
 @router.get("/{series_slug}/{part_slug}/{chapter_slug}")
 def get_comic_chapter_reader(
     series_slug: str,

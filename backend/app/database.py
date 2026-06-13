@@ -89,6 +89,30 @@ def apply_lightweight_schema_patches() -> None:
         column_sql="upload_mode VARCHAR DEFAULT 'new_chapter' NOT NULL",
     )
 
+    add_column_if_missing(
+        table_name="comic_upload_job",
+        column_name="output_pages_json",
+        column_sql="output_pages_json TEXT",
+    )
+
+    add_column_if_missing(
+        table_name="comic_upload_job",
+        column_name="output_size_bytes",
+        column_sql="output_size_bytes INTEGER DEFAULT 0 NOT NULL",
+    )
+
+    add_column_if_missing(
+        table_name="comic_upload_job",
+        column_name="merged_at",
+        column_sql="merged_at DATETIME",
+    )
+
+    add_column_if_missing(
+        table_name="comic_upload_job",
+        column_name="merged_image_ids_json",
+        column_sql="merged_image_ids_json TEXT",
+    )
+
 
 def create_db_and_tables():
     """
