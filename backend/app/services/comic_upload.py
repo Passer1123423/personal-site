@@ -1,6 +1,7 @@
 import json
 import os
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from shutil import copy2
 import fitz
@@ -8,6 +9,7 @@ import fitz
 from fastapi import UploadFile
 from sqlmodel import Session, func, select
 
+from app.database import engine
 from app.models import (
     Asset,
     ComicChapter,
@@ -54,6 +56,8 @@ PDF_JOB_TERMINAL_STATUSES = {
     PDF_JOB_STATUS_CANCELED,
 }
 
+PDF_IMPORT_EXECUTOR = ThreadPoolExecutor(max_workers=1)
+
 # 当前文件位置：
 # backend/app/services/comic_upload.py
 # parents[2] = backend/
@@ -61,6 +65,9 @@ IMPORT_DATA_ROOT = Path(__file__).resolve().parents[2] / "import_data"
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", BACKEND_DIR / "uploads")).resolve()
 COMIC_UPLOADS_ROOT = UPLOADS_DIR / "comics"
+
+class PdfImportCanceled(Exception):
+    pass
 
 
 def get_user_staging_dir(user_id: str) -> Path:
@@ -101,6 +108,136 @@ def cleanup_pdf_job_source_file(job: ComicUploadJob) -> None:
     if job_dir.exists() and not any(job_dir.iterdir()):
         job_dir.rmdir()
 
+def rollback_pdf_import_job_outputs(
+    session: Session,
+    job: ComicUploadJob,
+) -> None:
+    image_ids = load_job_created_image_ids(job)
+
+    for image_id in image_ids:
+        image = session.get(ComicUploadImage, image_id)
+
+        if image is None:
+            continue
+
+        if image.user_id != job.user_id:
+            continue
+
+        file_path = get_upload_image_path(image)
+
+        if file_path.exists():
+            file_path.unlink()
+
+        session.delete(image)
+
+    session.flush()
+
+    compact_user_upload_orders(
+        session=session,
+        user_id=job.user_id,
+        commit=False,
+    )
+
+    job.created_image_ids_json = dump_job_created_image_ids([])
+    job.created_size_bytes = 0
+    job.processed_pages = 0
+    job.progress = 0
+    job.updated_at = now_utc()
+    session.add(job)
+
+def mark_pdf_import_job_failed(
+    session: Session,
+    job: ComicUploadJob,
+    exc: Exception,
+) -> ComicUploadJob:
+    session.rollback()
+
+    job = session.get(ComicUploadJob, job.id)
+
+    if job is None:
+        raise ValueError("PDF 导入任务不存在")
+
+    try:
+        rollback_pdf_import_job_outputs(
+            session=session,
+            job=job,
+        )
+        cleanup_pdf_job_source_file(job)
+
+        now = now_utc()
+        job.status = PDF_JOB_STATUS_FAILED
+        job.message = "导入失败"
+        job.error_message = str(exc)[:1000]
+        job.finished_at = now
+        job.updated_at = now
+
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
+        return job
+
+    except Exception:
+        session.rollback()
+        raise
+
+
+def mark_pdf_import_job_canceled(
+    session: Session,
+    job: ComicUploadJob,
+) -> ComicUploadJob:
+    session.rollback()
+
+    job = session.get(ComicUploadJob, job.id)
+
+    if job is None:
+        raise ValueError("PDF 导入任务不存在")
+
+    try:
+        rollback_pdf_import_job_outputs(
+            session=session,
+            job=job,
+        )
+        cleanup_pdf_job_source_file(job)
+
+        now = now_utc()
+        job.status = PDF_JOB_STATUS_CANCELED
+        job.message = "已取消"
+        job.error_message = None
+        job.canceled_at = now
+        job.finished_at = now
+        job.updated_at = now
+
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
+        return job
+
+    except Exception:
+        session.rollback()
+        raise
+
+
+def mark_pdf_import_job_done(
+    session: Session,
+    job: ComicUploadJob,
+) -> ComicUploadJob:
+    cleanup_pdf_job_source_file(job)
+
+    now = now_utc()
+    job.status = PDF_JOB_STATUS_DONE
+    job.progress = 100
+    job.message = "导入完成，已加入待传区"
+    job.error_message = None
+    job.finished_at = now
+    job.updated_at = now
+
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    return job
 
 def get_upload_image_path(image: ComicUploadImage) -> Path:
     relative_path = Path(image.storage_path)
@@ -174,6 +311,27 @@ def dump_job_created_image_ids(image_ids: Sequence[str]) -> str:
         separators=(",", ":"),
     )
 
+def append_job_created_image_id(
+    job: ComicUploadJob,
+    image_id: str,
+) -> None:
+    image_ids = load_job_created_image_ids(job)
+    image_ids.append(image_id)
+    job.created_image_ids_json = dump_job_created_image_ids(image_ids)
+
+def refresh_job_and_check_cancel(
+    session: Session,
+    job: ComicUploadJob,
+) -> ComicUploadJob:
+    session.refresh(job)
+
+    if job.status == PDF_JOB_STATUS_CANCELING:
+        raise PdfImportCanceled()
+
+    if job.status == PDF_JOB_STATUS_CANCELED:
+        raise PdfImportCanceled()
+
+    return job
 
 def serialize_comic_upload_job(job: ComicUploadJob) -> dict:
     return {
@@ -643,6 +801,204 @@ def request_cancel_pdf_import_job(
         return job
 
     raise ValueError("当前任务状态不支持取消")
+
+def run_pdf_import_job(job_id: str) -> None:
+    with Session(engine) as session:
+        job = session.get(ComicUploadJob, job_id)
+
+        if job is None:
+            return
+
+        if job.status != PDF_JOB_STATUS_QUEUED:
+            return
+
+        source_path = get_pdf_job_source_path_from_relative(job.source_path)
+
+        if not source_path.exists() or not source_path.is_file():
+            mark_pdf_import_job_failed(
+                session=session,
+                job=job,
+                exc=FileNotFoundError("PDF 源文件不存在"),
+            )
+            return
+
+        document = None
+
+        try:
+            now = now_utc()
+            job.status = PDF_JOB_STATUS_RUNNING
+            job.started_at = now
+            job.updated_at = now
+            job.message = "正在读取 PDF..."
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+
+            refresh_job_and_check_cancel(session, job)
+
+            document = fitz.open(source_path)
+
+            if document.page_count <= 0:
+                raise ValueError("PDF 中没有页面")
+
+            if document.page_count > PDF_MAX_PAGE_COUNT:
+                raise ValueError(f"PDF 页数不能超过 {PDF_MAX_PAGE_COUNT} 页")
+
+            job.total_pages = document.page_count
+            job.processed_pages = 0
+            job.progress = 0
+            job.message = f"正在拆分第 0 / {document.page_count} 页"
+            job.updated_at = now_utc()
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+
+            staging_dir = get_user_staging_dir(job.user_id)
+            staging_dir.mkdir(parents=True, exist_ok=True)
+
+            matrix = fitz.Matrix(PDF_RENDER_ZOOM, PDF_RENDER_ZOOM)
+
+            for page_index in range(document.page_count):
+                refresh_job_and_check_cancel(session, job)
+
+                page_number = page_index + 1
+                page = document.load_page(page_index)
+                pixmap = page.get_pixmap(matrix=matrix, alpha=False)
+                image_bytes = pixmap.tobytes("png")
+                image_size = len(image_bytes)
+
+                if image_size <= 0:
+                    raise ValueError(f"PDF 第 {page_number} 页转换失败")
+
+                if image_size > UPLOAD_FILE_LIMIT_BYTES:
+                    raise ValueError(f"PDF 第 {page_number} 页转换后的图片超过 20MB")
+
+                current_size = get_user_staging_size(
+                    session=session,
+                    user_id=job.user_id,
+                )
+
+                if current_size + image_size > STAGING_LIMIT_BYTES:
+                    raise ValueError("待传区容量超过 100MB")
+
+                stored_filename = f"{new_id()}.png"
+                target_path = staging_dir / stored_filename
+                original_page_name = f"{Path(job.original_filename).stem}-p{page_number:03d}.png"
+
+                try:
+                    target_path.write_bytes(image_bytes)
+
+                    now = now_utc()
+                    image = ComicUploadImage(
+                        user_id=job.user_id,
+                        target_part_id=job.target_part_id,
+                        target_chapter_id=None,
+                        upload_mode=UPLOAD_MODE_NEW_CHAPTER,
+                        original_filename=original_page_name,
+                        stored_filename=stored_filename,
+                        storage_path=get_user_staging_relative_path(job.user_id, stored_filename),
+                        content_type="image/png",
+                        size_bytes=image_size,
+                        display_order=get_next_display_order(session, job.user_id),
+                        created_at=now,
+                        updated_at=now,
+                    )
+
+                    session.add(image)
+                    session.flush()
+
+                    append_job_created_image_id(job, image.id)
+                    job.created_size_bytes += image_size
+                    job.processed_pages = page_number
+                    job.progress = int(page_number * 100 / document.page_count)
+                    job.message = f"正在拆分第 {page_number} / {document.page_count} 页"
+                    job.updated_at = now
+
+                    session.add(job)
+                    session.commit()
+                    session.refresh(job)
+
+                except Exception:
+                    session.rollback()
+
+                    if target_path.exists():
+                        target_path.unlink()
+
+                    raise
+
+            refresh_job_and_check_cancel(session, job)
+
+            if document is not None:
+                document.close()
+                document = None
+
+            compact_user_upload_orders(
+                session=session,
+                user_id=job.user_id,
+                commit=True,
+            )
+
+            mark_pdf_import_job_done(
+                session=session,
+                job=job,
+            )
+
+        except PdfImportCanceled:
+            if document is not None:
+                document.close()
+                document = None
+
+            mark_pdf_import_job_canceled(
+                session=session,
+                job=job,
+            )
+
+        except Exception as exc:
+            if document is not None:
+                document.close()
+                document = None
+
+            mark_pdf_import_job_failed(
+                session=session,
+                job=job,
+                exc=exc,
+            )
+
+def submit_pdf_import_job(job_id: str) -> None:
+    PDF_IMPORT_EXECUTOR.submit(run_pdf_import_job, job_id)
+
+def recover_interrupted_pdf_import_jobs() -> None:
+    with Session(engine) as session:
+        jobs = list(
+            session.exec(
+                select(ComicUploadJob)
+                .where(ComicUploadJob.status.in_({
+                    PDF_JOB_STATUS_RUNNING,
+                    PDF_JOB_STATUS_CANCELING,
+                }))
+            ).all()
+        )
+
+        for job in jobs:
+            try:
+                rollback_pdf_import_job_outputs(
+                    session=session,
+                    job=job,
+                )
+                cleanup_pdf_job_source_file(job)
+
+                now = now_utc()
+                job.status = PDF_JOB_STATUS_FAILED
+                job.message = "导入失败"
+                job.error_message = "服务器重启，PDF 导入任务已中断，请重新上传。"
+                job.finished_at = now
+                job.updated_at = now
+
+                session.add(job)
+                session.commit()
+
+            except Exception:
+                session.rollback()
 
 async def save_pdf_as_upload_images(
     session: Session,
