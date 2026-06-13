@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -18,21 +18,30 @@ from app.services.comic_admin import (
     replace_comic_chapter_pages_from_dir,
 )
 from app.services.comic_upload import (
+    PDF_JOB_STATUS_FAILED,
     STAGING_LIMIT_BYTES,
     UPLOAD_MODE_EDIT_CHAPTER,
     UPLOAD_MODE_NEW_CHAPTER,
     clear_user_upload_images,
+    create_pdf_import_job,
     delete_upload_image,
     delete_upload_images,
+    ensure_no_active_comic_upload_job,
+    get_active_comic_upload_job,
+    get_comic_upload_job,
     get_ordered_stored_file_names,
     get_staging_source_dir_for_publish,
     get_upload_image,
     get_upload_image_path,
     get_user_staging_size,
+    list_comic_upload_jobs,
     list_user_upload_images,
     load_chapter_pages_to_uploads,
+    request_cancel_pdf_import_job,
     save_upload_images,
     save_pdf_as_upload_images,
+    serialize_comic_upload_job,
+    submit_pdf_import_job,
     update_upload_image_order,
     validate_upload_mode,
 )
@@ -174,6 +183,21 @@ def raise_service_error(exc: Exception) -> None:
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=message,
     ) from exc
+
+def ensure_upload_staging_is_not_busy(
+    session: Session,
+    current_user: User,
+) -> None:
+    try:
+        ensure_no_active_comic_upload_job(
+            session=session,
+            user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
 
 def normalize_slug(value: str, field_name: str) -> str:
@@ -513,6 +537,244 @@ def list_upload_images(
         images=images,
     )
 
+@router.get("/pdf-jobs")
+def list_pdf_import_jobs(
+    active_only: bool = Query(default=False),
+    limit: int = Query(default=20, ge=1, le=100),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_current_user),
+):
+    jobs = list_comic_upload_jobs(
+        session=session,
+        user_id=current_user.id,
+        active_only=active_only,
+        limit=limit,
+    )
+
+    active_job = get_active_comic_upload_job(
+        session=session,
+        user_id=current_user.id,
+    )
+
+    return {
+        "jobs": [
+            serialize_comic_upload_job(job)
+            for job in jobs
+        ],
+        "activeJob": (
+            serialize_comic_upload_job(active_job)
+            if active_job
+            else None
+        ),
+    }
+
+
+@router.get("/pdf-jobs/{job_id}")
+def get_pdf_import_job(
+    job_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_current_user),
+):
+    try:
+        job = get_comic_upload_job(
+            session=session,
+            user_id=current_user.id,
+            job_id=job_id,
+        )
+    except Exception as exc:
+        raise_service_error(exc)
+
+    return serialize_comic_upload_job(job)
+
+@router.post("/pdf-jobs")
+async def create_pdf_import_job_api(
+    request: Request,
+    file: UploadFile = File(...),
+    series_slug: str | None = Form(default=None),
+    part_slug: str | None = Form(default=None),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_current_user),
+):
+    target_part_id = None
+    clean_series_slug = None
+    clean_part_slug = None
+    part = None
+    job = None
+
+    if series_slug or part_slug:
+        if not series_slug or not part_slug:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PDF 上传目标必须同时提供 series_slug 和 part_slug",
+            )
+
+        clean_series_slug = normalize_slug(series_slug, "series_slug")
+        clean_part_slug = normalize_slug(part_slug, "part_slug")
+
+        part = get_part_for_publish(
+            session=session,
+            series_slug=clean_series_slug,
+            part_slug=clean_part_slug,
+        )
+
+        ensure_current_user_is_part_owner(
+            session=session,
+            part=part,
+            current_user=current_user,
+        )
+
+        target_part_id = part.id
+
+    try:
+        job = await create_pdf_import_job(
+            session=session,
+            user_id=current_user.id,
+            upload_file=file,
+            target_part_id=target_part_id,
+        )
+
+        try:
+            submit_pdf_import_job(job.id)
+
+        except Exception as submit_exc:
+            job.status = PDF_JOB_STATUS_FAILED
+            job.message = "导入失败"
+            job.error_message = f"提交后台任务失败：{submit_exc}"
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+
+            raise submit_exc
+
+    except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.pdf_job.create.failed",
+            category="comic_upload",
+            target_type="comic_upload_job",
+            target_id=job.id if job else None,
+            target_label=file.filename,
+            status="failed",
+            message="创建 PDF 导入任务失败",
+            error_code="comic_upload_pdf_job_create_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "series_slug": clean_series_slug,
+                    "part_slug": clean_part_slug,
+                    "part_id": part.id if part else None,
+                    "part_title": part.title if part else None,
+                    "original_filename": file.filename,
+                },
+            ),
+            request=request,
+        )
+
+        raise_service_error(exc)
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="comic_upload.pdf_job.create",
+        category="comic_upload",
+        target_type="comic_upload_job",
+        target_id=job.id,
+        target_label=job.original_filename,
+        status="success",
+        message="创建 PDF 导入任务",
+        metadata={
+            "source": "author",
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "series_slug": clean_series_slug,
+            "part_slug": clean_part_slug,
+            "part_id": part.id if part else None,
+            "part_title": part.title if part else None,
+            "job": serialize_comic_upload_job(job),
+        },
+        request=request,
+    )
+
+    return serialize_comic_upload_job(job)
+
+@router.post("/pdf-jobs/{job_id}/cancel")
+def cancel_pdf_import_job_api(
+    request: Request,
+    job_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_current_user),
+):
+    job_before = None
+
+    try:
+        job_before = get_comic_upload_job(
+            session=session,
+            user_id=current_user.id,
+            job_id=job_id,
+        )
+
+        job = request_cancel_pdf_import_job(
+            session=session,
+            user_id=current_user.id,
+            job_id=job_id,
+        )
+
+    except Exception as exc:
+        log_activity(
+            session,
+            actor=current_user,
+            action="comic_upload.pdf_job.cancel.failed",
+            category="comic_upload",
+            target_type="comic_upload_job",
+            target_id=job_id,
+            target_label=job_before.original_filename if job_before else job_id,
+            status="failed",
+            message="取消 PDF 导入任务失败",
+            error_code="comic_upload_pdf_job_cancel_failed",
+            metadata=build_error_metadata(
+                exc,
+                {
+                    "source": "author",
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "job_id": job_id,
+                    "job_before": (
+                        serialize_comic_upload_job(job_before)
+                        if job_before
+                        else None
+                    ),
+                },
+            ),
+            request=request,
+        )
+
+        raise_service_error(exc)
+
+    log_activity(
+        session,
+        actor=current_user,
+        action="comic_upload.pdf_job.cancel",
+        category="comic_upload",
+        target_type="comic_upload_job",
+        target_id=job.id,
+        target_label=job.original_filename,
+        status="success",
+        message="请求取消 PDF 导入任务",
+        metadata={
+            "source": "author",
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "job_before": serialize_comic_upload_job(job_before),
+            "job_after": serialize_comic_upload_job(job),
+        },
+        request=request,
+    )
+
+    return serialize_comic_upload_job(job)
 
 @router.post("/images")
 async def upload_images(
@@ -528,6 +790,11 @@ async def upload_images(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    ensure_upload_staging_is_not_busy(
+        session=session,
+        current_user=current_user,
+    )
+
     if not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -617,6 +884,11 @@ def delete_one_upload_image(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    ensure_upload_staging_is_not_busy(
+        session=session,
+        current_user=current_user,
+    )
+
     image_before_delete = None
 
     try:
@@ -690,7 +962,6 @@ def delete_one_upload_image(
         images=images,
     )
 
-
 @router.post("/images/delete-batch")
 def delete_many_upload_images(
     request: Request,
@@ -698,6 +969,11 @@ def delete_many_upload_images(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    ensure_upload_staging_is_not_busy(
+        session=session,
+        current_user=current_user,
+    )
+
     deleted_snapshots: list[dict] = []
 
     try:
@@ -791,6 +1067,11 @@ def reorder_upload_images(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    ensure_upload_staging_is_not_busy(
+        session=session,
+        current_user=current_user,
+    )
+
     images_before = list_user_upload_images(
         session=session,
         user_id=current_user.id,
@@ -819,6 +1100,11 @@ def clear_upload_images(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    ensure_upload_staging_is_not_busy(
+        session=session,
+        current_user=current_user,
+    )
+
     deleted_summary = {
         "image_count": 0,
         "total_size_bytes": 0,
@@ -907,6 +1193,11 @@ async def upload_pdf_as_images(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    ensure_upload_staging_is_not_busy(
+        session=session,
+        current_user=current_user,
+    )
+
     target_part_id = None
     clean_series_slug = None
     clean_part_slug = None
@@ -1011,7 +1302,6 @@ async def upload_pdf_as_images(
         images=images,
     )
 
-
 @router.post("/load-chapter")
 def load_chapter_to_uploads(
     request: Request,
@@ -1019,6 +1309,11 @@ def load_chapter_to_uploads(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    ensure_upload_staging_is_not_busy(
+        session=session,
+        current_user=current_user,
+    )
+
     series_slug = normalize_slug(payload.series_slug, "series_slug")
     part_slug = normalize_slug(payload.part_slug, "part_slug")
     chapter_slug = normalize_slug(payload.chapter_slug, "chapter_slug")
@@ -1108,6 +1403,11 @@ def publish_upload_as_chapter(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    ensure_upload_staging_is_not_busy(
+        session=session,
+        current_user=current_user,
+    )
+
     series_slug = normalize_slug(payload.series_slug, "series_slug")
     part_slug = normalize_slug(payload.part_slug, "part_slug")
 
@@ -1264,6 +1564,11 @@ def publish_upload_to_existing_chapter(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_current_user),
 ):
+    ensure_upload_staging_is_not_busy(
+        session=session,
+        current_user=current_user,
+    )
+
     series_slug = normalize_slug(payload.series_slug, "series_slug")
     part_slug = normalize_slug(payload.part_slug, "part_slug")
     chapter_slug = normalize_slug(payload.chapter_slug, "chapter_slug")

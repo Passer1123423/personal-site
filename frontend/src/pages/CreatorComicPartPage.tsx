@@ -4,15 +4,21 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { getMe } from "../api/auth";
 
 import {
+  cancelAuthorComicPdfJob,
   clearAuthorUploadImages,
+  createAuthorComicPdfJobWithProgress,
   deleteAuthorUploadImage,
   fetchAuthorUploadPreviewObjectUrl,
+  getAuthorComicPdfJob,
+  getComicUploadBusyMessage,
+  isComicUploadBusyError,
+  listAuthorComicPdfJobs,
   listAuthorUploadImages,
   loadAuthorComicChapterToUploads,
-  uploadAuthorComicPdfWithProgress,
   publishAuthorComicChapter,
   publishAuthorComicChapterUpdate,
   reorderAuthorUploadImages,
+  type AuthorComicPdfJob,
   type AuthorUploadImage,
   type AuthorUploadState,
   type ComicUploadMode,
@@ -55,7 +61,7 @@ type PendingPdfUpload = {
   filename: string;
   sizeBytes: number;
   progress: number;
-  status: "uploading" | "processing";
+  status: "uploading";
 };
 
 function formatBytes(value: number) {
@@ -68,6 +74,63 @@ function formatBytes(value: number) {
   }
 
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function isActivePdfJob(job: AuthorComicPdfJob | null) {
+  return (
+    job !== null &&
+    (job.status === "queued" ||
+      job.status === "running" ||
+      job.status === "canceling")
+  );
+}
+
+function getPdfJobStatusLabel(job: AuthorComicPdfJob) {
+  if (job.status === "queued") {
+    return "排队中";
+  }
+
+  if (job.status === "running") {
+    if (job.totalPages) {
+      return `正在拆分第 ${job.processedPages} / ${job.totalPages} 页`;
+    }
+
+    return "正在读取 PDF";
+  }
+
+  if (job.status === "canceling") {
+    return "取消中，正在清理已生成图片";
+  }
+
+  if (job.status === "canceled") {
+    return "已取消";
+  }
+
+  if (job.status === "failed") {
+    return job.errorMessage ? `导入失败：${job.errorMessage}` : "导入失败";
+  }
+
+  return "导入完成，已加入待传区";
+}
+
+function getPdfJobProgress(job: AuthorComicPdfJob) {
+  if (job.status === "done") {
+    return 100;
+  }
+
+  if (job.status === "failed" || job.status === "canceled") {
+    return Math.max(0, Math.min(100, job.progress || 0));
+  }
+
+  return Math.max(0, Math.min(100, job.progress || 0));
+}
+
+function getFriendlyUploadErrorMessage(error: unknown, fallbackText: string) {
+  if (isComicUploadBusyError(error)) {
+    return getComicUploadBusyMessage();
+  }
+
+  return error instanceof Error ? error.message : fallbackText;
 }
 
 function getChapterCustomTitle(chapter: AuthorComicChapter) {
@@ -351,6 +414,7 @@ export default function CreatorComicPartPage() {
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
 
   const [pendingPdfUpload, setPendingPdfUpload] = useState<PendingPdfUpload | null>(null);
+  const [activePdfJob, setActivePdfJob] = useState<AuthorComicPdfJob | null>(null);
 
   const [uploadInputMode, setUploadInputMode] = useState<"images" | "pdf">("images");
   const [uploadDropActive, setUploadDropActive] = useState(false);
@@ -414,12 +478,18 @@ export default function CreatorComicPartPage() {
       ? `修改：${targetChapter.title}`
       : "修改已有章节";
 
+  const activePdfJobBlocking = isActivePdfJob(activePdfJob);
+
   const hasUploadingImages =
     pendingUploads.some((item) => item.status === "uploading") ||
-    pendingPdfUpload !== null;
+    pendingPdfUpload !== null ||
+    activePdfJobBlocking;
 
   const visibleUploadCount =
-    images.length + pendingUploads.length + (pendingPdfUpload ? 1 : 0);
+    images.length +
+    pendingUploads.length +
+    (pendingPdfUpload ? 1 : 0) +
+    (activePdfJobBlocking ? 1 : 0);
 
   const pendingUploadTotalSize = useMemo(
     () =>
@@ -476,9 +546,16 @@ export default function CreatorComicPartPage() {
     setMessage(null);
 
     try {
-      await getMe();
-      await Promise.all([loadPartDetail(), refreshUploadImages()]);
-    } catch (error: unknown) {
+    await getMe();
+
+    const [, , pdfJobsResult] = await Promise.all([
+      loadPartDetail(),
+      refreshUploadImages(),
+      listAuthorComicPdfJobs({ activeOnly: true, limit: 1 }),
+    ]);
+
+    setActivePdfJob(pdfJobsResult.activeJob);
+  } catch (error: unknown) {
       const text = error instanceof Error ? error.message : "加载页面失败";
 
       if (
@@ -502,6 +579,82 @@ export default function CreatorComicPartPage() {
   useEffect(() => {
     loadPageData();
   }, [seriesSlug, partSlug]);
+
+  useEffect(() => {
+    if (!activePdfJob) {
+      return;
+    }
+
+    if (
+      activePdfJob.status !== "queued" &&
+      activePdfJob.status !== "running" &&
+      activePdfJob.status !== "canceling"
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const timer = window.setInterval(async () => {
+      try {
+        const nextJob = await getAuthorComicPdfJob(activePdfJob.id);
+
+        if (cancelled) {
+          return;
+        }
+
+        setActivePdfJob(nextJob);
+
+        if (nextJob.status === "done") {
+          await refreshUploadImages();
+
+          if (!cancelled) {
+            setActivePdfJob(null);
+            setMessage({
+              type: "success",
+              text: "PDF 已拆分为图片并加入待传区。",
+            });
+          }
+        }
+
+        if (nextJob.status === "failed") {
+          await refreshUploadImages();
+
+          if (!cancelled) {
+            setActivePdfJob(null);
+            setMessage({
+              type: "error",
+              text: nextJob.errorMessage
+                ? `PDF 导入失败：${nextJob.errorMessage}`
+                : "PDF 导入失败。",
+            });
+          }
+        }
+
+        if (nextJob.status === "canceled") {
+          await refreshUploadImages();
+
+          if (!cancelled) {
+            setActivePdfJob(null);
+            setMessage({
+              type: "success",
+              text: "PDF 导入已取消，已清理本次生成的页面。",
+            });
+          }
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          const text = error instanceof Error ? error.message : "PDF 任务状态刷新失败";
+          setMessage({ type: "error", text });
+        }
+      }
+    }, 1200);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activePdfJob?.id, activePdfJob?.status]);
 
   useEffect(() => {
     let cancelled = false;
@@ -577,6 +730,14 @@ export default function CreatorComicPartPage() {
       return;
     }
 
+    if (activePdfJobBlocking) {
+      setMessage({
+        type: "success",
+        text: getComicUploadBusyMessage(),
+      });
+      return;
+    }
+
     const selectedFiles = Array.from(files);
 
     const uploadBatchId =
@@ -639,7 +800,7 @@ export default function CreatorComicPartPage() {
           removePendingUpload(item.id);
           await refreshUploadImages();
         } catch (error: unknown) {
-          const text = error instanceof Error ? error.message : "上传失败";
+          const text = getFriendlyUploadErrorMessage(error, "上传失败");
 
           rejected.push({
             filename: item.fileName,
@@ -669,7 +830,7 @@ export default function CreatorComicPartPage() {
         });
       }
     } catch (error: unknown) {
-      const text = error instanceof Error ? error.message : "上传失败";
+      const text = getFriendlyUploadErrorMessage(error, "上传失败");
       setMessage({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -678,6 +839,14 @@ export default function CreatorComicPartPage() {
 
   async function handleUploadPdf(file: File | null | undefined) {
     if (!file || !seriesSlug || !partSlug) {
+      return;
+    }
+
+    if (activePdfJobBlocking) {
+      setMessage({
+        type: "success",
+        text: getComicUploadBusyMessage(),
+      });
       return;
     }
 
@@ -710,7 +879,7 @@ export default function CreatorComicPartPage() {
     });
 
     try {
-      const state = await uploadAuthorComicPdfWithProgress(file, {
+      const job = await createAuthorComicPdfJobWithProgress(file, {
         seriesSlug,
         partSlug,
         onProgress: (progress) => {
@@ -722,23 +891,65 @@ export default function CreatorComicPartPage() {
             return {
               ...current,
               progress,
-              status: progress >= 100 ? "processing" : "uploading",
+              status: "uploading",
             };
           });
         },
       });
 
-      applyUploadState(state);
+      setPendingPdfUpload(null);
+      setActivePdfJob(job);
 
       setMessage({
         type: "success",
-        text: "PDF 已拆分为图片并加入待传区。",
+        text: "PDF 已上传，正在后台拆分页面。",
       });
     } catch (error: unknown) {
-      const text = error instanceof Error ? error.message : "PDF 导入失败";
+      const text = getFriendlyUploadErrorMessage(error, "PDF 导入任务创建失败");
+      setMessage({ type: "error", text });
+      setPendingPdfUpload(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleCancelPdfJob() {
+    if (!activePdfJob) {
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage(null);
+
+    try {
+      const job = await cancelAuthorComicPdfJob(activePdfJob.id);
+      setActivePdfJob(job);
+
+      if (job.status === "canceling") {
+        setMessage({
+          type: "success",
+          text: "已请求取消 PDF 导入，正在清理本次生成的页面。",
+        });
+        return;
+      }
+
+      if (job.status === "canceled") {
+        await refreshUploadImages();
+        setMessage({
+          type: "success",
+          text: "PDF 导入已取消。",
+        });
+        return;
+      }
+
+      setMessage({
+        type: "success",
+        text: "已请求取消 PDF 导入。",
+      });
+    } catch (error: unknown) {
+      const text = getFriendlyUploadErrorMessage(error, "取消 PDF 导入失败");
       setMessage({ type: "error", text });
     } finally {
-      setPendingPdfUpload(null);
       setSubmitting(false);
     }
   }
@@ -786,6 +997,14 @@ export default function CreatorComicPartPage() {
     event.stopPropagation();
 
     setUploadDropActive(false);
+
+    if (activePdfJobBlocking) {
+      setMessage({
+        type: "success",
+        text: getComicUploadBusyMessage(),
+      });
+      return;
+    }
 
     if (submitting || hasUploadingImages) {
       return;
@@ -850,6 +1069,14 @@ export default function CreatorComicPartPage() {
   }
 
   async function handleMoveUploadImage(imageId: string, direction: "left" | "right") {
+    if (activePdfJobBlocking) {
+      setMessage({
+        type: "success",
+        text: getComicUploadBusyMessage(),
+      });
+      return;
+    }
+
     const currentIndex = images.findIndex((image) => image.id === imageId);
 
     if (currentIndex < 0) {
@@ -878,7 +1105,7 @@ export default function CreatorComicPartPage() {
 
       applyUploadState(state);
     } catch (error: unknown) {
-      const text = error instanceof Error ? error.message : "排序失败";
+      const text = getFriendlyUploadErrorMessage(error, "排序失败");
       setMessage({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -886,6 +1113,14 @@ export default function CreatorComicPartPage() {
   }
 
   async function handleDeleteImage(imageId: string) {
+    if (activePdfJobBlocking) {
+      setMessage({
+        type: "success",
+        text: getComicUploadBusyMessage(),
+      });
+      return;
+    }
+
     setSubmitting(true);
     setMessage(null);
 
@@ -893,7 +1128,7 @@ export default function CreatorComicPartPage() {
       const state = await deleteAuthorUploadImage(imageId);
       applyUploadState(state, { preserveEmptyTarget: true });
     } catch (error: unknown) {
-      const text = error instanceof Error ? error.message : "删除失败";
+      const text = getFriendlyUploadErrorMessage(error, "删除失败");
       setMessage({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -901,6 +1136,14 @@ export default function CreatorComicPartPage() {
   }
 
   async function handleStartNewChapterUpload() {
+    if (activePdfJobBlocking) {
+      setMessage({
+        type: "success",
+        text: getComicUploadBusyMessage(),
+      });
+      return;
+    }
+
     if (hasUploadingImages) {
       setMessage({
         type: "error",
@@ -936,7 +1179,7 @@ export default function CreatorComicPartPage() {
         text: "已切换为新建章节。",
       });
     } catch (error: unknown) {
-      const text = error instanceof Error ? error.message : "切换失败";
+      const text = getFriendlyUploadErrorMessage(error, "切换失败");
       setMessage({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -948,6 +1191,14 @@ export default function CreatorComicPartPage() {
       setMessage({
         type: "error",
         text: "当前路由缺少 seriesSlug 或 partSlug。",
+      });
+      return;
+    }
+
+    if (activePdfJobBlocking) {
+      setMessage({
+        type: "success",
+        text: getComicUploadBusyMessage(),
       });
       return;
     }
@@ -995,7 +1246,7 @@ export default function CreatorComicPartPage() {
         text: `已载入「${chapter.title}」到待传区。`,
       });
     } catch (error: unknown) {
-      const text = error instanceof Error ? error.message : "载入章节失败";
+      const text = getFriendlyUploadErrorMessage(error, "载入章节失败");
       setMessage({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -1003,6 +1254,14 @@ export default function CreatorComicPartPage() {
   }
 
   async function handleClearImages() {
+    if (activePdfJobBlocking) {
+      setMessage({
+        type: "success",
+        text: getComicUploadBusyMessage(),
+      });
+      return;
+    }
+
     if (images.length === 0) {
       return;
     }
@@ -1020,7 +1279,7 @@ export default function CreatorComicPartPage() {
         text: "已清空待传区。",
       });
     } catch (error: unknown) {
-      const text = error instanceof Error ? error.message : "清空失败";
+      const text = getFriendlyUploadErrorMessage(error, "清空失败");
       setMessage({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -1217,7 +1476,7 @@ export default function CreatorComicPartPage() {
         text: `已发布 ${result.chapter.title}，共 ${result.pageCount} 页。`,
       });
     } catch (error: unknown) {
-      const text = error instanceof Error ? error.message : "发布失败";
+      const text = getFriendlyUploadErrorMessage(error, "发布失败");
       setMessage({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -1244,7 +1503,7 @@ export default function CreatorComicPartPage() {
               ? "rounded-md bg-[var(--color-panel-soft-bg)] px-3 py-1 font-semibold text-main"
               : "rounded-md px-3 py-1 text-soft"
           }
-          disabled={submitting}
+          disabled={submitting || activePdfJobBlocking}
           onClick={() => setUploadInputMode("images")}
         >
           图片
@@ -1257,7 +1516,7 @@ export default function CreatorComicPartPage() {
               ? "rounded-md bg-[var(--color-panel-soft-bg)] px-3 py-1 font-semibold text-main"
               : "rounded-md px-3 py-1 text-soft"
           }
-          disabled={submitting}
+          disabled={submitting || activePdfJobBlocking}
           onClick={() => setUploadInputMode("pdf")}
         >
           PDF
@@ -1766,9 +2025,7 @@ export default function CreatorComicPartPage() {
                                     PDF
                                   </div>
                                   <div className="mt-1 text-xs text-soft">
-                                    {pendingPdfUpload.status === "processing"
-                                      ? "正在拆分页面"
-                                      : "正在上传"}
+                                    正在上传源文件
                                   </div>
                                 </div>
                               </div>
@@ -1798,10 +2055,82 @@ export default function CreatorComicPartPage() {
                                 </div>
 
                                 <p className="text-[11px] text-soft">
-                                  {pendingPdfUpload.status === "processing"
-                                    ? "上传完成，正在拆分为图片..."
-                                    : `${pendingPdfUpload.progress}%`}
+                                  正在上传源 PDF {pendingPdfUpload.progress}%
                                 </p>
+                              </div>
+                            </article>
+                          ) : null}
+
+                          {activePdfJobBlocking && activePdfJob ? (
+                            <article className="overflow-hidden rounded-lg border border-[var(--color-accent-border)] bg-white md:rounded-xl">
+                              <div className="flex h-24 items-center justify-center bg-[var(--color-accent-soft)] md:h-28">
+                                <div className="text-center">
+                                  <div className="text-sm font-semibold text-[var(--color-accent)]">
+                                    PDF
+                                  </div>
+                                  <div className="mt-1 text-xs text-soft">
+                                    {activePdfJob.status === "queued"
+                                      ? "排队中"
+                                      : activePdfJob.status === "running"
+                                        ? "正在拆分"
+                                        : activePdfJob.status === "canceling"
+                                          ? "取消中"
+                                          : activePdfJob.status === "done"
+                                            ? "已完成"
+                                            : activePdfJob.status === "canceled"
+                                              ? "已取消"
+                                              : "失败"}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 px-2 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="badge-accent px-2 py-0.5 text-xs">
+                                    {activePdfJob.status === "done"
+                                      ? "完成"
+                                      : activePdfJob.status === "failed"
+                                        ? "失败"
+                                        : activePdfJob.status === "canceled"
+                                          ? "已取消"
+                                          : "导入中"}
+                                  </span>
+
+                                  <span className="text-[11px] text-soft">
+                                    {activePdfJob.totalPages
+                                      ? `${activePdfJob.processedPages}/${activePdfJob.totalPages} 页`
+                                      : "读取中"}
+                                  </span>
+                                </div>
+
+                                <p className="truncate text-xs font-medium text-main">
+                                  {activePdfJob.originalFilename}
+                                </p>
+
+                                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-border-soft)]">
+                                  <div
+                                    className="h-full rounded-full bg-[var(--color-accent)] transition-all"
+                                    style={{
+                                      width: `${getPdfJobProgress(activePdfJob)}%`,
+                                    }}
+                                  />
+                                </div>
+
+                                <p className="text-[11px] text-soft">
+                                  {getPdfJobStatusLabel(activePdfJob)}
+                                </p>
+
+                                {(activePdfJob.status === "queued" ||
+                                  activePdfJob.status === "running") && (
+                                  <button
+                                    type="button"
+                                    className="admin-button-secondary w-full px-2 py-1 text-xs disabled:opacity-50"
+                                    disabled={submitting}
+                                    onClick={handleCancelPdfJob}
+                                  >
+                                    取消导入
+                                  </button>
+                                )}
                               </div>
                             </article>
                           ) : null}
