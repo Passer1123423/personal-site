@@ -3,7 +3,8 @@ import os
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from shutil import copy2
+from shutil import copy2, rmtree
+from uuid import uuid4
 import fitz
 
 from fastapi import UploadFile
@@ -81,6 +82,45 @@ def get_pdf_job_dir(user_id: str, job_id: str) -> Path:
     return IMPORT_DATA_ROOT / "users" / user_id / "comic-upload-jobs" / job_id
 
 
+def get_pdf_job_pages_dir(user_id: str, job_id: str) -> Path:
+    return get_pdf_job_dir(user_id, job_id) / "pages"
+
+
+def get_pdf_job_page_relative_path(user_id: str, job_id: str, filename: str) -> str:
+    return f"users/{user_id}/comic-upload-jobs/{job_id}/pages/{filename}"
+
+
+def get_pdf_job_page_path_from_relative(
+    *,
+    job: ComicUploadJob,
+    relative_path: str,
+) -> Path:
+    path = Path(relative_path)
+    expected_prefix = (
+        "users",
+        job.user_id,
+        "comic-upload-jobs",
+        job.id,
+        "pages",
+    )
+
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError("PDF job 页面路径非法")
+
+    if len(path.parts) != len(expected_prefix) + 1:
+        raise ValueError("PDF job 页面路径非法")
+
+    if path.parts[:len(expected_prefix)] != expected_prefix:
+        raise ValueError("PDF job 页面路径非法")
+
+    filename = path.parts[-1]
+
+    if not filename:
+        raise ValueError("PDF job 页面路径非法")
+
+    return IMPORT_DATA_ROOT / path
+
+
 def get_pdf_job_source_relative_path(user_id: str, job_id: str) -> str:
     return f"users/{user_id}/comic-upload-jobs/{job_id}/source.pdf"
 
@@ -107,6 +147,24 @@ def cleanup_pdf_job_source_file(job: ComicUploadJob) -> None:
 
     if job_dir.exists() and not any(job_dir.iterdir()):
         job_dir.rmdir()
+
+
+def cleanup_pdf_job_pages(job: ComicUploadJob) -> None:
+    pages_dir = get_pdf_job_pages_dir(job.user_id, job.id)
+
+    if pages_dir.exists():
+        rmtree(pages_dir)
+
+    job_dir = get_pdf_job_dir(job.user_id, job.id)
+
+    if job_dir.exists() and not any(job_dir.iterdir()):
+        job_dir.rmdir()
+
+
+def cleanup_pdf_job_work_files(job: ComicUploadJob) -> None:
+    cleanup_pdf_job_source_file(job)
+    cleanup_pdf_job_pages(job)
+
 
 def rollback_pdf_import_job_outputs(
     session: Session,
@@ -158,11 +216,7 @@ def mark_pdf_import_job_failed(
         raise ValueError("PDF 导入任务不存在")
 
     try:
-        rollback_pdf_import_job_outputs(
-            session=session,
-            job=job,
-        )
-        cleanup_pdf_job_source_file(job)
+        cleanup_pdf_job_work_files(job)
 
         now = now_utc()
         job.status = PDF_JOB_STATUS_FAILED
@@ -170,6 +224,10 @@ def mark_pdf_import_job_failed(
         job.error_message = str(exc)[:1000]
         job.finished_at = now
         job.updated_at = now
+        job.output_pages_json = None
+        job.output_size_bytes = 0
+        job.created_image_ids_json = None
+        job.created_size_bytes = 0
 
         session.add(job)
         session.commit()
@@ -194,11 +252,7 @@ def mark_pdf_import_job_canceled(
         raise ValueError("PDF 导入任务不存在")
 
     try:
-        rollback_pdf_import_job_outputs(
-            session=session,
-            job=job,
-        )
-        cleanup_pdf_job_source_file(job)
+        cleanup_pdf_job_work_files(job)
 
         now = now_utc()
         job.status = PDF_JOB_STATUS_CANCELED
@@ -207,6 +261,10 @@ def mark_pdf_import_job_canceled(
         job.canceled_at = now
         job.finished_at = now
         job.updated_at = now
+        job.output_pages_json = None
+        job.output_size_bytes = 0
+        job.created_image_ids_json = None
+        job.created_size_bytes = 0
 
         session.add(job)
         session.commit()
@@ -228,7 +286,7 @@ def mark_pdf_import_job_done(
     now = now_utc()
     job.status = PDF_JOB_STATUS_DONE
     job.progress = 100
-    job.message = "导入完成，已加入待传区"
+    job.message = "PDF 已拆分完成，等待加入待传区"
     job.error_message = None
     job.finished_at = now
     job.updated_at = now
@@ -311,6 +369,124 @@ def dump_job_created_image_ids(image_ids: Sequence[str]) -> str:
         separators=(",", ":"),
     )
 
+
+def load_job_output_pages(job: ComicUploadJob) -> list[dict]:
+    if not job.output_pages_json:
+        return []
+
+    try:
+        value = json.loads(job.output_pages_json)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(value, list):
+        return []
+
+    pages: list[dict] = []
+
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+
+        page = item.get("page")
+        filename = item.get("filename")
+        relative_path = item.get("relativePath")
+        size_bytes = item.get("sizeBytes")
+
+        if not isinstance(page, int) or page <= 0:
+            continue
+
+        if not isinstance(filename, str) or not filename:
+            continue
+
+        if not isinstance(relative_path, str) or not relative_path:
+            continue
+
+        if not isinstance(size_bytes, int) or size_bytes < 0:
+            continue
+
+        pages.append(
+            {
+                "page": page,
+                "filename": filename,
+                "relativePath": relative_path,
+                "sizeBytes": size_bytes,
+            }
+        )
+
+    pages.sort(key=lambda item: item["page"])
+    return pages
+
+
+def dump_job_output_pages(pages: Sequence[dict]) -> str:
+    clean_pages = []
+
+    for item in pages:
+        clean_pages.append(
+            {
+                "page": int(item["page"]),
+                "filename": str(item["filename"]),
+                "relativePath": str(item["relativePath"]),
+                "sizeBytes": int(item["sizeBytes"]),
+            }
+        )
+
+    return json.dumps(
+        clean_pages,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def append_job_output_page(
+    job: ComicUploadJob,
+    *,
+    page: int,
+    filename: str,
+    relative_path: str,
+    size_bytes: int,
+) -> None:
+    pages = load_job_output_pages(job)
+    pages.append(
+        {
+            "page": page,
+            "filename": filename,
+            "relativePath": relative_path,
+            "sizeBytes": size_bytes,
+        }
+    )
+    pages.sort(key=lambda item: item["page"])
+    job.output_pages_json = dump_job_output_pages(pages)
+    job.output_size_bytes = sum(item["sizeBytes"] for item in pages)
+
+
+def load_job_merged_image_ids(job: ComicUploadJob) -> list[str]:
+    if not job.merged_image_ids_json:
+        return []
+
+    try:
+        value = json.loads(job.merged_image_ids_json)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(value, list):
+        return []
+
+    return [
+        str(item)
+        for item in value
+        if isinstance(item, str) and item
+    ]
+
+
+def dump_job_merged_image_ids(image_ids: Sequence[str]) -> str:
+    return json.dumps(
+        list(image_ids),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
 def append_job_created_image_id(
     job: ComicUploadJob,
     image_id: str,
@@ -348,6 +524,10 @@ def serialize_comic_upload_job(job: ComicUploadJob) -> dict:
         "uploadMode": job.upload_mode,
         "createdImageIds": load_job_created_image_ids(job),
         "createdSizeBytes": job.created_size_bytes,
+        "outputPages": load_job_output_pages(job),
+        "outputSizeBytes": job.output_size_bytes,
+        "mergedAt": job.merged_at,
+        "mergedImageIds": load_job_merged_image_ids(job),
         "createdAt": job.created_at,
         "updatedAt": job.updated_at,
         "startedAt": job.started_at,
@@ -667,12 +847,6 @@ async def create_pdf_import_job(
         user_id=user_id,
     )
 
-    ensure_pdf_job_can_use_current_staging(
-        session=session,
-        user_id=user_id,
-        target_part_id=target_part_id,
-    )
-
     original_filename = clean_original_filename(upload_file.filename)
 
     if not original_filename.lower().endswith(".pdf"):
@@ -802,6 +976,170 @@ def request_cancel_pdf_import_job(
 
     raise ValueError("当前任务状态不支持取消")
 
+
+def merge_pdf_import_job_to_uploads(
+    *,
+    session: Session,
+    user_id: str,
+    job_id: str,
+) -> tuple[ComicUploadJob, list[ComicUploadImage]]:
+    job = get_comic_upload_job(
+        session=session,
+        user_id=user_id,
+        job_id=job_id,
+    )
+
+    if job.status != PDF_JOB_STATUS_DONE:
+        raise ValueError("PDF 尚未拆分完成，暂时不能加入待传区")
+
+    if job.merged_at is not None:
+        raise ValueError("PDF 页面已经加入待传区")
+
+    if job.upload_mode != UPLOAD_MODE_NEW_CHAPTER:
+        raise ValueError("PDF 页面只能加入新建章节待传区")
+
+    if not job.target_part_id:
+        raise ValueError("PDF 导入任务缺少目标分部，不能加入待传区")
+
+    pages = load_job_output_pages(job)
+
+    if not pages:
+        raise ValueError("PDF 拆分结果不存在，不能加入待传区")
+
+    if job.total_pages is not None and len(pages) != job.total_pages:
+        raise ValueError("PDF 拆分结果文件缺失或异常，请重新导入")
+
+    page_numbers = [item["page"] for item in pages]
+
+    if len(set(page_numbers)) != len(page_numbers):
+        raise ValueError("PDF 拆分结果文件缺失或异常，请重新导入")
+
+    if sorted(page_numbers) != list(range(1, len(pages) + 1)):
+        raise ValueError("PDF 拆分结果文件缺失或异常，请重新导入")
+
+    total_output_size = 0
+    source_paths: dict[int, Path] = {}
+
+    for item in pages:
+        source_path = get_pdf_job_page_path_from_relative(
+            job=job,
+            relative_path=item["relativePath"],
+        )
+
+        if not source_path.exists() or not source_path.is_file():
+            raise ValueError("PDF 拆分结果文件缺失或异常，请重新导入")
+
+        actual_size = source_path.stat().st_size
+
+        if (
+            actual_size <= 0
+            or actual_size > UPLOAD_FILE_LIMIT_BYTES
+            or actual_size != item["sizeBytes"]
+        ):
+            raise ValueError("PDF 拆分结果文件缺失或异常，请重新导入")
+
+        total_output_size += actual_size
+        source_paths[item["page"]] = source_path
+
+    images = list_user_upload_images(
+        session=session,
+        user_id=user_id,
+    )
+
+    if images:
+        if any(image.upload_mode == UPLOAD_MODE_EDIT_CHAPTER for image in images):
+            raise ValueError("当前待传区正在编辑其它内容，请先发布或清空后再加入 PDF 页面。")
+
+        if any(image.target_part_id != job.target_part_id for image in images):
+            raise ValueError("当前待传区属于其它漫画分部，请先发布或清空后再加入 PDF 页面。")
+
+    staging_size = get_user_staging_size(
+        session=session,
+        user_id=user_id,
+    )
+
+    if staging_size + total_output_size > STAGING_LIMIT_BYTES:
+        raise ValueError("待传区容量不足，请先发布或清空部分图片后再加入 PDF 页面。")
+
+    staging_dir = get_user_staging_dir(user_id)
+    staging_dir.mkdir(parents=True, exist_ok=True)
+
+    next_order = get_next_display_order(
+        session=session,
+        user_id=user_id,
+    )
+
+    created_files: list[Path] = []
+    created_images: list[ComicUploadImage] = []
+
+    try:
+        for item in pages:
+            source_path = source_paths[item["page"]]
+            stored_filename = f"{uuid4().hex}.png"
+            storage_path = f"users/{user_id}/comic-staging/{stored_filename}"
+            destination_path = IMPORT_DATA_ROOT / storage_path
+
+            created_files.append(destination_path)
+            copy2(source_path, destination_path)
+
+            original_filename = (
+                f"{job.original_filename}-p{item['page']:03d}.png"
+                if job.original_filename
+                else f"page-{item['page']:03d}.png"
+            )
+
+            image = ComicUploadImage(
+                user_id=user_id,
+                target_part_id=job.target_part_id,
+                target_chapter_id=None,
+                upload_mode=UPLOAD_MODE_NEW_CHAPTER,
+                original_filename=original_filename,
+                stored_filename=stored_filename,
+                storage_path=storage_path,
+                content_type="image/png",
+                size_bytes=item["sizeBytes"],
+                display_order=next_order,
+            )
+            next_order += 1
+
+            session.add(image)
+            created_images.append(image)
+
+        session.flush()
+
+        image_ids = [image.id for image in created_images]
+        now = now_utc()
+
+        job.merged_at = now
+        job.merged_image_ids_json = dump_job_merged_image_ids(image_ids)
+        job.created_image_ids_json = job.merged_image_ids_json
+        job.created_size_bytes = total_output_size
+        job.message = "PDF 页面已加入待传区。"
+        job.updated_at = now
+
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
+        for image in created_images:
+            session.refresh(image)
+
+    except Exception:
+        session.rollback()
+
+        for path in created_files:
+            path.unlink(missing_ok=True)
+
+        raise
+
+    try:
+        cleanup_pdf_job_pages(job)
+    except OSError:
+        pass
+
+    return job, created_images
+
+
 def run_pdf_import_job(job_id: str) -> None:
     with Session(engine) as session:
         job = session.get(ComicUploadJob, job_id)
@@ -853,8 +1191,8 @@ def run_pdf_import_job(job_id: str) -> None:
             session.commit()
             session.refresh(job)
 
-            staging_dir = get_user_staging_dir(job.user_id)
-            staging_dir.mkdir(parents=True, exist_ok=True)
+            pages_dir = get_pdf_job_pages_dir(job.user_id, job.id)
+            pages_dir.mkdir(parents=True, exist_ok=True)
 
             matrix = fitz.Matrix(PDF_RENDER_ZOOM, PDF_RENDER_ZOOM)
 
@@ -873,42 +1211,48 @@ def run_pdf_import_job(job_id: str) -> None:
                 if image_size > UPLOAD_FILE_LIMIT_BYTES:
                     raise ValueError(f"PDF 第 {page_number} 页转换后的图片超过 20MB")
 
-                current_size = get_user_staging_size(
-                    session=session,
-                    user_id=job.user_id,
+                filename = f"{page_number:03d}.png"
+                relative_path = get_pdf_job_page_relative_path(
+                    job.user_id,
+                    job.id,
+                    filename,
+                )
+                output_path = get_pdf_job_page_path_from_relative(
+                    job=job,
+                    relative_path=relative_path,
                 )
 
-                if current_size + image_size > STAGING_LIMIT_BYTES:
-                    raise ValueError("待传区容量超过 100MB")
-
-                stored_filename = f"{new_id()}.png"
-                target_path = staging_dir / stored_filename
-                original_page_name = f"{Path(job.original_filename).stem}-p{page_number:03d}.png"
-
                 try:
-                    target_path.write_bytes(image_bytes)
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    if output_path.exists():
+                        output_path.unlink()
+
+                    pixmap.save(output_path)
+                    size_bytes = output_path.stat().st_size
+
+                    if size_bytes <= 0:
+                        output_path.unlink(missing_ok=True)
+                        raise ValueError(f"PDF 第 {page_number} 页转换失败")
+
+                    if size_bytes > UPLOAD_FILE_LIMIT_BYTES:
+                        output_path.unlink(missing_ok=True)
+                        raise ValueError(f"PDF 第 {page_number} 页转换后的图片超过 20MB")
+
+                    current_output_size = job.output_size_bytes or 0
+
+                    if current_output_size + size_bytes > STAGING_LIMIT_BYTES:
+                        output_path.unlink(missing_ok=True)
+                        raise ValueError("PDF 拆分结果超过 100MB，请压缩后重试")
 
                     now = now_utc()
-                    image = ComicUploadImage(
-                        user_id=job.user_id,
-                        target_part_id=job.target_part_id,
-                        target_chapter_id=None,
-                        upload_mode=UPLOAD_MODE_NEW_CHAPTER,
-                        original_filename=original_page_name,
-                        stored_filename=stored_filename,
-                        storage_path=get_user_staging_relative_path(job.user_id, stored_filename),
-                        content_type="image/png",
-                        size_bytes=image_size,
-                        display_order=get_next_display_order(session, job.user_id),
-                        created_at=now,
-                        updated_at=now,
+                    append_job_output_page(
+                        job,
+                        page=page_number,
+                        filename=filename,
+                        relative_path=relative_path,
+                        size_bytes=size_bytes,
                     )
-
-                    session.add(image)
-                    session.flush()
-
-                    append_job_created_image_id(job, image.id)
-                    job.created_size_bytes += image_size
                     job.processed_pages = page_number
                     job.progress = int(page_number * 100 / document.page_count)
                     job.message = f"正在拆分第 {page_number} / {document.page_count} 页"
@@ -921,8 +1265,8 @@ def run_pdf_import_job(job_id: str) -> None:
                 except Exception:
                     session.rollback()
 
-                    if target_path.exists():
-                        target_path.unlink()
+                    if output_path.exists():
+                        output_path.unlink()
 
                     raise
 
@@ -931,12 +1275,6 @@ def run_pdf_import_job(job_id: str) -> None:
             if document is not None:
                 document.close()
                 document = None
-
-            compact_user_upload_orders(
-                session=session,
-                user_id=job.user_id,
-                commit=True,
-            )
 
             mark_pdf_import_job_done(
                 session=session,

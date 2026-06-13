@@ -762,12 +762,12 @@ class ComicUploadJob(SQLModel, table=True):
     """
     漫画待传区后台任务表。
 
-    第一版用于 PDF 导入任务：
+    用于 PDF 导入任务：
     1. 保存 source.pdf；
-    2. 后台逐页拆成 PNG；
-    3. 拆出的页面写入 ComicUploadImage；
+    2. worker 逐页拆成 PNG 并写入 job pages 目录；
+    3. merge 时再写入 ComicUploadImage；
     4. 前端轮询本表状态；
-    5. 取消/失败时只回滚本 job 创建的图片。
+    5. created_image_ids_json 作为 legacy/兼容字段暂时保留。
     """
 
     __tablename__ = "comic_upload_job"
@@ -809,6 +809,16 @@ class ComicUploadJob(SQLModel, table=True):
     created_image_ids_json: str | None = Field(default=None, sa_column=Column(Text))
 
     created_size_bytes: int = Field(default=0)
+
+    # JSON 字符串，记录 worker 输出到 job pages 目录的页面文件。
+    output_pages_json: str | None = Field(default=None, sa_column=Column(Text))
+
+    output_size_bytes: int = Field(default=0)
+
+    merged_at: datetime | None = Field(default=None, index=True)
+
+    # JSON 字符串，记录 merge 成功后创建的 ComicUploadImage.id。
+    merged_image_ids_json: str | None = Field(default=None, sa_column=Column(Text))
 
     created_at: datetime = Field(default_factory=now_utc, index=True)
     updated_at: datetime = Field(default_factory=now_utc, index=True)

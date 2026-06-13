@@ -119,6 +119,15 @@ export type AuthorComicPdfJob = {
   uploadMode: ComicUploadMode;
   createdImageIds: string[];
   createdSizeBytes: number;
+  outputPages: {
+    page: number;
+    filename: string;
+    relativePath: string;
+    sizeBytes: number;
+  }[];
+  outputSizeBytes: number;
+  mergedAt: string | null;
+  mergedImageIds: string[];
   createdAt: string;
   updatedAt: string;
   startedAt: string | null;
@@ -129,6 +138,11 @@ export type AuthorComicPdfJob = {
 export type AuthorComicPdfJobsResult = {
   jobs: AuthorComicPdfJob[];
   activeJob: AuthorComicPdfJob | null;
+};
+
+export type MergeAuthorComicPdfJobResult = {
+  job: AuthorComicPdfJob;
+  uploadState: AuthorUploadState;
 };
 
 export type UploadComicImageBatchInfo = {
@@ -316,6 +330,20 @@ export async function cancelAuthorComicPdfJob(
   );
 
   return readJsonOrThrow<AuthorComicPdfJob>(response);
+}
+
+export async function mergeAuthorComicPdfJob(
+  jobId: string,
+): Promise<MergeAuthorComicPdfJobResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/author/comic-upload/pdf-jobs/${jobId}/merge`,
+    {
+      method: "POST",
+      headers: getAuthHeaders(),
+    },
+  );
+
+  return readJsonOrThrow<MergeAuthorComicPdfJobResult>(response);
 }
 
 export function uploadAuthorComicImageWithProgress(
