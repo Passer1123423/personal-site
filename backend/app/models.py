@@ -758,6 +758,65 @@ class ComicUploadImage(SQLModel, table=True):
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
 
+class ComicUploadJob(SQLModel, table=True):
+    """
+    漫画待传区后台任务表。
+
+    第一版用于 PDF 导入任务：
+    1. 保存 source.pdf；
+    2. 后台逐页拆成 PNG；
+    3. 拆出的页面写入 ComicUploadImage；
+    4. 前端轮询本表状态；
+    5. 取消/失败时只回滚本 job 创建的图片。
+    """
+
+    __tablename__ = "comic_upload_job"
+
+    __table_args__ = (
+        Index("ix_comic_upload_job_user_status_created", "user_id", "status", "created_at"),
+    )
+
+    id: str = Field(default_factory=new_id, primary_key=True)
+
+    user_id: str = Field(foreign_key="user.id", index=True)
+
+    # 第一版固定为 pdf_import，后续如果有压缩包导入、批量处理等任务，可以继续复用。
+    kind: str = Field(default="pdf_import", index=True)
+
+    # queued / running / done / failed / canceling / canceled
+    status: str = Field(default="queued", index=True)
+
+    original_filename: str
+
+    # 相对 IMPORT_DATA_ROOT 的路径。
+    # 例如：users/{user_id}/comic-upload-jobs/{job_id}/source.pdf
+    source_path: str
+
+    total_pages: int | None = Field(default=None)
+    processed_pages: int = Field(default=0)
+    progress: int = Field(default=0)
+
+    message: str | None = None
+    error_message: str | None = Field(default=None, sa_column=Column(Text))
+
+    target_part_id: str | None = Field(default=None, foreign_key="comic_part.id", index=True)
+
+    # 第一版固定 new_chapter。PDF 不支持 edit_chapter。
+    upload_mode: str = Field(default="new_chapter", index=True)
+
+    # JSON 字符串，记录本 job 已创建的 ComicUploadImage.id。
+    # 取消/失败时只删除这些图片，不清空整个待传区。
+    created_image_ids_json: str | None = Field(default=None, sa_column=Column(Text))
+
+    created_size_bytes: int = Field(default=0)
+
+    created_at: datetime = Field(default_factory=now_utc, index=True)
+    updated_at: datetime = Field(default_factory=now_utc, index=True)
+
+    started_at: datetime | None = Field(default=None, index=True)
+    finished_at: datetime | None = Field(default=None, index=True)
+    canceled_at: datetime | None = Field(default=None, index=True)
+
 class Novel(SQLModel, table=True):
     __tablename__ = "novel"
 

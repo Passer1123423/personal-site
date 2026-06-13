@@ -1,3 +1,4 @@
+import json
 import os
 from collections.abc import Sequence
 from pathlib import Path
@@ -7,7 +8,15 @@ import fitz
 from fastapi import UploadFile
 from sqlmodel import Session, func, select
 
-from app.models import Asset, ComicChapter, ComicPage, ComicUploadImage, new_id, now_utc
+from app.models import (
+    Asset,
+    ComicChapter,
+    ComicPage,
+    ComicUploadImage,
+    ComicUploadJob,
+    new_id,
+    now_utc,
+)
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 STAGING_LIMIT_BYTES = 100 * 1024 * 1024
@@ -22,6 +31,27 @@ UPLOAD_MODE_EDIT_CHAPTER = "edit_chapter"
 UPLOAD_MODES = {
     UPLOAD_MODE_NEW_CHAPTER,
     UPLOAD_MODE_EDIT_CHAPTER,
+}
+
+PDF_JOB_KIND = "pdf_import"
+
+PDF_JOB_STATUS_QUEUED = "queued"
+PDF_JOB_STATUS_RUNNING = "running"
+PDF_JOB_STATUS_DONE = "done"
+PDF_JOB_STATUS_FAILED = "failed"
+PDF_JOB_STATUS_CANCELING = "canceling"
+PDF_JOB_STATUS_CANCELED = "canceled"
+
+PDF_JOB_ACTIVE_STATUSES = {
+    PDF_JOB_STATUS_QUEUED,
+    PDF_JOB_STATUS_RUNNING,
+    PDF_JOB_STATUS_CANCELING,
+}
+
+PDF_JOB_TERMINAL_STATUSES = {
+    PDF_JOB_STATUS_DONE,
+    PDF_JOB_STATUS_FAILED,
+    PDF_JOB_STATUS_CANCELED,
 }
 
 # 当前文件位置：
@@ -39,6 +69,37 @@ def get_user_staging_dir(user_id: str) -> Path:
 
 def get_user_staging_relative_path(user_id: str, stored_filename: str) -> str:
     return f"users/{user_id}/comic-staging/{stored_filename}"
+
+def get_pdf_job_dir(user_id: str, job_id: str) -> Path:
+    return IMPORT_DATA_ROOT / "users" / user_id / "comic-upload-jobs" / job_id
+
+
+def get_pdf_job_source_relative_path(user_id: str, job_id: str) -> str:
+    return f"users/{user_id}/comic-upload-jobs/{job_id}/source.pdf"
+
+
+def get_pdf_job_source_path_from_relative(source_path: str) -> Path:
+    relative_path = Path(source_path)
+
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise ValueError("PDF job 源文件路径非法")
+
+    return IMPORT_DATA_ROOT / relative_path
+
+
+def cleanup_pdf_job_source_file(job: ComicUploadJob) -> None:
+    if not job.source_path:
+        return
+
+    source_path = get_pdf_job_source_path_from_relative(job.source_path)
+
+    if source_path.exists():
+        source_path.unlink()
+
+    job_dir = source_path.parent
+
+    if job_dir.exists() and not any(job_dir.iterdir()):
+        job_dir.rmdir()
 
 
 def get_upload_image_path(image: ComicUploadImage) -> Path:
@@ -87,6 +148,55 @@ def validate_image_filename(filename: str) -> str:
 
     return original_filename
 
+def load_job_created_image_ids(job: ComicUploadJob) -> list[str]:
+    if not job.created_image_ids_json:
+        return []
+
+    try:
+        value = json.loads(job.created_image_ids_json)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(value, list):
+        return []
+
+    return [
+        str(item)
+        for item in value
+        if isinstance(item, str) and item
+    ]
+
+
+def dump_job_created_image_ids(image_ids: Sequence[str]) -> str:
+    return json.dumps(
+        list(image_ids),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def serialize_comic_upload_job(job: ComicUploadJob) -> dict:
+    return {
+        "id": job.id,
+        "kind": job.kind,
+        "status": job.status,
+        "originalFilename": job.original_filename,
+        "totalPages": job.total_pages,
+        "processedPages": job.processed_pages,
+        "progress": job.progress,
+        "message": job.message,
+        "errorMessage": job.error_message,
+        "targetPartId": job.target_part_id,
+        "uploadMode": job.upload_mode,
+        "createdImageIds": load_job_created_image_ids(job),
+        "createdSizeBytes": job.created_size_bytes,
+        "createdAt": job.created_at,
+        "updatedAt": job.updated_at,
+        "startedAt": job.started_at,
+        "finishedAt": job.finished_at,
+        "canceledAt": job.canceled_at,
+    }
+
 def validate_upload_mode(upload_mode: str | None) -> str:
     if upload_mode is None:
         return UPLOAD_MODE_NEW_CHAPTER
@@ -127,6 +237,110 @@ def list_user_upload_images(session: Session, user_id: str) -> list[ComicUploadI
 
     return list(session.exec(statement).all())
 
+def get_comic_upload_job(
+    session: Session,
+    user_id: str,
+    job_id: str,
+) -> ComicUploadJob:
+    statement = (
+        select(ComicUploadJob)
+        .where(ComicUploadJob.id == job_id)
+        .where(ComicUploadJob.user_id == user_id)
+    )
+
+    job = session.exec(statement).first()
+
+    if job is None:
+        raise ValueError("PDF 导入任务不存在")
+
+    return job
+
+
+def list_comic_upload_jobs(
+    session: Session,
+    user_id: str,
+    active_only: bool = False,
+    limit: int = 20,
+) -> list[ComicUploadJob]:
+    page_limit = max(1, min(limit, 100))
+
+    statement = (
+        select(ComicUploadJob)
+        .where(ComicUploadJob.user_id == user_id)
+        .order_by(ComicUploadJob.created_at.desc())
+        .limit(page_limit)
+    )
+
+    if active_only:
+        statement = statement.where(
+            ComicUploadJob.status.in_(PDF_JOB_ACTIVE_STATUSES)
+        )
+
+    return list(session.exec(statement).all())
+
+
+def get_active_comic_upload_job(
+    session: Session,
+    user_id: str,
+) -> ComicUploadJob | None:
+    statement = (
+        select(ComicUploadJob)
+        .where(ComicUploadJob.user_id == user_id)
+        .where(ComicUploadJob.status.in_(PDF_JOB_ACTIVE_STATUSES))
+        .order_by(ComicUploadJob.created_at.desc())
+    )
+
+    return session.exec(statement).first()
+
+
+def ensure_no_active_comic_upload_job(
+    session: Session,
+    user_id: str,
+) -> None:
+    active_job = get_active_comic_upload_job(
+        session=session,
+        user_id=user_id,
+    )
+
+    if active_job is not None:
+        raise ValueError("当前已有 PDF 导入任务正在进行，请完成或取消后再操作")
+
+def ensure_pdf_job_can_use_current_staging(
+    session: Session,
+    user_id: str,
+    target_part_id: str | None,
+) -> None:
+    images = list_user_upload_images(
+        session=session,
+        user_id=user_id,
+    )
+
+    if not images:
+        return
+
+    invalid_edit_images = [
+        image.id
+        for image in images
+        if image.upload_mode != UPLOAD_MODE_NEW_CHAPTER
+        or image.target_chapter_id is not None
+    ]
+
+    if invalid_edit_images:
+        raise ValueError("当前待传区正在编辑已有章节，请先发布、取消编辑或清空后再导入 PDF")
+
+    first_target_part_id = images[0].target_part_id
+
+    inconsistent_target_images = [
+        image.id
+        for image in images
+        if image.target_part_id != first_target_part_id
+    ]
+
+    if inconsistent_target_images:
+        raise ValueError("当前待传区目标不一致，请先清空待传区后再导入 PDF")
+
+    if first_target_part_id != target_part_id:
+        raise ValueError("当前待传区已绑定其它上传目标，请先清空待传区后再导入 PDF")
 
 def get_upload_image(
     session: Session,
@@ -283,6 +497,152 @@ async def save_upload_images(
         "rejected": rejected,
         "total_size": get_user_staging_size(session, user_id),
     }
+
+async def create_pdf_import_job(
+    session: Session,
+    user_id: str,
+    upload_file: UploadFile,
+    target_part_id: str | None = None,
+) -> ComicUploadJob:
+    ensure_no_active_comic_upload_job(
+        session=session,
+        user_id=user_id,
+    )
+
+    ensure_pdf_job_can_use_current_staging(
+        session=session,
+        user_id=user_id,
+        target_part_id=target_part_id,
+    )
+
+    original_filename = clean_original_filename(upload_file.filename)
+
+    if not original_filename.lower().endswith(".pdf"):
+        raise ValueError("只支持 PDF 文件")
+
+    content_type = (upload_file.content_type or "").split(";")[0].strip().lower()
+    if content_type and content_type not in {"application/pdf", "application/octet-stream"}:
+        raise ValueError("上传文件不是 PDF")
+
+    job_id = new_id()
+    job_dir = get_pdf_job_dir(user_id, job_id)
+    job_dir.mkdir(parents=True, exist_ok=False)
+
+    source_path = job_dir / "source.pdf"
+    source_relative_path = get_pdf_job_source_relative_path(user_id, job_id)
+
+    written_size = 0
+
+    try:
+        await upload_file.seek(0)
+
+        with source_path.open("wb") as f:
+            while True:
+                chunk = await upload_file.read(1024 * 1024)
+
+                if not chunk:
+                    break
+
+                written_size += len(chunk)
+
+                if written_size > PDF_UPLOAD_FILE_LIMIT_BYTES:
+                    raise ValueError("PDF 文件不能超过 100MB")
+
+                f.write(chunk)
+
+        if written_size <= 0:
+            raise ValueError("PDF 文件为空")
+
+        now = now_utc()
+
+        job = ComicUploadJob(
+            id=job_id,
+            user_id=user_id,
+            kind=PDF_JOB_KIND,
+            status=PDF_JOB_STATUS_QUEUED,
+            original_filename=original_filename,
+            source_path=source_relative_path,
+            total_pages=None,
+            processed_pages=0,
+            progress=0,
+            message="已加入队列",
+            error_message=None,
+            target_part_id=target_part_id,
+            upload_mode=UPLOAD_MODE_NEW_CHAPTER,
+            created_image_ids_json=dump_job_created_image_ids([]),
+            created_size_bytes=0,
+            created_at=now,
+            updated_at=now,
+            started_at=None,
+            finished_at=None,
+            canceled_at=None,
+        )
+
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
+        return job
+
+    except Exception:
+        session.rollback()
+
+        if source_path.exists():
+            source_path.unlink()
+
+        if job_dir.exists() and not any(job_dir.iterdir()):
+            job_dir.rmdir()
+
+        raise
+
+def request_cancel_pdf_import_job(
+    session: Session,
+    user_id: str,
+    job_id: str,
+) -> ComicUploadJob:
+    job = get_comic_upload_job(
+        session=session,
+        user_id=user_id,
+        job_id=job_id,
+    )
+
+    now = now_utc()
+
+    if job.status == PDF_JOB_STATUS_QUEUED:
+        job.status = PDF_JOB_STATUS_CANCELED
+        job.progress = 0
+        job.message = "已取消"
+        job.error_message = None
+        job.canceled_at = now
+        job.finished_at = now
+        job.updated_at = now
+
+        cleanup_pdf_job_source_file(job)
+
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
+        return job
+
+    if job.status == PDF_JOB_STATUS_RUNNING:
+        job.status = PDF_JOB_STATUS_CANCELING
+        job.message = "取消中，正在清理已生成图片..."
+        job.updated_at = now
+
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
+        return job
+
+    if job.status == PDF_JOB_STATUS_CANCELING:
+        return job
+
+    if job.status in PDF_JOB_TERMINAL_STATUSES:
+        return job
+
+    raise ValueError("当前任务状态不支持取消")
 
 async def save_pdf_as_upload_images(
     session: Session,
