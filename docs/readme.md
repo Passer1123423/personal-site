@@ -34,7 +34,8 @@
 - 漫画系统：Series、Part、Chapter、Page；作者归属在 Part 层。
 - 小说系统：Novel、Chapter、Markdown 阅读、作者编辑器、正文 buffer、章节图片。
 - 互动系统：通用评论、回复树、评论图片、用户页/小说/小说章节/漫画 Part/漫画章节挂载点。
-- 后台：Admin 首页、用户管理、漫画管理、小说管理、互动管理。
+- 收藏通知：小说/漫画 Part 收藏、OutboxEvent、Notification、通知页和 Navbar 未读 badge。
+- 后台：Admin 首页、用户管理、漫画管理、小说管理、互动管理、活动日志。
 - 创作者：漫画书架/Series/Part 上传页，小说书架/Novel 管理页/Chapter 编辑页。
 - 布局：普通页面使用标准 Navbar/Footer；创作工作页桌面端使用自动隐藏 Navbar；漫画阅读页完全沉浸。
 - 部署：Linux + systemd + Nginx + SQLite + uploads + 备份脚本。

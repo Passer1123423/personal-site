@@ -159,6 +159,7 @@ SQLite          -> backend/data/site.db 或生产指定路径
 当前上传限制参考：
 
 - 漫画待传区单文件 20MB，单用户待传区 100MB。
+- 漫画 PDF 文件 100MB，最大 300 页，拆分后单页图片 20MB，拆分结果仍受待传区 100MB 限制。
 - 用户头像单文件 5MB。
 - 评论图片单张 10MB，单评论总计 30MB。
 - 小说章节图片单张 10MB。
@@ -210,6 +211,37 @@ backend/scripts/backup_site_data.py
 - 备份目录不要只放在同一块盘的同一个项目目录下。
 - 注意 uploads 里包含用户头像、评论图、小说图和漫画图，不应只备份 `comics/`。
 
+## Outbox Processor
+
+通知系统依赖 outbox processor。业务接口只负责写入 `OutboxEvent`；真正的 `Notification` 由脚本派生。
+
+脚本：
+
+```txt
+backend/scripts/process_outbox_events.py
+```
+
+手动运行：
+
+```bash
+cd backend
+source .venv/bin/activate
+python scripts/process_outbox_events.py --limit 50 --json
+```
+
+可用变量：
+
+- `OUTBOX_PROCESS_LIMIT`
+- `OUTBOX_LOCKED_BY`
+- `OUTBOX_PROCESS_JSON`
+
+生产建议：
+
+- 使用单 worker。
+- 用 cron 或 systemd timer 周期性运行。
+- 监控 `OutboxEvent.status = dead` 的记录。
+- 备份和恢复演练中包含 outbox / notification 表。
+
 ## SQLite 运营边界
 
 当前个人站可以继续使用 SQLite。
@@ -245,3 +277,11 @@ backend/app/seed.py
 - 不把 `.env`、数据库、虚拟环境、构建产物纳入 Git。
 - 不在业务代码里硬编码生产域名或上传绝对路径。
 - 不直接在生产库上试验模型字段变更。
+
+## 当前已知风险
+
+- 普通 SPA 路由未做全局滚动复位；从长页面底部进入短 loading 页面时可能初始停在底部。
+- 漫画收藏接口当前未过滤 private visibility；部署前如果启用私有漫画，应先补可见性规则。
+- 评论 target 校验当前只验证对象存在，未统一校验 public visibility。
+- 小说模型没有 visibility/status，当前小说公开接口默认全部可读。
+- access token 存在 localStorage；需继续避免任何 XSS 入口，生产可考虑 CSP。

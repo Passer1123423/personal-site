@@ -80,6 +80,84 @@ value = true / false
 
 ## 互动表
 
+### OutboxEvent
+
+用途：业务事件 outbox 表。业务写入成功后记录事件，再由独立 processor 派生通知等副作用。
+
+关键字段：
+
+- `id`
+- `event_type`
+- `aggregate_type`
+- `aggregate_id`
+- `actor_user_id`
+- `payload_json`
+- `event_version`
+- `status`
+- `retry_count`
+- `max_retries`
+- `available_at`
+- `locked_at`
+- `locked_by`
+- `created_at`
+- `processed_at`
+- `last_error`
+- `last_error_at`
+- `dedupe_key`
+
+当前状态：
+
+```txt
+pending
+processing
+processed
+failed
+dead
+```
+
+索引/约束：
+
+- `(status, available_at, created_at)`
+- `(event_type, created_at)`
+- `(aggregate_type, aggregate_id)`
+- `dedupe_key` 唯一。
+
+普通用户没有 OutboxEvent 访问接口。
+
+### Notification
+
+用途：用户通知表。由 OutboxEvent handler 计算 recipient 后生成。
+
+关键字段：
+
+- `id`
+- `recipient_user_id`
+- `actor_user_id`
+- `actor_username`
+- `actor_display_name`
+- `type`
+- `title`
+- `body`
+- `target_type`
+- `target_id`
+- `target_url`
+- `is_read`
+- `created_at`
+- `read_at`
+- `metadata_json`
+- `dedupe_key`
+
+索引/约束：
+
+- `(recipient_user_id, created_at)`
+- `(recipient_user_id, is_read, created_at)`
+- `dedupe_key` 唯一。
+
+访问边界：
+
+- 普通用户只能读取、标记和删除自己的通知。
+- 通知不等于 ActivityLog，不用于访问统计。
+
 ### Comment
 
 用途：通用评论和回复树。
@@ -251,6 +329,23 @@ UPLOADS_DIR/interactions/comments/{target_type}/{target_id}/{comment_id}/
 
 当前 author 漫画接口只允许用户操作 `role="owner"` 的 Part。
 
+### ComicPartFavorite
+
+漫画 Part 收藏关系。
+
+关键字段：
+
+- `id`
+- `part_id`
+- `user_id`
+- `created_at`
+
+约束/索引：
+
+- 同一 part/user 只能收藏一次。
+- `(user_id, created_at)`
+- `(part_id, created_at)`
+
 ### ComicUploadImage
 
 漫画待传区图片。
@@ -259,6 +354,9 @@ UPLOADS_DIR/interactions/comments/{target_type}/{target_id}/{comment_id}/
 
 - `id`
 - `user_id`
+- `target_part_id`
+- `target_chapter_id`
+- `upload_mode`
 - `original_filename`
 - `stored_filename`
 - `storage_path`
@@ -279,6 +377,74 @@ backend/import_data/users/{user_id}/comic-staging/
 - 单文件 20MB。
 - 单用户待传区 100MB。
 - 支持 jpg、jpeg、png、webp。
+
+`upload_mode` 当前支持：
+
+```txt
+new_chapter
+edit_chapter
+```
+
+### ComicUploadJob
+
+漫画 PDF 导入任务。
+
+关键字段：
+
+- `id`
+- `user_id`
+- `kind`
+- `status`
+- `original_filename`
+- `source_path`
+- `total_pages`
+- `processed_pages`
+- `progress`
+- `message`
+- `error_message`
+- `target_part_id`
+- `upload_mode`
+- `created_image_ids_json`
+- `created_size_bytes`
+- `output_pages_json`
+- `output_size_bytes`
+- `merged_at`
+- `merged_image_ids_json`
+- `created_at`
+- `updated_at`
+- `started_at`
+- `finished_at`
+- `canceled_at`
+
+当前任务类型：
+
+```txt
+pdf_import
+```
+
+当前状态：
+
+```txt
+queued
+running
+done
+failed
+canceling
+canceled
+```
+
+文件位置：
+
+```txt
+backend/import_data/users/{user_id}/comic-upload-jobs/{job_id}/
+```
+
+限制：
+
+- PDF 文件 100MB。
+- PDF 最大 300 页。
+- 拆分后单页图片 20MB。
+- 拆分结果并入待传区时仍受 100MB staging 限制。
 
 ## 小说表
 
@@ -370,6 +536,23 @@ UPLOADS_DIR/novels/{novel_slug}/{chapter_slug}/images/
 - 同一 novel/user 只能有一条关系。
 
 当前 author 小说接口只允许用户操作 `role="owner"` 的 Novel。
+
+### NovelFavorite
+
+小说收藏关系。
+
+关键字段：
+
+- `id`
+- `novel_id`
+- `user_id`
+- `created_at`
+
+约束/索引：
+
+- 同一 novel/user 只能收藏一次。
+- `(user_id, created_at)`
+- `(novel_id, created_at)`
 
 ### NovelTextBuffer
 

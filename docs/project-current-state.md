@@ -63,6 +63,7 @@ docs/
 - `/users/:username`：公开用户页，带留言面板。
 - `/register`：注册页。
 - `/settings/profile`：当前登录用户资料/头像设置页。
+- `/notifications`：当前登录用户通知页。
 
 后台侧：
 
@@ -72,6 +73,7 @@ docs/
 - `/admin/comics`：漫画管理。
 - `/admin/novels`：小说管理。
 - `/admin/interactions`：评论/互动管理。
+- `/admin/activity-logs`：活动日志管理。
 
 创作者侧：
 
@@ -99,6 +101,7 @@ docs/
 - `/creator/comics/:seriesSlug/:partSlug`
 - `/creator/novels/:novelSlug/new-chapter`
 - `/creator/novels/:novelSlug/:chapterSlug/edit`
+- `/admin/activity-logs`
 
 ## 后端入口和路由
 
@@ -119,6 +122,9 @@ docs/
 - `novel_author_router`
 - `interactions_router`
 - `interaction_admin_router`
+- `activity_log_admin_router`
+- `notifications_router`
+- `favorites_router`
 
 基础接口：
 
@@ -140,7 +146,8 @@ docs/
 
 - `ComicSeries`、`ComicPart`、`ComicChapter`、`ComicPage`。
 - 作者归属在 `ComicPartUserLink`，即 Part 层 owner。
-- 公共漫画列表、系列详情、Part 详情、章节阅读。
+- 公共漫画列表、系列详情、Part 轻量详情、章节阅读。
+- `GET /api/comics/{series_slug}/{part_slug}` 专供 Comic Part 详情页使用，只返回 series、part 和 chapters，不返回 pages。
 - Admin 漫画后台可建 Series/Part、上传章节、重命名、摘要、封面、owner、删除和移动章节。
 - Author 漫画后台使用 `/api/author/comics`，只能操作 owner 为自己的 Part。
 - Author Comic staging 上传区使用 `/api/author/comic-upload`。
@@ -174,6 +181,13 @@ docs/
   - 漫画章节评论。
 - Admin interactions 页面支持评论检索、上下文树、软删除、硬删除和图片预览。
 
+收藏和通知：
+
+- 收藏接口在 `/api/favorites`，支持小说和漫画 Part 的收藏状态、收藏和取消收藏。
+- 通知接口在 `/api/notifications`，支持列表、未读数、单条已读、全部已读和删除。
+- 通知由 OutboxEvent 派生；评论、收藏、章节发布/更新等事件写入 outbox 后，需要运行 processor 脚本才会生成 Notification。
+- 事件处理脚本：`backend/scripts/process_outbox_events.py`。
+
 上传系统：
 
 - 正式上传根目录由 `UPLOADS_DIR` 控制，默认 `backend/uploads`。
@@ -182,6 +196,7 @@ docs/
 - 用户头像在 `UPLOADS_DIR/user/{safe_username}/avatars/...`。
 - 评论图片在 `UPLOADS_DIR/interactions/comments/{target_type}/{target_id}/{comment_id}/...`。
 - 漫画待传区在 `backend/import_data/users/{user_id}/comic-staging/`。
+- 漫画 PDF job 工作区在 `backend/import_data/users/{user_id}/comic-upload-jobs/{job_id}/`。
 - 小说正文缓冲在数据库 `NovelTextBuffer` 表。
 
 ## 当前注意事项
@@ -194,3 +209,10 @@ docs/
 - `UPLOADS_DIR` 必须和 Nginx `/uploads/` alias 指向同一目录。
 - `npm run build` 当前可通过；`npm run lint` 当前会因既有 React hooks 规则问题失败，不能作为本轮改动是否正确的唯一判断。
 - SQLite 适合当前个人站规模，但需要定时备份和谨慎迁移。
+- 普通 SPA 路由当前没有全局滚动复位逻辑；从长页面底部进入新页面时，浏览器可能保留旧 scrollY，表现为新页面初始停在底部。
+- 当前已知安全/权限边界缺口：
+  - 收藏接口查漫画 Part 时未过滤 public visibility，猜到 slug 时可能收藏 private part。
+  - 评论 target 校验只验证对象存在，未统一校验 public visibility，可能探测或评论 private 漫画对象。
+  - 小说模型没有 `visibility` / `status`，公开小说接口默认全部可访问。
+  - 漫画待传区图片上传主要按扩展名校验，未做真实图片解码校验。
+  - access token 存在 localStorage，若将来引入 XSS，token 可被读取。

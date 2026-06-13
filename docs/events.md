@@ -2,7 +2,7 @@
 
 本文档记录 Event / OutboxEvent / Notification 的当前实现、设计边界和后续补强项。
 
-当前状态：基础链路已实现，消息通知系统已经接入评论事件。
+当前状态：基础链路已实现，消息通知系统已经接入评论、收藏和章节发布/更新事件。
 
 实现范围：
 
@@ -32,6 +32,8 @@ service 层写 OutboxEvent，独立 worker / script 处理事件并派生 Notifi
 - CLI 脚本：`backend/scripts/process_outbox_events.py`。
 - `notification router`：`/api/notifications`。
 - `comment.created` 事件源：`app.services.interactions.create_comment`。
+- `favorite.created` 事件源：`app.services.favorite_service`。
+- `chapter.published` / `chapter.updated` 事件源：`app.services.novel_admin` 和 `app.services.comic_admin`。
 - 前端通知 API：`frontend/src/api/notifications.ts`。
 - 前端通知页：`/notifications`。
 - Navbar 未读 badge 和通知入口。
@@ -39,11 +41,11 @@ service 层写 OutboxEvent，独立 worker / script 处理事件并派生 Notifi
 当前事件流：
 
 ```txt
-评论创建成功
--> 同一业务事务写入 OutboxEvent(comment.created)
+评论、收藏、章节发布或章节更新成功
+-> 业务写入路径创建对应 OutboxEvent
 -> 运行 process_outbox_events.py
 -> claim pending / failed events
--> event handler 根据 comment.created 生成 Notification
+-> event handler 根据 event_type 生成 Notification
 -> 标记 OutboxEvent 为 processed / failed / dead
 -> 前端通过通知接口展示、标记已读和跳转
 ```
@@ -96,6 +98,9 @@ dead
 
 ```txt
 comment.created:{comment_id}
+favorite.created:{favorite_id}
+chapter.published:novel_chapter:{chapter_id}
+chapter.updated:novel_chapter:{chapter_id}:{updated_at_key}
 ```
 
 ### 2.2 Notification
@@ -209,7 +214,7 @@ python scripts/process_outbox_events.py --limit 50 --json
 
 ## 4. 通知规则
 
-当前只由 `comment.created` 派生通知，但覆盖范围已经包括用户页、回复、小说和漫画作品评论。
+当前 handler 覆盖用户页留言、评论回复、作品评论、收藏和章节发布/更新通知。
 
 ### 4.1 comment.reply
 
@@ -283,6 +288,47 @@ target：
 - `target_id` 保持作品目标 id。
 - `target_url` 指向小说、小说章节、漫画分部或漫画章节页面。
 
+### 4.4 favorite.created
+
+规则：
+
+- A 收藏 B 拥有的小说或漫画 Part，通知 owner。
+- 收藏者本人如果也是 owner，不给自己发通知。
+- 多 owner 时每个 recipient 各有一条通知。
+
+dedupe key：
+
+```txt
+favorite.created:{favorite_id}:{recipient_user_id}
+```
+
+target：
+
+- `target_type` 为 `novel` 或 `comic_part`。
+- `target_id` 为被收藏作品 id。
+- `target_url` 指向对应读者页。
+
+当前注意：
+
+- 漫画收藏服务当前未过滤 private visibility；如果补可见性规则，需要同步验证通知 recipient 和 target_url。
+
+### 4.5 chapter.published / chapter.updated
+
+规则：
+
+- 小说章节或漫画章节发布/更新后，通知收藏该 novel / comic_part 的用户。
+- 作品 owner 不收到自己作品的章节更新通知。
+
+target：
+
+- `chapter.published` / `chapter.updated` 会生成面向收藏者的章节更新通知。
+- `target_url` 指向对应小说章节或漫画章节读者页。
+
+当前注意：
+
+- 通知生成依赖用户已经收藏父级 novel 或 comic_part。
+- 如果章节或父级作品随后被删除，通知保留，点击后的 404 由目标页处理。
+
 ## 5. API
 
 Router 位置：`backend/app/routers/notifications.py`
@@ -294,6 +340,7 @@ GET  /api/notifications
 GET  /api/notifications/unread-count
 POST /api/notifications/{notification_id}/read
 POST /api/notifications/read-all
+DELETE /api/notifications/{notification_id}
 ```
 
 `GET /api/notifications` 参数：
@@ -336,7 +383,7 @@ POST /api/notifications/read-all
 - 用户只能读取自己的 Notification。
 - 用户只能标记自己的通知已读。
 - `read-all` 只影响当前用户。
-- 当前没有 DELETE 通知接口。
+- 用户只能删除自己的通知。
 
 ## 6. 前端实现
 
@@ -369,7 +416,7 @@ Navbar 当前能力：
 - 通知页只加载第一页 12 条，没有“加载更多”或分页控件。
 - 前端筛选只作用于已加载的 12 条，不是服务端全量筛选。
 - 没有轮询或 SSE；未读数只在初始化、登录态变化和通知变更事件后刷新。
-- 通知页空状态文案仍偏向“评论回复或主页留言”，还没有覆盖作品评论。
+- 通知页空状态文案需要持续覆盖评论、收藏和章节更新等多种来源。
 
 ## 7. 与 ActivityLog 的关系
 
@@ -418,8 +465,6 @@ Navbar 当前能力：
 
 未来扩展：
 
-- 收藏更新通知。
-- 章节创建 / 发布通知。
 - 关注 / 被关注通知。
 - ActivityLog 逐步迁移到 event handler。
 
@@ -452,5 +497,6 @@ Navbar 当前能力：
 - 超过最大重试后 event 进入 `dead`。
 - 用户不能读取别人的通知。
 - 用户不能标记别人的通知已读。
+- 用户不能删除别人的通知。
 - `read-all` 只影响当前用户。
 - 普通用户没有 OutboxEvent 访问入口。

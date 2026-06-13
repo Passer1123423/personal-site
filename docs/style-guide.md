@@ -154,6 +154,7 @@ none
 - `/creator/comics/:seriesSlug/:partSlug`
 - `/creator/novels/:novelSlug/new-chapter`
 - `/creator/novels/:novelSlug/:chapterSlug/edit`
+- `/admin/activity-logs`
 
 行为：
 
@@ -190,6 +191,8 @@ none
 - 部分 sticky / sidebar 使用硬编码，如 `top-24`、`calc(100dvh - 9rem)`、`calc(100vh - 120px)`。
 - 早期 Navbar 未建立硬高度或 layout token，后续页面各自用临时参数避让。
 - Footer 在全屏工作页中容易造成微小外部滚动。
+- 普通 SPA 路由当前没有统一 scroll restoration；从长页面切到新页面时，浏览器可能保留旧 `scrollY`，新页面先渲染短 loading 状态时会表现为停在底部。
+- `html` 当前设置 `scroll-behavior: smooth`，如果后续增加程序性滚动复位，应显式使用 `behavior: "auto"`，并避免破坏小说阅读器的阅读进度恢复。
 
 本阶段已采用的低风险处理：
 
@@ -203,6 +206,7 @@ none
 1. 抽出 route layout 配置
    - 将 `App.tsx` 中的 `matchPath` 判断整理为明确 route config。
    - 去除重复 Route 声明。
+   - 同时定义哪些 route 使用普通滚动复位，哪些 reader/editor route 自行管理滚动。
 
 2. 建立布局组件
    - `StandardLayout`：Navbar + content + Footer。
@@ -221,6 +225,7 @@ none
 
 5. 明确滚动归属
    - 普通页面：文档自然滚动。
+   - 普通路由切换：后续应在 App/Router 层统一滚到顶部。
    - 工作台：外层尽量稳定，面板内部滚动。
    - 管理详情页：主内容自然滚动，drawer/sticky 面板使用独立滚动。
    - 阅读器：阅读内容优先，评论区和目录不得破坏阅读滚动。

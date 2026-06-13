@@ -103,10 +103,48 @@ Router：`backend/app/routers/comics.py`
 ```txt
 GET /api/comics
 GET /api/comics/{series_slug}
+GET /api/comics/{series_slug}/{part_slug}
 GET /api/comics/{series_slug}/{part_slug}/{chapter_slug}
 ```
 
-用于漫画列表、系列详情和章节阅读。前端另有 `/works/comics/:seriesSlug/:partSlug` 页面从系列详情中取 Part 数据展示。
+用于漫画列表、系列详情、Part 轻量详情和章节阅读。
+
+可见性：
+
+- 列表只返回 `visibility = public` 的 series。
+- 系列详情只返回 public series 下的 public parts 和 public chapters。
+- Part 轻量详情只返回 public series、public part 和 public chapters，不返回 pages。
+- 阅读接口只返回 public series、public part 和 public chapter 下的 pages。
+
+`GET /api/comics/{series_slug}/{part_slug}` 返回结构：
+
+```json
+{
+  "series": {
+    "id": "...",
+    "slug": "...",
+    "title": "..."
+  },
+  "part": {
+    "id": "...",
+    "slug": "...",
+    "title": "...",
+    "summary": "...",
+    "status": "...",
+    "visibility": "public",
+    "displayOrder": 1,
+    "coverUrl": "/uploads/...",
+    "owner": {
+      "id": "...",
+      "username": "...",
+      "displayName": "..."
+    },
+    "createdAt": "...",
+    "updatedAt": "..."
+  },
+  "chapters": []
+}
+```
 
 ## Public Novels
 
@@ -119,6 +157,47 @@ GET /api/novels/{novel_slug}/{chapter_slug}
 ```
 
 用于小说列表、详情和章节阅读。章节正文为 Markdown，前端用 React Markdown 渲染。
+
+当前小说模型没有 `visibility` / `status` 字段，public novels 接口默认返回所有小说和章节。
+
+## Favorites
+
+Router：`backend/app/routers/favorites.py`
+
+Prefix：
+
+```txt
+/api/favorites
+```
+
+权限：
+
+```txt
+require_current_user
+```
+
+接口：
+
+```txt
+GET    /api/favorites/novels/{novel_slug}
+POST   /api/favorites/novels/{novel_slug}
+DELETE /api/favorites/novels/{novel_slug}
+GET    /api/favorites/comics/{series_slug}/{part_slug}
+POST   /api/favorites/comics/{series_slug}/{part_slug}
+DELETE /api/favorites/comics/{series_slug}/{part_slug}
+```
+
+能力：
+
+- 查询当前用户对目标的收藏状态。
+- 收藏小说或漫画 Part。
+- 取消收藏小说或漫画 Part。
+- 收藏成功会写入 `favorite.created` outbox event。
+
+当前注意：
+
+- 小说接口没有 visibility 过滤，因为 Novel 模型暂无 visibility。
+- 漫画收藏服务当前按 slug 查询 series/part，未过滤 public visibility；这与 public comics 阅读接口的可见性规则不完全一致。
 
 ## Public Interactions
 
@@ -161,6 +240,7 @@ comic_chapter
 - 查询 limit 最大 200。
 - 父级评论最多 9 张图片。
 - 评论图片单张 10MB，总计 30MB。
+- 当前 target 校验只检查对象存在和 target type 有效，尚未统一检查作品 public visibility。
 
 ## Admin Users
 
@@ -296,15 +376,31 @@ POST   /api/author/comic-upload/images
 GET    /api/author/comic-upload/images/{image_id}/preview
 DELETE /api/author/comic-upload/images/{image_id}
 POST   /api/author/comic-upload/images/delete-batch
+PATCH  /api/author/comic-upload/images/reorder
 DELETE /api/author/comic-upload/images
+GET    /api/author/comic-upload/pdf-jobs
+GET    /api/author/comic-upload/pdf-jobs/{job_id}
+POST   /api/author/comic-upload/pdf-jobs
+POST   /api/author/comic-upload/pdf-jobs/{job_id}/cancel
+POST   /api/author/comic-upload/pdf-jobs/{job_id}/merge
+POST   /api/author/comic-upload/pdf-jobs/{job_id}/discard
+POST   /api/author/comic-upload/pdf
+POST   /api/author/comic-upload/load-chapter
 POST   /api/author/comic-upload/publish
+POST   /api/author/comic-upload/publish-to-chapter
 ```
 
 能力：
 
 - 管理当前登录用户的漫画待传区。
-- 发布时将 ordered image ids 导入正式漫画 chapter。
+- 上传图片时可以绑定目标 part/chapter 和 `upload_mode`。
+- 支持载入已有 chapter 页面到待传区，再覆盖发布到原 chapter。
+- 支持 PDF job：创建、查询、取消、合并到待传区、丢弃结果。
+- `POST /pdf` 是旧式同步 PDF 拆分入口；当前主要入口是 `/pdf-jobs`。
+- 发布新 chapter 时将 ordered image ids 导入正式漫画 chapter。
+- 覆盖发布时用待传区替换目标 chapter 的全部 pages。
 - 单用户待传区 100MB，单文件 20MB。
+- PDF 文件 100MB，最大 300 页，拆分后单页图片 20MB。
 
 ## Admin Novels
 
@@ -429,6 +525,75 @@ DELETE /api/admin/interactions/comments/{comment_id}/hard
 - 支持 newest、oldest、reply_count_desc 排序。
 - 查看评论上下文树。
 - 软删除或硬删除评论。
+
+## Notifications
+
+Router：`backend/app/routers/notifications.py`
+
+Prefix：
+
+```txt
+/api/notifications
+```
+
+权限：
+
+```txt
+require_current_user
+```
+
+接口：
+
+```txt
+GET    /api/notifications
+GET    /api/notifications/unread-count
+POST   /api/notifications/{notification_id}/read
+DELETE /api/notifications/{notification_id}
+POST   /api/notifications/read-all
+```
+
+能力：
+
+- 分页读取当前用户通知。
+- 查询未读数量。
+- 标记单条通知已读。
+- 删除当前用户自己的通知。
+- 将当前用户所有未读通知标为已读。
+
+说明：
+
+- 通知由 OutboxEvent processor 派生，前端不能指定 recipient。
+- 普通用户只能访问自己的通知。
+
+## Admin Activity Logs
+
+Router：`backend/app/routers/activity_log_admin.py`
+
+Prefix：
+
+```txt
+/api/admin/activity-logs
+```
+
+权限：
+
+```txt
+require_admin_user
+```
+
+接口：
+
+```txt
+GET /api/admin/activity-logs
+GET /api/admin/activity-logs/options
+GET /api/admin/activity-logs/{log_id}
+```
+
+能力：
+
+- 按关键词、category、action、actor、target、status 和时间范围筛选操作日志。
+- 获取筛选项统计。
+- 查看单条日志详情。
 
 ## Auth Header Pattern
 
