@@ -445,6 +445,12 @@ export default function CreatorComicPartPage() {
   const [targetChapterId, setTargetChapterId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<AuthorUploadImage | null>(null);
 
+  const [editUploadDirty, setEditUploadDirty] = useState(false);
+  const isCleanEditUpload =
+    uploadMode === "edit_chapter" &&
+    targetChapterId !== null &&
+    !editUploadDirty;
+
   const [chapterTitle, setChapterTitle] = useState("");
   const [pageLoading, setPageLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -668,6 +674,9 @@ export default function CreatorComicPartPage() {
 
         if (newlyMergedJob) {
           await refreshUploadImages();
+          if (uploadMode === "edit_chapter") {
+            setEditUploadDirty(true);
+          }
 
           setMessage({
             type: "success",
@@ -831,6 +840,12 @@ export default function CreatorComicPartPage() {
 
           removePendingUpload(item.id);
           await refreshUploadImages();
+          if (
+            uploadMode === "edit_chapter" &&
+            savedCount > 0
+          ) {
+            setEditUploadDirty(true);
+          }
         } catch (error: unknown) {
           const text = getFriendlyUploadErrorMessage(error, "上传失败");
 
@@ -1186,6 +1201,9 @@ export default function CreatorComicPartPage() {
       });
 
       applyUploadState(state);
+      if (uploadMode === "edit_chapter") {
+        setEditUploadDirty(true);
+      }
     } catch (error: unknown) {
       const text = getFriendlyUploadErrorMessage(error, "排序失败");
       setMessage({ type: "error", text });
@@ -1201,6 +1219,9 @@ export default function CreatorComicPartPage() {
     try {
       const state = await deleteAuthorUploadImage(imageId);
       applyUploadState(state, { preserveEmptyTarget: true });
+      if (uploadMode === "edit_chapter") {
+        setEditUploadDirty(true);
+      }
     } catch (error: unknown) {
       const text = getFriendlyUploadErrorMessage(error, "删除失败");
       setMessage({ type: "error", text });
@@ -1223,12 +1244,13 @@ export default function CreatorComicPartPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      "当前待传区正在修改已有章节。切换为新建章节会清空当前待传区，是否继续？",
-    );
-
-    if (!confirmed) {
-      return;
+    if (editUploadDirty) {
+      const confirmed = window.confirm(
+        "当前待传区正在修改已有章节。切换为新建章节会清空当前待传区，是否继续？",
+      );
+      if (!confirmed) {
+          return;
+        }
     }
 
     setSubmitting(true);
@@ -1236,11 +1258,12 @@ export default function CreatorComicPartPage() {
 
     try {
       const state = await clearAuthorUploadImages();
-      applyUploadState(state, { preserveEmptyTarget: true });
+      applyUploadState(state);
       setPdfJobs([]);
       setPendingPdfUploads([]);
       setChapterTitle("");
       setDrawerOpen(true);
+      setEditUploadDirty(false);
 
       setMessage({
         type: "success",
@@ -1302,6 +1325,7 @@ export default function CreatorComicPartPage() {
       setPdfJobs([]);
       setPendingPdfUploads([]);
       setDrawerOpen(true);
+      setEditUploadDirty(false);
 
       setMessage({
         type: "success",
