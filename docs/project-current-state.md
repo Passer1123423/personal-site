@@ -202,7 +202,7 @@ docs/
 ## 当前注意事项
 
 - 所有模型仍集中在 `backend/app/models.py`。
-- 当前没有迁移系统；既有 SQLite 表不能只依赖 `create_all` 修改字段。
+- 当前有轻量迁移系统；既有 SQLite 表可以依赖`apply_lightweight_schema_patches`对指定重要表补全缺失字段。
 - `SECRET_KEY` 必须由环境变量提供，否则后端启动失败。
 - 前端 API base URL 统一在 `frontend/src/api/config.ts`。
 - 生产同源部署时设置 `VITE_API_BASE_URL=""`，前端请求 `/api/...`。
