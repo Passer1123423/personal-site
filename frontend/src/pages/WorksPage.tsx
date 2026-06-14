@@ -15,60 +15,99 @@ function WorksPage() {
         SaBa帮历史的小窝
       </p>
 
-      <div className="mt-6 grid gap-0 border-y border-[var(--color-border-soft)] md:mt-10 md:grid-cols-2 md:gap-8 md:border-y-0">
+      <div className="mt-8 grid gap-6 md:mt-10 md:grid-cols-2">
         <Link
           to="/works/novels"
-          className="surface-card-link relative min-h-0 overflow-hidden border-b border-[var(--color-border-soft)] py-5 md:min-h-[340px] md:rounded-[var(--radius-card)] md:border md:border-[var(--color-border-soft)] md:bg-[var(--color-panel-bg)] md:p-8 md:shadow-[var(--shadow-card)]"
+          className="group relative min-h-[360px] overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-blue-50 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-[0_28px_70px_rgba(37,99,235,0.14)] md:p-8"
         >
-          <div className="pointer-events-none absolute inset-0 hidden bg-white md:block" />
-
-          <div className="pointer-events-none absolute bottom-6 right-6 top-6 hidden w-[52%] md:block">
+          <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-blue-100/60 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-10 right-2 h-72 w-72 opacity-20 transition duration-500 group-hover:scale-110 group-hover:opacity-30">
             <img
-              src="/images/novel-cover.webp"
+              src="/images/chickenGOD-cover.webp"
               alt=""
-              className="h-full w-full object-contain object-center"
+              className="h-full w-full object-contain"
               decoding="async"
             />
           </div>
 
-          <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-white via-white/88 to-white/25 md:block" />
+          <div className="relative z-10 flex h-full min-h-[300px] flex-col justify-between">
+            <div>
+              <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                SaBa 帮特别档案 01
+              </span>
 
-          <div className="relative z-10 flex min-h-0 max-w-md flex-col justify-center md:min-h-[260px] md:justify-end">
-            <h2 className="text-lg font-bold text-main md:text-2xl">
-              小说随笔
-            </h2>
+              <h2 className="mt-5 text-2xl font-black text-main md:text-4xl">
+                小说随笔
+              </h2>
 
-            <p className="mt-2 text-sm leading-6 text-muted md:mt-4 md:text-base md:leading-7">
-              记录存储小说，随笔。
-            </p>
+              <p className="mt-4 max-w-md text-sm leading-7 text-muted md:text-base md:leading-8">
+                只是记录小说和随笔。
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-3 text-xs font-bold text-slate-700 sm:grid-cols-3">
+              <div className="min-h-[76px] rounded-2xl border border-blue-100 bg-white/80 p-3">
+                小说上传
+                <br />
+                <span className="text-blue-600">平台存档</span>
+              </div>
+              <div className="min-h-[76px] rounded-2xl border border-blue-100 bg-white/80 p-3">
+                随笔记录
+                <br />
+                <span className="text-blue-600">随时上传</span>
+              </div>
+              <div className="min-h-[76px] rounded-2xl border border-blue-100 bg-white/80 p-3">
+                超多功能
+                <br />
+                <span className="text-blue-600">尽情探索</span>
+              </div>
+            </div>
           </div>
         </Link>
 
         <Link
           to="/works/comics"
-          className="surface-card-link relative min-h-0 overflow-hidden py-5 md:min-h-[340px] md:rounded-[var(--radius-card)] md:border md:border-[var(--color-border-soft)] md:bg-[var(--color-panel-bg)] md:p-8 md:shadow-[var(--shadow-card)]"
+          className="group relative min-h-[360px] overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-blue-50 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-[0_28px_70px_rgba(37,99,235,0.14)] md:p-8"
         >
-          <div className="pointer-events-none absolute inset-0 hidden bg-white md:block" />
-
-          <div className="pointer-events-none absolute bottom-6 right-6 top-6 hidden w-[54%] md:block">
+          <div className="pointer-events-none absolute -left-16 top-10 h-56 w-56 rounded-full bg-blue-100/55 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-4 right-4 h-72 w-72 transition duration-500 group-hover:rotate-3 group-hover:scale-105">
             <img
               src="/images/chickenGOD-cover.webp"
               alt=""
-              className="h-full w-full object-contain object-center"
+              className="h-full w-full object-contain drop-shadow-2xl"
               decoding="async"
             />
           </div>
 
-          <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-white via-white/85 to-white/20 md:block" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white via-white/85 to-white/25" />
 
-          <div className="relative z-10 flex min-h-0 max-w-md flex-col justify-center md:min-h-[260px] md:justify-end">
-            <h2 className="text-lg font-bold text-main md:text-2xl">
-              漫画存档
-            </h2>
+          <div className="relative z-10 flex h-full min-h-[300px] max-w-md flex-col justify-between">
+            <div>
+              <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                SaBa 帮特别档案 02
+              </span>
 
-            <p className="mt-2 text-sm leading-6 text-muted md:mt-4 md:text-base md:leading-7">
-              用于图片上传、分卷管理、在线预览和朋友协作更新。
-            </p>
+              <h2 className="mt-5 text-2xl font-black text-main md:text-4xl">
+                漫画存档
+              </h2>
+
+              <p className="mt-4 text-sm leading-7 text-muted md:text-base md:leading-8">
+                图片上传、分卷管理、在线预览和SaBa协作更新
+              </p>
+            </div>
+
+            <div className="relative mt-8 min-h-[76px] overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-white/90 via-white/85 to-blue-50/80 p-4">
+              <div className="pointer-events-none absolute -bottom-8 -right-8 h-28 w-28 rounded-full bg-blue-100/70 blur-2xl" />
+
+              <div className="relative">
+                <p className="text-sm font-black text-slate-800">
+                  远方的来客
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  点击进入吧，为了SaBa帮的历史。
+                </p>
+              </div>
+            </div>
           </div>
         </Link>
       </div>
