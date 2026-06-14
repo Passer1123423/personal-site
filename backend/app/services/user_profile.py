@@ -7,6 +7,7 @@ from uuid import uuid4
 from sqlmodel import Session, select
 
 from app.models import Asset, User, now_utc
+from app.services.assets import build_asset
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -173,8 +174,7 @@ def create_avatar_asset_from_bytes(
 
     asset_url = build_avatar_url(user, filename)
 
-    asset = Asset(
-        id=str(uuid4()),
+    asset = build_asset(
         filename=filename,
         original_name=original_name,
         mime_type=normalized_content_type,

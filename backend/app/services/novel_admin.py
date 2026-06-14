@@ -19,6 +19,7 @@ from app.models import (
 )
 from app.services.interactions import hard_delete_comments_for_target
 from app.services.outbox_service import create_outbox_event
+from app.services.assets import build_asset, build_asset_from_file
 from fastapi import UploadFile
 
 
@@ -1292,7 +1293,7 @@ async def save_novel_chapter_image(
             filename=filename,
         )
 
-        asset = Asset(
+        asset = build_asset(
             filename=filename,
             original_name=original_name,
             mime_type=normalized_content_type,
@@ -1501,13 +1502,10 @@ def create_cover_asset(
     asset_url: str,
     source_path: Path,
 ) -> Asset:
-    asset = Asset(
-        id=str(uuid4()),
-        filename=Path(asset_url).name,
-        original_name=source_path.name,
+    asset = build_asset_from_file(
+        asset_url=asset_url,
+        source_path=source_path,
         mime_type=guess_mime_type(source_path),
-        size=source_path.stat().st_size,
-        url=asset_url,
         usage="novel_cover",
     )
 

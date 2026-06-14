@@ -1577,6 +1577,7 @@ def publish_upload_as_chapter(
     images_before_publish: list[dict] = []
     ordered_image_ids: list[str] = []
     ordered_file_names: list[str] = []
+    ordered_original_names: list[str] = []
     canceled_pdf_jobs = []
 
     try:
@@ -1603,13 +1604,19 @@ def publish_upload_as_chapter(
         else:
             ordered_image_ids = payload.ordered_image_ids
 
-        image_ids = {image.id for image in images}
+        image_map = {image.id: image for image in images}
+        image_ids = set(image_map)
 
         if (
             len(ordered_image_ids) != len(images)
             or set(ordered_image_ids) != image_ids
         ):
             raise ValueError("发布列表必须包含当前待传区全部图片")
+
+        ordered_original_names = [
+            image_map[image_id].original_filename
+            for image_id in ordered_image_ids
+        ]
 
         source_dir = get_staging_source_dir_for_publish(current_user.id)
 
@@ -1627,6 +1634,7 @@ def publish_upload_as_chapter(
             chapter_title=payload.chapter_title,
             uploads_root=UPLOADS_ROOT,
             ordered_file_names=ordered_file_names,
+            ordered_original_names=ordered_original_names,
         )
 
         delete_upload_images(
@@ -1660,6 +1668,7 @@ def publish_upload_as_chapter(
                     "chapter_title": payload.chapter_title,
                     "ordered_image_ids": ordered_image_ids,
                     "ordered_file_names": ordered_file_names,
+                    "ordered_original_names": ordered_original_names,
                     "image_count": len(images_before_publish),
                     "published_images": images_before_publish,
                     "canceled_pdf_job_count": len(canceled_pdf_jobs),
@@ -1735,6 +1744,7 @@ def publish_upload_as_chapter(
             "image_count": len(images_before_publish),
             "ordered_image_ids": ordered_image_ids,
             "ordered_file_names": ordered_file_names,
+            "ordered_original_names": ordered_original_names,
             "published_images": images_before_publish,
             "canceled_pdf_job_count": len(canceled_pdf_jobs),
         },
@@ -1769,6 +1779,7 @@ def publish_upload_to_existing_chapter(
     images_before_publish: list[dict] = []
     ordered_image_ids: list[str] = []
     ordered_file_names: list[str] = []
+    ordered_original_names: list[str] = []
     canceled_pdf_jobs = []
     chapter = None
 
@@ -1802,13 +1813,19 @@ def publish_upload_to_existing_chapter(
         else:
             ordered_image_ids = payload.ordered_image_ids
 
-        image_ids = {image.id for image in images}
+        image_map = {image.id: image for image in images}
+        image_ids = set(image_map)
 
         if (
             len(ordered_image_ids) != len(images)
             or set(ordered_image_ids) != image_ids
         ):
             raise ValueError("发布列表必须包含当前待传区全部图片")
+
+        ordered_original_names = [
+            image_map[image_id].original_filename
+            for image_id in ordered_image_ids
+        ]
 
         source_dir = get_staging_source_dir_for_publish(current_user.id)
 
@@ -1826,6 +1843,7 @@ def publish_upload_to_existing_chapter(
             chapter_slug=chapter_slug,
             uploads_root=UPLOADS_ROOT,
             ordered_file_names=ordered_file_names,
+            ordered_original_names=ordered_original_names,
             actor_user_id=current_user.id,
         )
 
@@ -1860,6 +1878,7 @@ def publish_upload_to_existing_chapter(
                     "part_title": part.title,
                     "ordered_image_ids": ordered_image_ids,
                     "ordered_file_names": ordered_file_names,
+                    "ordered_original_names": ordered_original_names,
                     "image_count": len(images_before_publish),
                     "published_images": images_before_publish,
                     "canceled_pdf_job_count": len(canceled_pdf_jobs),
@@ -1937,6 +1956,7 @@ def publish_upload_to_existing_chapter(
             "image_count": len(images_before_publish),
             "ordered_image_ids": ordered_image_ids,
             "ordered_file_names": ordered_file_names,
+            "ordered_original_names": ordered_original_names,
             "published_images": images_before_publish,
             "canceled_pdf_job_count": len(canceled_pdf_jobs),
         },

@@ -19,6 +19,7 @@ from app.models import (
 
 from app.services.user_profile import get_avatar_url
 from app.services.outbox_service import create_outbox_event
+from app.services.assets import build_asset
 
 ACTIVE_COMMENT_TARGET_TYPES = {
     "user_page",
@@ -323,7 +324,7 @@ async def save_comment_images(
 
             saved_paths.append(target_path)
 
-            asset = Asset(
+            asset = build_asset(
                 filename=filename,
                 original_name=original_name,
                 mime_type=normalized_content_type,

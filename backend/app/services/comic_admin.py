@@ -22,6 +22,12 @@ from app.models import (
 )
 from app.services.interactions import hard_delete_comments_for_target
 from app.services.outbox_service import create_outbox_event
+from app.services.assets import (
+    build_asset,
+    build_asset_filename,
+    build_asset_from_file,
+    new_asset_id,
+)
 
 import re
 
@@ -466,12 +472,17 @@ def copy_image_to_uploads(
     chapter_slug: str,
     display_order: int,
     upload_root: Path,
-) -> tuple[Path, str]:
+) -> tuple[Path, str, str]:
     target_dir = upload_root / series_slug / part_slug / chapter_slug
     target_dir.mkdir(parents=True, exist_ok=True)
 
     suffix = source_path.suffix.lower()
-    filename = f"{display_order:03d}{suffix}"
+    asset_id = new_asset_id()
+    filename = build_asset_filename(
+        stem=f"{display_order:03d}",
+        suffix=suffix,
+        asset_id=asset_id,
+    )
     target_path = target_dir / filename
 
     copy2(source_path, target_path)
@@ -484,13 +495,19 @@ def copy_image_to_uploads(
         f"{filename}"
     )
 
-    return target_path, asset_url
+    return target_path, asset_url, asset_id
 
-def create_asset(session: Session, asset_url: str, source_path: Path) -> Asset:
-    asset = Asset(
-        id=str(uuid4()),
+def create_asset(
+    session: Session,
+    asset_url: str,
+    source_path: Path,
+    asset_id: str | None = None,
+    original_name: str | None = None,
+) -> Asset:
+    asset = build_asset(
+        asset_id=asset_id,
         filename=Path(asset_url).name,
-        original_name=source_path.name,
+        original_name=original_name or source_path.name,
         mime_type=guess_mime_type(source_path),
         size=source_path.stat().st_size,
         url=asset_url,
@@ -538,8 +555,13 @@ def import_comic_chapter_from_dir(
     series_display_order: int | None = None,
     part_display_order: int | None=None,
     ordered_file_names: Sequence[str] | None = None,
+    ordered_original_names: Sequence[str] | None = None,
 ):
     image_files = list_image_files(source_dir=source_dir,ordered_file_names=ordered_file_names,)
+    original_names = list(ordered_original_names) if ordered_original_names is not None else None
+
+    if original_names is not None and len(original_names) != len(image_files):
+        raise ValueError("原始文件名列表与图片数量不一致")
 
     series = get_or_create_series(
         session,
@@ -565,7 +587,7 @@ def import_comic_chapter_from_dir(
     pages = []
 
     for index, source_path in enumerate(image_files, start=1):
-        _, asset_url = copy_image_to_uploads(
+        _, asset_url, asset_id = copy_image_to_uploads(
             source_path=source_path,
             series_slug=series.slug,
             part_slug=part.slug,
@@ -574,7 +596,14 @@ def import_comic_chapter_from_dir(
             upload_root=uploads_root,
         )
 
-        asset = create_asset(session, asset_url, source_path)
+        original_name = original_names[index - 1] if original_names is not None else None
+        asset = create_asset(
+            session,
+            asset_url,
+            source_path,
+            asset_id=asset_id,
+            original_name=original_name,
+        )
 
         page = create_comic_page(
             session=session,
@@ -609,6 +638,7 @@ def replace_comic_chapter_pages_from_dir(
     chapter_slug: str,
     uploads_root: Path | None = UPLOADS_ROOT,
     ordered_file_names: Sequence[str] | None = None,
+    ordered_original_names: Sequence[str] | None = None,
     actor_user_id: str | None = None,
 ):
     """
@@ -629,6 +659,10 @@ def replace_comic_chapter_pages_from_dir(
         source_dir=source_dir,
         ordered_file_names=ordered_file_names,
     )
+    original_names = list(ordered_original_names) if ordered_original_names is not None else None
+
+    if original_names is not None and len(original_names) != len(image_files):
+        raise ValueError("原始文件名列表与图片数量不一致")
 
     series = get_series(
         session=session,
@@ -679,11 +713,17 @@ def replace_comic_chapter_pages_from_dir(
     try:
         temp_chapter_dir.mkdir(parents=True, exist_ok=False)
 
-        copied_files: list[tuple[Path, str]] = []
+        copied_files: list[tuple[Path, str, str, str | None]] = []
 
         for index, source_path in enumerate(image_files, start=1):
             suffix = source_path.suffix.lower()
-            filename = f"{index:03d}{suffix}"
+            asset_id = new_asset_id()
+            original_name = original_names[index - 1] if original_names is not None else None
+            filename = build_asset_filename(
+                stem=f"{index:03d}",
+                suffix=suffix,
+                asset_id=asset_id,
+            )
             temp_path = temp_chapter_dir / filename
 
             copy2(source_path, temp_path)
@@ -696,7 +736,7 @@ def replace_comic_chapter_pages_from_dir(
                 f"{filename}"
             )
 
-            copied_files.append((temp_path, asset_url))
+            copied_files.append((temp_path, asset_url, asset_id, original_name))
 
         # 先写新 Asset / Page 到数据库，但暂不 commit。
         for page in old_pages:
@@ -713,11 +753,11 @@ def replace_comic_chapter_pages_from_dir(
 
         now = now_utc()
 
-        for index, (temp_path, asset_url) in enumerate(copied_files, start=1):
-            asset = Asset(
-                id=str(uuid4()),
+        for index, (temp_path, asset_url, asset_id, original_name) in enumerate(copied_files, start=1):
+            asset = build_asset(
+                asset_id=asset_id,
                 filename=Path(asset_url).name,
-                original_name=temp_path.name,
+                original_name=original_name or temp_path.name,
                 mime_type=guess_mime_type(temp_path),
                 size=temp_path.stat().st_size,
                 url=asset_url,
@@ -1406,13 +1446,10 @@ def create_cover_asset(
     asset_url: str,
     source_path: Path,
 ) -> Asset:
-    asset = Asset(
-        id=str(uuid4()),
-        filename=Path(asset_url).name,
-        original_name=source_path.name,
+    asset = build_asset_from_file(
+        asset_url=asset_url,
+        source_path=source_path,
         mime_type=guess_mime_type(source_path),
-        size=source_path.stat().st_size,
-        url=asset_url,
         usage="comic_cover",
     )
 

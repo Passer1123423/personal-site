@@ -112,7 +112,7 @@ def import_chapter() -> None:
         print(f"图片数量：{len(image_files)}")
 
         for index, source_path in enumerate(image_files, start=1):
-            _, asset_url = copy_image_to_uploads(
+            _, asset_url, asset_id = copy_image_to_uploads(
                 source_path=source_path,
                 series_slug=series.slug,
                 part_slug=part.slug,
@@ -121,7 +121,7 @@ def import_chapter() -> None:
                 upload_root=UPLOADS_ROOT,
             )
 
-            asset = create_asset(session, asset_url, source_path)
+            asset = create_asset(session, asset_url, source_path, asset_id=asset_id)
 
             create_comic_page(
                 session=session,
