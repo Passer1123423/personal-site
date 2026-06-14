@@ -1537,7 +1537,16 @@ export default function CreatorComicPartPage() {
           ordered_image_ids: orderedImageIds,
         });
 
-        await Promise.all([refreshUploadImages(), loadPartDetail()]);
+        const [uploadState] = await Promise.all([
+          loadAuthorComicChapterToUploads({
+            series_slug: seriesSlug,
+            part_slug: partSlug,
+            chapter_slug: targetChapter.slug,
+          }),
+          loadPartDetail(),
+        ]);
+
+        applyUploadState(uploadState);
         setPdfJobs([]);
         setPendingPdfUploads([]);
         setEditUploadDirty(false);
