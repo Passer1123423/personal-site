@@ -8,6 +8,9 @@ import {
   type ComicSeriesDetail,
 } from "../api/comics";
 import CreatorBookCard from "../components/creator/CreatorBookCard";
+import ImagePreviewDialog, {
+  type ImagePreviewItem,
+} from "../components/ImagePreviewDialog";
 
 function EmptyCover({ title }: { title: string }) {
   return (
@@ -235,6 +238,8 @@ function ComicSeriesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [tocOpen, setTocOpen] = useState(true);
+  const [previewImages, setPreviewImages] = useState<ImagePreviewItem[]>([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
 
   const partRefs = useRef<Record<string, HTMLElement | null>>({});
 
@@ -289,6 +294,11 @@ function ComicSeriesPage() {
     });
   }
 
+  function openImagePreview(image: ImagePreviewItem) {
+    setPreviewImages([image]);
+    setPreviewImageIndex(0);
+  }
+
   if (isLoading) {
     return (
       <main className="page-shell min-h-[100dvh] px-6 py-16">
@@ -341,11 +351,20 @@ function ComicSeriesPage() {
             <div className="flex items-start justify-center">
               <div className="aspect-[5/7] w-[72px] overflow-hidden rounded-sm bg-[var(--color-panel-soft-bg)] shadow-md">
                 {coverUrl ? (
-                  <img
-                    src={coverUrl}
-                    alt={series.title}
-                    className="h-full w-full object-cover"
-                  />
+                  <button
+                    type="button"
+                    className="block h-full w-full cursor-zoom-in"
+                    onClick={() =>
+                      openImagePreview({ src: coverUrl, alt: series.title })
+                    }
+                    aria-label={`查看《${series.title}》封面预览`}
+                  >
+                    <img
+                      src={coverUrl}
+                      alt={series.title}
+                      className="h-full w-full object-cover transition hover:brightness-95"
+                    />
+                  </button>
                 ) : (
                   <EmptyCover title={series.title} />
                 )}
@@ -393,11 +412,20 @@ function ComicSeriesPage() {
           <div className="grid gap-0 lg:grid-cols-[220px_minmax(0,1fr)]">
             <div className="relative min-h-72 border-b border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] lg:border-b-0 lg:border-r">
               {coverUrl ? (
-                <img
-                  src={coverUrl}
-                  alt={series.title}
-                  className="h-full min-h-72 w-full object-cover"
-                />
+                <button
+                  type="button"
+                  className="block h-full min-h-72 w-full cursor-zoom-in"
+                  onClick={() =>
+                    openImagePreview({ src: coverUrl, alt: series.title })
+                  }
+                  aria-label={`查看《${series.title}》封面预览`}
+                >
+                  <img
+                    src={coverUrl}
+                    alt={series.title}
+                    className="h-full min-h-72 w-full object-cover transition hover:brightness-95"
+                  />
+                </button>
               ) : (
                 <EmptyCover title={series.title} />
               )}
@@ -507,6 +535,15 @@ function ComicSeriesPage() {
             </div>
           )}
         </section>
+
+        {previewImages.length > 0 && (
+          <ImagePreviewDialog
+            images={previewImages}
+            currentIndex={previewImageIndex}
+            onIndexChange={setPreviewImageIndex}
+            onClose={() => setPreviewImages([])}
+          />
+        )}
       </section>
     </main>
   );

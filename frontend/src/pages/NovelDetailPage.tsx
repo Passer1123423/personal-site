@@ -15,19 +15,35 @@ import {
   unfavoriteNovel,
 } from "../api/favorites";
 import FavoriteStarButton from "../components/FavoriteStarButton";
+import ImagePreviewDialog, {
+  type ImagePreviewItem,
+} from "../components/ImagePreviewDialog";
 import CommentPanel from "../components/CommentPanel.tsx";
 import { formatChinaDate } from "../utils/time";
 
-function NovelCover({ novel }: { novel: NovelDetail }) {
+function NovelCover({
+  novel,
+  onPreview,
+}: {
+  novel: NovelDetail;
+  onPreview: (image: ImagePreviewItem) => void;
+}) {
   const coverUrl = resolveAssetUrl(novel.coverUrl);
 
   if (coverUrl) {
     return (
-      <img
-        src={coverUrl}
-        alt={novel.title}
-        className="h-full w-full object-cover"
-      />
+      <button
+        type="button"
+        className="block h-full w-full cursor-zoom-in"
+        onClick={() => onPreview({ src: coverUrl, alt: novel.title })}
+        aria-label={`查看《${novel.title}》封面预览`}
+      >
+        <img
+          src={coverUrl}
+          alt={novel.title}
+          className="h-full w-full object-cover transition hover:brightness-95"
+        />
+      </button>
     );
   }
 
@@ -59,6 +75,8 @@ function NovelDetailPage() {
 
   const [isFavorited, setIsFavorited] = useState(false);
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
+  const [previewImages, setPreviewImages] = useState<ImagePreviewItem[]>([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
 
   useEffect(() => {
     async function loadNovel() {
@@ -148,6 +166,11 @@ function NovelDetailPage() {
     }
   }
 
+  function openImagePreview(image: ImagePreviewItem) {
+    setPreviewImages([image]);
+    setPreviewImageIndex(0);
+  }
+
   return (
     <main className="page-shell min-h-[100dvh] pb-10 md:pb-16">
       <section className="mx-auto max-w-[1250px] px-4 py-6 md:px-8 md:py-8">
@@ -174,7 +197,7 @@ function NovelDetailPage() {
           <section className="overflow-hidden border-y border-[var(--color-border-soft)] md:rounded-xl md:border md:bg-white md:shadow-sm">
             <header className="grid grid-cols-[86px_minmax(0,1fr)] gap-x-4 gap-y-3 border-b border-[var(--color-border-soft)] py-4 md:relative md:grid-cols-[180px_minmax(0,1fr)] md:gap-7 md:px-8 md:py-7">
               <div className="h-[120px] overflow-hidden rounded-sm border border-[var(--color-border-soft)] bg-[var(--color-panel-soft-bg)] md:h-[250px] md:rounded-[0.65rem]">
-                <NovelCover novel={novel} />
+                <NovelCover novel={novel} onPreview={openImagePreview} />
               </div>
 
               <div className="flex min-w-0 flex-col justify-between">
@@ -307,6 +330,15 @@ function NovelDetailPage() {
               </aside>
             </div>
           </section>
+        )}
+
+        {previewImages.length > 0 && (
+          <ImagePreviewDialog
+            images={previewImages}
+            currentIndex={previewImageIndex}
+            onIndexChange={setPreviewImageIndex}
+            onClose={() => setPreviewImages([])}
+          />
         )}
       </section>
     </main>

@@ -4,6 +4,9 @@ import { getMe, type AuthUser } from "../api/auth";
 import { getUserProfile, type PublicUserProfile } from "../api/users";
 import { resolveAssetUrl } from "../api/userProfile";
 import CommentPanel from "../components/CommentPanel";
+import ImagePreviewDialog, {
+  type ImagePreviewItem,
+} from "../components/ImagePreviewDialog";
 
 function getInitial(name: string | null | undefined) {
   const value = (name || "").trim();
@@ -15,17 +18,30 @@ function getInitial(name: string | null | undefined) {
   return value.slice(0, 1).toUpperCase();
 }
 
-function UserAvatar({ profile }: { profile: PublicUserProfile }) {
+function UserAvatar({
+  profile,
+  onPreview,
+}: {
+  profile: PublicUserProfile;
+  onPreview: (image: ImagePreviewItem) => void;
+}) {
   const avatarUrl = resolveAssetUrl(profile.avatarUrl);
 
   if (avatarUrl) {
     return (
       <div className="h-24 w-24 overflow-hidden rounded-full border border-[var(--color-border)] bg-white/60">
-        <img
-          src={avatarUrl}
-          alt={profile.displayName}
-          className="h-full w-full object-cover"
-        />
+        <button
+          type="button"
+          className="block h-full w-full cursor-zoom-in"
+          onClick={() => onPreview({ src: avatarUrl, alt: profile.displayName })}
+          aria-label={`查看 ${profile.displayName} 的头像预览`}
+        >
+          <img
+            src={avatarUrl}
+            alt={profile.displayName}
+            className="h-full w-full object-cover transition hover:brightness-95"
+          />
+        </button>
       </div>
     );
   }
@@ -44,6 +60,8 @@ export default function UserPage() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [previewImages, setPreviewImages] = useState<ImagePreviewItem[]>([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
 
   useEffect(() => {
     async function loadCurrentUser() {
@@ -123,6 +141,11 @@ export default function UserPage() {
 
   const isOwnPage = currentUser?.username === profile.username;
 
+  function openImagePreview(image: ImagePreviewItem) {
+    setPreviewImages([image]);
+    setPreviewImageIndex(0);
+  }
+
   return (
     <main className="page-shell px-6 py-12">
       <section className="mx-auto max-w-5xl">
@@ -135,7 +158,7 @@ export default function UserPage() {
 
         <section className="surface-card mt-8 p-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-center">
-            <UserAvatar profile={profile} />
+            <UserAvatar profile={profile} onPreview={openImagePreview} />
 
             <div className="min-w-0 flex-1">
               <p className="text-sm text-soft">@{profile.username}</p>
@@ -206,6 +229,15 @@ export default function UserPage() {
             emptyText="还没有留言。"
           />
         </section>
+
+        {previewImages.length > 0 && (
+          <ImagePreviewDialog
+            images={previewImages}
+            currentIndex={previewImageIndex}
+            onIndexChange={setPreviewImageIndex}
+            onClose={() => setPreviewImages([])}
+          />
+        )}
       </section>
     </main>
   );
