@@ -40,6 +40,45 @@ type TargetOptionsByType = {
   comic_chapter: SearchablePickerOption[];
 };
 
+function buildTargetUrlMap(
+  users: AdminUser[],
+  novels: AdminNovel[],
+  seriesList: AdminComicSeries[],
+) {
+  const urls = new Map<string, string>();
+
+  users.forEach((user) => {
+    urls.set(`user_page:${user.id}`, `/users/${user.username}`);
+  });
+
+  novels.forEach((novel) => {
+    urls.set(`novel:${novel.id}`, `/works/novels/${novel.slug}`);
+    novel.chapters.forEach((chapter) => {
+      urls.set(
+        `novel_chapter:${chapter.id}`,
+        `/works/novels/${novel.slug}/${chapter.slug}`,
+      );
+    });
+  });
+
+  seriesList.forEach((series) => {
+    series.parts.forEach((part) => {
+      urls.set(
+        `comic_part:${part.id}`,
+        `/works/comics/${series.slug}/${part.slug}`,
+      );
+      part.chapters.forEach((chapter) => {
+        urls.set(
+          `comic_chapter:${chapter.id}`,
+          `/works/comics/${series.slug}/${part.slug}/${chapter.slug}`,
+        );
+      });
+    });
+  });
+
+  return urls;
+}
+
 function buildUserOptions(users: AdminUser[]): SearchablePickerOption[] {
   return users.map((user) => ({
     value: user.id,
@@ -248,6 +287,9 @@ export default function AdminInteractionsPage() {
 
   const [isPickerLoading, setIsPickerLoading] = useState(false);
   const [userOptions, setUserOptions] = useState<SearchablePickerOption[]>([]);
+  const [targetUrlMap, setTargetUrlMap] = useState<Map<string, string>>(
+    () => new Map(),
+  );
   const [targetOptionsByType, setTargetOptionsByType] =
     useState<TargetOptionsByType>({
       user_page: [],
@@ -257,7 +299,7 @@ export default function AdminInteractionsPage() {
       comic_chapter: [],
     });
 
-  const limit = 30;
+  const limit = 5;
 
   const maxPage = useMemo(() => {
     return Math.max(1, Math.ceil(total / limit));
@@ -373,6 +415,7 @@ export default function AdminInteractionsPage() {
       const nextUserOptions = buildUserOptions(users);
 
       setUserOptions(nextUserOptions);
+      setTargetUrlMap(buildTargetUrlMap(users, novels, comics));
       setTargetOptionsByType({
         user_page: nextUserOptions,
         novel: buildNovelOptions(novels),
@@ -413,6 +456,16 @@ export default function AdminInteractionsPage() {
       loadComments(0);
     }, 0);
   }
+
+  const selectedTargetUrl = useMemo(() => {
+    if (!selectedComment) {
+      return "";
+    }
+
+    return targetUrlMap.get(
+      `${selectedComment.target_type}:${selectedComment.target_id}`,
+    ) ?? "";
+  }, [selectedComment, targetUrlMap]);
 
   async function handleSoftDelete(comment: AdminCommentItem) {
     const confirmed = window.confirm("确定软删除这条评论吗？数据库会保留原文。");
@@ -733,7 +786,17 @@ export default function AdminInteractionsPage() {
           </section>
 
           <aside className="surface-card h-fit max-h-[calc(100vh-120px)] overflow-y-auto p-5">
-            <h2 className="text-lg font-semibold text-main">评论详情</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-main">评论详情</h2>
+              {selectedTargetUrl && (
+                <Link
+                  to={selectedTargetUrl}
+                  className="rounded-lg border border-[var(--color-border-control)] px-3 py-1.5 text-xs text-muted hover:bg-[var(--color-panel-soft-bg)] hover:text-main"
+                >
+                  跳转至作品
+                </Link>
+              )}
+            </div>
 
             {!selectedComment ? (
               <p className="mt-4 text-sm text-soft">点击左侧评论查看上下文。</p>
