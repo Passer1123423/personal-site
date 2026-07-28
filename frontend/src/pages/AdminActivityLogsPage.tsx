@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { clearAccessToken, getMe } from "../api/auth";
@@ -947,6 +947,8 @@ function AdminActivityLogsPage() {
   const [isDetailMetadataOverflowing, setIsDetailMetadataOverflowing] = useState(false);
   const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
   const detailMetadataRef = useRef<HTMLPreElement | null>(null);
+  const consoleLayoutRef = useRef<HTMLDivElement | null>(null);
+  const filterConsoleRef = useRef<HTMLElement | null>(null);
 
   const [keyword, setKeyword] = useState("");
   const [category, setCategory] = useState("");
@@ -1148,6 +1150,35 @@ function AdminActivityLogsPage() {
     };
   }, [selectedMetadataText]);
 
+  useLayoutEffect(() => {
+    const layoutElement = consoleLayoutRef.current;
+    const filterElement = filterConsoleRef.current;
+
+    if (!layoutElement || !filterElement) {
+      return;
+    }
+
+    const measuredLayoutElement = layoutElement;
+    const measuredFilterElement = filterElement;
+
+    function updateFilterStackHeight() {
+      measuredLayoutElement.style.setProperty(
+        "--log-filter-sticky-height",
+        `${measuredFilterElement.getBoundingClientRect().height}px`,
+      );
+    }
+
+    updateFilterStackHeight();
+
+    const resizeObserver = new ResizeObserver(updateFilterStackHeight);
+    resizeObserver.observe(measuredFilterElement);
+
+    return () => {
+      resizeObserver.disconnect();
+      measuredLayoutElement.style.removeProperty("--log-filter-sticky-height");
+    };
+  }, [isAuthReady]);
+
   function handleSearch() {
     loadLogs(0);
   }
@@ -1301,9 +1332,9 @@ function AdminActivityLogsPage() {
           </div>
         )}
 
-        <div className="log-console-layout mt-6">
+        <div ref={consoleLayoutRef} className="log-console-layout mt-6">
           <div className="log-main-column">
-            <section className="log-filter-console">
+            <section ref={filterConsoleRef} className="log-filter-console">
               <div className="log-filter-main-row">
                 <div className="log-search-box">
                   <span className="log-search-icon">⌕</span>

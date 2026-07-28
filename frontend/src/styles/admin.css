@@ -128,17 +128,19 @@
 
 .log-console-layout {
   --log-sticky-top: 0.75rem;
+  --log-filter-sticky-height: 8.55rem;
+  --log-sticky-gap: 1rem;
 
   display: grid;
   grid-template-columns: minmax(0, 1fr) 390px;
-  gap: 1rem;
+  gap: var(--log-sticky-gap);
   align-items: start;
 }
 
 .log-main-column {
   display: grid;
   min-width: 0;
-  gap: 1rem;
+  gap: var(--log-sticky-gap);
 }
 
 .log-filter-console {
@@ -432,16 +434,26 @@
 
 .log-stream-panel {
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .log-stream-toolbar {
+  position: sticky;
+  top: calc(
+    var(--log-sticky-top)
+    + var(--log-filter-sticky-height)
+    + var(--log-sticky-gap)
+  );
+  z-index: 100;
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
   border-bottom: 1px solid var(--color-border-soft);
+  background: color-mix(in srgb, var(--color-panel-bg) 97%, transparent);
   padding: 0.85rem 1rem;
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(10px);
 }
 
 .log-stream-toolbar h2,
@@ -850,6 +862,7 @@
   }
 
   .log-stream-toolbar {
+    top: var(--log-sticky-top);
     flex-direction: column;
     align-items: stretch;
   }
