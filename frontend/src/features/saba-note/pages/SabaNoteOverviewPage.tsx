@@ -6,15 +6,16 @@ import SearchablePicker from "../../../components/SearchablePicker";
 import DerivationCard from "../components/DerivationCard";
 import SabaNoteAsyncState from "../components/SabaNoteAsyncState";
 import SabaNoteShell from "../components/SabaNoteShell";
-import {
-  getNode,
-  getTags,
-  sabaNoteCategories,
-  sabaNoteDerivations,
-  sabaNoteTags,
-} from "../data/mockData";
+import useDerivationActions from "../hooks/useDerivationActions";
+import useDerivationList from "../hooks/useDerivationList";
 
 export default function SabaNoteOverviewPage() {
+  const { data, loading, error, reload } = useDerivationList();
+  const {
+    discard,
+    pendingId,
+    error: actionError,
+  } = useDerivationActions();
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") ?? "";
   const categoryId = searchParams.get("category") ?? "";
@@ -23,22 +24,22 @@ export default function SabaNoteOverviewPage() {
   const derivations = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return sabaNoteDerivations.filter((derivation) => {
-      if (categoryId && derivation.categoryId !== categoryId) {
+    return data.filter((item) => {
+      const { derivation, node, category, tags, excerpt } = item;
+
+      if (categoryId && category?.id !== categoryId) {
         return false;
       }
-      if (tagId && !derivation.tagIds.includes(tagId)) {
+      if (tagId && !tags.some((tag) => tag.id === tagId)) {
         return false;
       }
       if (!normalizedQuery) {
         return true;
       }
 
-      const node = getNode(derivation.nodeId);
-      const tags = getTags(derivation.tagIds);
       const searchableText = [
         derivation.title,
-        derivation.summary,
+        excerpt,
         derivation.contentMd,
         node?.title,
         ...tags.map((tag) => tag.name),
@@ -49,7 +50,30 @@ export default function SabaNoteOverviewPage() {
 
       return searchableText.includes(normalizedQuery);
     });
-  }, [categoryId, query, tagId]);
+  }, [categoryId, data, query, tagId]);
+
+  const categoryOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          data
+            .map((item) => item.category)
+            .filter((item) => item !== null)
+            .map((item) => [item.id, item]),
+        ).values(),
+      ),
+    [data],
+  );
+
+  const tagOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          data.flatMap((item) => item.tags).map((item) => [item.id, item]),
+        ).values(),
+      ),
+    [data],
+  );
 
   function updateFilter(key: string, value: string) {
     const next = new URLSearchParams(searchParams);
@@ -66,6 +90,15 @@ export default function SabaNoteOverviewPage() {
   }
 
   const hasFilters = Boolean(query || categoryId || tagId);
+
+  async function handleDiscard(id: string) {
+    try {
+      await discard(id);
+      reload();
+    } catch {
+      // 错误状态由 useDerivationActions 暴露给界面。
+    }
+  }
 
   return (
     <SabaNoteShell
@@ -93,7 +126,7 @@ export default function SabaNoteOverviewPage() {
           <SearchBox
             value={query}
             onChange={(value) => updateFilter("q", value)}
-            placeholder="搜索标题、摘要、正文或 Tag"
+            placeholder="搜索标题、正文或 Tag"
             className="saba-note-overview-search"
           />
         </div>
@@ -103,7 +136,7 @@ export default function SabaNoteOverviewPage() {
           <SearchablePicker
             value={categoryId}
             onChange={(value) => updateFilter("category", value)}
-            options={sabaNoteCategories.map((category) => ({
+            options={categoryOptions.map((category) => ({
               value: category.id,
               label: category.name,
             }))}
@@ -117,7 +150,7 @@ export default function SabaNoteOverviewPage() {
           <SearchablePicker
             value={tagId}
             onChange={(value) => updateFilter("tag", value)}
-            options={sabaNoteTags.map((tag) => ({
+            options={tagOptions.map((tag) => ({
               value: tag.id,
               label: `#${tag.name}`,
             }))}
@@ -133,9 +166,32 @@ export default function SabaNoteOverviewPage() {
       </section>
 
       <section className="saba-note-content-flow">
-        {derivations.length > 0 ? (
-          derivations.map((derivation) => (
-            <DerivationCard key={derivation.id} derivation={derivation} />
+        {actionError && (
+          <p className="saba-note-inline-error" role="alert">
+            {actionError}
+          </p>
+        )}
+        {loading ? (
+          <SabaNoteAsyncState
+            kind="loading"
+            title="正在整理最近推导"
+          />
+        ) : error ? (
+          <SabaNoteAsyncState
+            kind="error"
+            title="内容流加载失败"
+            description={error}
+          />
+        ) : derivations.length > 0 ? (
+          derivations.map((item) => (
+            <DerivationCard
+              key={item.derivation.id}
+              item={item}
+              onDiscard={() =>
+                void handleDiscard(item.derivation.id)
+              }
+              discardPending={pendingId === item.derivation.id}
+            />
           ))
         ) : (
           <SabaNoteAsyncState

@@ -5,12 +5,12 @@ import type {
   SabaNoteDraft,
 } from "../types";
 
-function readCachedDraft(storageKey: string, fallback: SabaNoteDraft) {
+function readCachedDraft(storageKey: string) {
   try {
     const raw = localStorage.getItem(storageKey);
-    return raw ? (JSON.parse(raw) as SabaNoteDraft) : fallback;
+    return raw ? (JSON.parse(raw) as SabaNoteDraft) : null;
   } catch {
-    return fallback;
+    return null;
   }
 }
 
@@ -19,8 +19,9 @@ export default function useSabaNoteDraft(
   initialDraft: SabaNoteDraft,
 ) {
   const storageKey = useMemo(() => `saba-note:draft:${draftId}`, [draftId]);
-  const [draft, setDraft] = useState<SabaNoteDraft>(() =>
-    readCachedDraft(storageKey, initialDraft),
+  const [draft, setDraft] = useState<SabaNoteDraft>(initialDraft);
+  const [cachedDraft, setCachedDraft] = useState<SabaNoteDraft | null>(
+    () => readCachedDraft(storageKey),
   );
   const [saveStatus, setSaveStatus] =
     useState<DraftSaveStatus>("saved");
@@ -61,5 +62,28 @@ export default function useSabaNoteDraft(
     setSaveStatus("dirty");
   }
 
-  return { draft, saveStatus, savedAt, update };
+  function clearCachedDraft() {
+    localStorage.removeItem(storageKey);
+    hasEditedRef.current = false;
+    setCachedDraft(null);
+    setSaveStatus("saved");
+  }
+
+  function restoreCachedDraft() {
+    if (!cachedDraft) return;
+    hasEditedRef.current = true;
+    setDraft(cachedDraft);
+    setCachedDraft(null);
+    setSaveStatus("dirty");
+  }
+
+  return {
+    draft,
+    cachedDraft,
+    saveStatus,
+    savedAt,
+    update,
+    clearCachedDraft,
+    restoreCachedDraft,
+  };
 }

@@ -2,7 +2,10 @@ import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { getMarkdownHeadingId } from "../utils/markdown";
+import {
+  getMarkdownHeadingId,
+  prepareSabaInternalLinks,
+} from "../utils/markdown";
 
 function nodeText(children: ReactNode): string {
   if (typeof children === "string" || typeof children === "number") {
@@ -48,7 +51,7 @@ export default function SabaMarkdownContent({
           ),
         }}
       >
-        {children || `*${emptyText}*`}
+        {prepareSabaInternalLinks(children || `*${emptyText}*`)}
       </ReactMarkdown>
     </article>
   );

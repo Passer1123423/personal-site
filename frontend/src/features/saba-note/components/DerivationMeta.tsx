@@ -1,8 +1,8 @@
 import type {
+  Category,
   DerivationStatus,
-  SabaNoteCategory,
-  SabaNoteNode,
-  SabaNoteTag,
+  KnowledgeNode,
+  Tag,
 } from "../types";
 import { DERIVATION_STATUS_PRESENTATION } from "../data/statuses";
 
@@ -28,9 +28,9 @@ export function DerivationStatusBadge({
 
 type DerivationMetaProps = {
   status: DerivationStatus;
-  category?: SabaNoteCategory | null;
-  node?: SabaNoteNode | null;
-  tags?: SabaNoteTag[];
+  category?: Category | null;
+  node?: KnowledgeNode | null;
+  tags?: Tag[];
   compact?: boolean;
 };
 
@@ -54,8 +54,10 @@ export default function DerivationMeta({
         <span className="saba-note-taxonomy-tag">分类 · {category.name}</span>
       )}
 
-      {node && (
+      {node ? (
         <span className="saba-note-node-tag">Node · {node.title}</span>
+      ) : (
+        <span className="saba-note-node-tag">未归档</span>
       )}
 
       {tags.map((tag) => (

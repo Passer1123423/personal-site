@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 
 import SearchBox from "../../../components/SearchBox";
-import type { SabaNoteTag } from "../types";
+import type { Tag } from "../types";
 
 type TagPickerProps = {
-  tags: SabaNoteTag[];
+  tags: Tag[];
   value: string[];
   onChange: (tagIds: string[]) => void;
 };
@@ -59,7 +59,11 @@ export default function TagPicker({ tags, value, onChange }: TagPickerProps) {
       </div>
 
       {filteredTags.length === 0 && (
-        <p className="text-sm text-soft">没有匹配的 Tag。</p>
+        <p className="text-sm text-soft">
+          {tags.length === 0
+            ? "暂无可用 Tag，可以不添加直接保存。"
+            : "没有匹配的 Tag。"}
+        </p>
       )}
     </div>
   );

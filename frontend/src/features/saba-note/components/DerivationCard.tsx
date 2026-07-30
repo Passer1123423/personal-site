@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 
-import { getCategory, getNode, getTags } from "../data/mockData";
-import type { SabaNoteDerivation } from "../types";
+import type { DerivationView } from "../types";
+import { getDerivationDisplayTitle } from "../utils/derivation";
+import DerivationActionMenu from "./DerivationActionMenu";
 import DerivationMeta from "./DerivationMeta";
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
@@ -11,15 +12,17 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
 });
 
 export default function DerivationCard({
-  derivation,
+  item,
   compact = false,
+  onDiscard,
+  discardPending = false,
 }: {
-  derivation: SabaNoteDerivation;
+  item: DerivationView;
   compact?: boolean;
+  onDiscard?: () => void;
+  discardPending?: boolean;
 }) {
-  const category = getCategory(derivation.categoryId);
-  const node = getNode(derivation.nodeId);
-  const tags = getTags(derivation.tagIds);
+  const { derivation, category, node, tags, excerpt } = item;
 
   return (
     <article
@@ -28,22 +31,31 @@ export default function DerivationCard({
         compact ? "saba-note-derivation-card-compact" : "",
       ].join(" ")}
     >
-      <DerivationMeta
-        status={derivation.status}
-        category={category}
-        node={node}
-        tags={tags}
-        compact={compact}
-      />
+      <div className="saba-note-card-meta-row">
+        <DerivationMeta
+          status={derivation.status}
+          category={category}
+          node={node}
+          tags={tags}
+          compact={compact}
+        />
+        {!compact && (
+          <DerivationActionMenu
+            derivationId={derivation.id}
+            onDiscard={onDiscard}
+            pending={discardPending}
+          />
+        )}
+      </div>
 
       <Link
         to={`/saba-note/derivation/${derivation.id}`}
         className="saba-note-card-title"
       >
-        {derivation.title}
+        {getDerivationDisplayTitle(derivation.title)}
       </Link>
 
-      <p className="saba-note-card-summary">{derivation.summary}</p>
+      <p className="saba-note-card-summary">{excerpt}</p>
 
       <div className="saba-note-card-footer">
         <time

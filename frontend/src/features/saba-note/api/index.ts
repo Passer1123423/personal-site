@@ -1,5 +1,11 @@
-/*
- * 第一阶段只验证信息架构和交互，不连接真实服务。
- * 后续 API client 与领域请求将从这里导出，避免泄漏到主站 src/api。
- */
-export {};
+export { httpSabaNoteApi } from "./httpApi";
+export type { SabaNoteApi } from "./contracts";
+
+// HTTP 是运行时默认数据源；mock 仅保留给无后端的独立预览环境显式使用。
+export {
+  httpSabaNoteReadAdapter as sabaNoteReadAdapter,
+} from "./httpReadAdapter";
+export {
+  mockSabaNoteReadAdapter,
+  type SabaNoteReadAdapter,
+} from "./mockAdapter";

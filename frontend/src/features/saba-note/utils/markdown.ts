@@ -50,3 +50,16 @@ export function extractMarkdownHeadings(markdown: string): MarkdownHeading[] {
 
   return headings;
 }
+
+export function prepareSabaInternalLinks(markdown: string) {
+  return markdown.replace(
+    /\[\[(node|derivation):([0-9a-fA-F-]+)(?:\|([^\]]+))?\]\]/g,
+    (_match, type: "node" | "derivation", id: string, label?: string) => {
+      const href =
+        type === "derivation"
+          ? `/saba-note/derivation/${encodeURIComponent(id)}`
+          : `/saba-note/manage?node=${encodeURIComponent(id)}`;
+      return `[${label?.trim() || `${type}:${id}`}](${href})`;
+    },
+  );
+}
