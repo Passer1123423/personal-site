@@ -63,7 +63,6 @@ export default function SabaNoteDerivationPage() {
 
   return (
     <SabaNoteShell
-      wide
       actions={
         <Link
           to={`/saba-note/workspace?id=${encodeURIComponent(derivation.id)}`}

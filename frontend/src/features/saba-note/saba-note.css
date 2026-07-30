@@ -21,7 +21,7 @@
 }
 
 .saba-note-overview-hero {
-  padding: 5rem 0 2.5rem;
+  padding: 2.25rem 0 1.5rem;
 }
 
 .saba-note-eyebrow {
@@ -36,7 +36,7 @@
   max-width: 46rem;
   margin-top: 0.75rem;
   color: var(--color-text-strong);
-  font-size: clamp(2.25rem, 6vw, 4.5rem);
+  font-size: clamp(2rem, 4vw, 3.25rem);
   font-weight: 800;
   letter-spacing: -0.045em;
   line-height: 1.08;
@@ -44,7 +44,7 @@
 
 .saba-note-overview-hero > p:not(.saba-note-eyebrow) {
   max-width: 40rem;
-  margin-top: 1.25rem;
+  margin-top: 0.8rem;
   color: var(--color-text-muted);
   font-size: 1.05rem;
   line-height: 1.8;
@@ -543,23 +543,10 @@
   margin-top: 1.25rem;
 }
 
-.saba-note-workspace-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
-  align-items: center;
-  padding: 1.25rem 0 0.85rem;
-}
-
-.saba-note-workspace-heading > p:last-child {
-  margin-top: 0.25rem;
-  color: var(--color-text-soft);
-  font-size: 0.78rem;
-}
-
 .saba-note-workspace-canvas {
-  height: min(56rem, calc(100dvh - 9rem));
+  height: calc(100dvh - 1.5rem);
   min-height: 42rem;
+  margin-top: 0.75rem;
   overflow: hidden;
   border-radius: var(--radius-card-large);
 }
@@ -567,7 +554,7 @@
 .saba-note-writing-header {
   border-bottom: 1px solid var(--color-border-soft);
   background: var(--color-panel-bg);
-  padding: 1.15rem 1.5rem 1rem;
+  padding: 0.8rem 1.15rem 0.65rem;
 }
 
 .saba-note-writing-title-row {
@@ -585,9 +572,9 @@
   background: transparent;
   color: var(--color-text-strong);
   font-family: var(--font-sans);
-  font-size: clamp(1.5rem, 2.4vw, 2.25rem);
-  font-weight: 720;
-  letter-spacing: -0.035em;
+  font-size: clamp(1.2rem, 1.8vw, 1.65rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
   line-height: 1.25;
 }
 
@@ -598,16 +585,16 @@
 .saba-note-summary-input {
   display: block;
   width: min(100%, 60rem);
-  min-height: 2.4rem;
-  margin-top: 0.55rem;
+  min-height: 1.6rem;
+  margin-top: 0.25rem;
   resize: none;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--color-text-muted);
   font-family: var(--font-sans);
-  font-size: 0.9rem;
-  line-height: 1.65;
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 
 .saba-note-summary-input::placeholder {
@@ -620,6 +607,26 @@
   gap: 0.65rem;
   align-items: center;
   padding: 0.35rem 0;
+}
+
+.saba-note-writing-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.saba-note-workspace-back {
+  border-left: 1px solid var(--color-border-soft);
+  padding-left: 0.9rem;
+  color: var(--color-accent);
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.saba-note-workspace-back:hover {
+  color: var(--color-accent-hover);
 }
 
 .saba-note-save-state > span {
@@ -663,16 +670,28 @@
 .saba-note-workspace-information {
   height: 100%;
   overflow-y: auto;
-  border-left: 1px solid var(--color-border-soft);
+  border-right: 1px solid var(--color-border-soft);
   background: var(--color-panel-soft-bg);
   padding: 1.1rem 1.25rem;
 }
 
 .saba-note-workspace-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 18.5rem;
-  height: calc(100% - 7.6rem);
+  grid-template-columns: 18rem minmax(0, 1fr);
+  height: 100%;
   min-height: 0;
+}
+
+.saba-note-writing-area {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.saba-note-writing-area > .saba-note-editor-grid {
+  min-height: 0;
+  flex: 1;
 }
 
 .saba-note-pane-heading {
@@ -808,12 +827,6 @@
   padding: 0.65rem 1rem;
 }
 
-.saba-note-editor-pane > .saba-note-pane-heading p,
-.saba-note-preview-pane > .saba-note-pane-heading p {
-  display: inline;
-  margin-left: 0.45rem;
-}
-
 .saba-note-information-wrap {
   min-width: 0;
   min-height: 0;
@@ -825,7 +838,7 @@
 
 @media (max-width: 1023px) {
   .saba-note-overview-hero {
-    padding-top: 3.75rem;
+    padding-top: 2rem;
   }
 
   .saba-note-filter-bar {
@@ -855,7 +868,7 @@
   }
 
   .saba-note-workspace-body {
-    grid-template-columns: minmax(0, 1fr) 16.5rem;
+    grid-template-columns: 16.5rem minmax(0, 1fr);
   }
 }
 
@@ -870,7 +883,7 @@
   }
 
   .saba-note-overview-hero {
-    padding: 3rem 0 2rem;
+    padding: 1.75rem 0 1.25rem;
   }
 
   .saba-note-filter-bar,
@@ -916,13 +929,10 @@
     line-height: 2.05;
   }
 
-  .saba-note-workspace-header {
-    padding-top: 1rem;
-  }
-
   .saba-note-workspace-canvas {
-    height: 48rem;
+    height: 46rem;
     min-height: 0;
+    margin-top: 0.65rem;
     border-radius: var(--radius-card);
   }
 
@@ -934,6 +944,11 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 0.45rem;
+  }
+
+  .saba-note-writing-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .saba-note-title-input {
@@ -955,6 +970,7 @@
     border: 1px solid var(--color-border-soft);
     border-radius: var(--radius-control);
     background: var(--color-panel-bg);
+    margin-top: 0.65rem;
     padding: 0.25rem;
   }
 
@@ -982,11 +998,21 @@
 
   .saba-note-workspace-body {
     display: block;
-    height: calc(100% - 8.5rem);
+    height: 100%;
   }
 
   .saba-note-workspace-information {
+    height: 100%;
+    border-right: 0;
     border-left: 0;
+  }
+
+  .saba-note-writing-area {
+    height: 100%;
+  }
+
+  .saba-note-writing-area-hidden {
+    display: none;
   }
 
   .saba-note-editor-grid {

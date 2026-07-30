@@ -71,10 +71,7 @@ export default function SabaNoteWorkspacePage() {
   const informationPanel = (
     <aside className="saba-note-workspace-information">
       <div className="saba-note-pane-heading">
-        <div>
-          <span>内容属性</span>
-          <p>结构只用于补充语境</p>
-        </div>
+        <span>内容属性</span>
         {selectedCategory && (
           <span className="saba-note-pane-kicker">
             {selectedCategory.name}
@@ -127,29 +124,8 @@ export default function SabaNoteWorkspacePage() {
   return (
     <SabaNoteShell
       wide
-      eyebrow="推导工作台"
-      actions={
-        <Link
-          to={
-            source
-              ? `/saba-note/derivation/${source.id}`
-              : "/saba-note"
-          }
-          className="saba-note-reader-action"
-        >
-          {source ? "返回阅读" : "返回内容流"}
-        </Link>
-      }
+      hideHeader
     >
-      <header className="saba-note-workspace-header">
-        <div className="saba-note-workspace-heading">
-          <p className="saba-note-eyebrow">
-            {source ? "继续推导" : "新建推导"}
-          </p>
-          <p>标题与正文是工作台的视觉中心。</p>
-        </div>
-      </header>
-
       <div className="saba-note-mobile-tabs" aria-label="工作台区域">
         {(
           [
@@ -170,51 +146,7 @@ export default function SabaNoteWorkspacePage() {
       </div>
 
       <section className="surface-card saba-note-workspace-canvas">
-        <header className="saba-note-writing-header">
-          <div className="saba-note-writing-title-row">
-            <input
-              className="saba-note-title-input"
-              value={draft.title}
-              onChange={(event) => update("title", event.target.value)}
-              placeholder="这次理解了什么？"
-            />
-
-            <div
-              className={`saba-note-save-state saba-note-save-state-${saveStatus}`}
-              aria-live="polite"
-            >
-              <span />
-              <div>
-                <strong>{SAVE_STATUS_TEXT[saveStatus]}</strong>
-                <small>
-                  {savedAt
-                    ? `最近保存 ${savedAt.toLocaleTimeString("zh-CN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}`
-                    : "仅保存在当前浏览器"}
-                </small>
-              </div>
-            </div>
-          </div>
-
-          <textarea
-            className="saba-note-summary-input"
-            value={draft.summary}
-            onChange={(event) => update("summary", event.target.value)}
-            placeholder="用一两句话留下这条推导的核心变化…"
-            rows={2}
-          />
-        </header>
-
         <div className="saba-note-workspace-body">
-          <MarkdownWorkspace
-            value={draft.contentMd}
-            onChange={(value) => update("contentMd", value)}
-            mobilePanel={mobilePanel}
-          />
-
           <div
             className={
               mobilePanel === "info"
@@ -223,6 +155,70 @@ export default function SabaNoteWorkspacePage() {
             }
           >
             {informationPanel}
+          </div>
+
+          <div
+            className={[
+              "saba-note-writing-area",
+              mobilePanel === "info" ? "saba-note-writing-area-hidden" : "",
+            ].join(" ")}
+          >
+            <header className="saba-note-writing-header">
+              <div className="saba-note-writing-title-row">
+                <input
+                  className="saba-note-title-input"
+                  value={draft.title}
+                  onChange={(event) => update("title", event.target.value)}
+                  placeholder="这次理解了什么？"
+                />
+
+                <div className="saba-note-writing-actions">
+                  <div
+                    className={`saba-note-save-state saba-note-save-state-${saveStatus}`}
+                    aria-live="polite"
+                  >
+                    <span />
+                    <div>
+                      <strong>{SAVE_STATUS_TEXT[saveStatus]}</strong>
+                      <small>
+                        {savedAt
+                          ? `最近保存 ${savedAt.toLocaleTimeString("zh-CN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })}`
+                          : "仅保存在当前浏览器"}
+                      </small>
+                    </div>
+                  </div>
+
+                  <Link
+                    to={
+                      source
+                        ? `/saba-note/derivation/${source.id}`
+                        : "/saba-note"
+                    }
+                    className="saba-note-workspace-back"
+                  >
+                    {source ? "返回阅读" : "返回内容流"}
+                  </Link>
+                </div>
+              </div>
+
+              <textarea
+                className="saba-note-summary-input"
+                value={draft.summary}
+                onChange={(event) => update("summary", event.target.value)}
+                placeholder="一句话概括这条推导…"
+                rows={1}
+              />
+            </header>
+
+            <MarkdownWorkspace
+              value={draft.contentMd}
+              onChange={(value) => update("contentMd", value)}
+              mobilePanel={mobilePanel}
+            />
           </div>
         </div>
       </section>

@@ -18,10 +18,7 @@ export default function MarkdownWorkspace({
     >
       <div className="saba-note-editor-pane">
         <div className="saba-note-pane-heading">
-          <div>
-            <span>Markdown 输入</span>
-            <p>纯文本、无干扰写作</p>
-          </div>
+          <span>Markdown 输入</span>
           <span className="saba-note-pane-kicker">MD</span>
         </div>
 
@@ -36,10 +33,7 @@ export default function MarkdownWorkspace({
 
       <div className="saba-note-preview-pane">
         <div className="saba-note-pane-heading">
-          <div>
-            <span>实时预览</span>
-            <p>接近最终阅读排版</p>
-          </div>
+          <span>实时预览</span>
           <span className="saba-note-pane-kicker">预览</span>
         </div>
 
