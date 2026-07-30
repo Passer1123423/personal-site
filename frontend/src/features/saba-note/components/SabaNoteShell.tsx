@@ -7,6 +7,7 @@ type SabaNoteShellProps = {
   actions?: ReactNode;
   wide?: boolean;
   hideHeader?: boolean;
+  uncontained?: boolean;
 };
 
 export default function SabaNoteShell({
@@ -15,6 +16,7 @@ export default function SabaNoteShell({
   actions,
   wide = false,
   hideHeader = false,
+  uncontained = false,
 }: SabaNoteShellProps) {
   return (
     <div className="saba-note-shell">
@@ -42,14 +44,18 @@ export default function SabaNoteShell({
         </header>
       )}
 
-      <div
-        className={[
-          "saba-note-container",
-          wide ? "saba-note-container-wide" : "",
-        ].join(" ")}
-      >
-        {children}
-      </div>
+      {uncontained ? (
+        children
+      ) : (
+        <div
+          className={[
+            "saba-note-container",
+            wide ? "saba-note-container-wide" : "",
+          ].join(" ")}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }

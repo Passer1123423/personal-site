@@ -349,6 +349,53 @@
   color: var(--color-accent);
 }
 
+.saba-note-reader-meta {
+  margin-top: 1rem;
+}
+
+.saba-note-reader-heading-child {
+  padding-left: 1.1rem;
+  color: var(--color-text-soft);
+  font-size: 0.82rem;
+}
+
+.saba-note-reader-related {
+  margin-top: 2rem;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-card);
+  background: var(--color-panel-bg);
+  padding: 2rem 2.25rem;
+  box-shadow: var(--shadow-card);
+}
+
+.saba-note-reader-related-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  align-items: flex-end;
+}
+
+.saba-note-reader-related-heading h2 {
+  margin-top: 0.25rem;
+  color: var(--color-text-strong);
+  font-size: 1.45rem;
+  font-weight: 750;
+}
+
+.saba-note-reader-related-heading > div > p:last-child {
+  margin-top: 0.4rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.saba-note-reader-related-empty {
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--color-border-soft);
+  padding-top: 1.25rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
 .saba-note-reading-page {
   padding: 1.5rem 0 2rem;
 }
@@ -1044,6 +1091,20 @@
 }
 
 @media (max-width: 767px) {
+  .saba-note-reader-related {
+    margin-top: 1.5rem;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    padding: 1.5rem 1.25rem;
+    box-shadow: none;
+  }
+
+  .saba-note-reader-related-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .saba-note-trash-item {
     grid-template-columns: 1fr;
   }

@@ -23,13 +23,20 @@ export default function SabaMarkdownContent({
   children,
   emptyText = "这里还没有正文。",
   className = "",
+  readingStyle = "saba",
 }: {
   children: string;
   emptyText?: string;
   className?: string;
+  readingStyle?: "saba" | "novel";
 }) {
   return (
-    <article className={`saba-markdown ${className}`}>
+    <div
+      className={[
+        readingStyle === "novel" ? "novel-markdown" : "saba-markdown",
+        className,
+      ].join(" ")}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -53,6 +60,6 @@ export default function SabaMarkdownContent({
       >
         {prepareSabaInternalLinks(children || `*${emptyText}*`)}
       </ReactMarkdown>
-    </article>
+    </div>
   );
 }
