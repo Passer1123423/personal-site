@@ -75,9 +75,19 @@ function App() {
       ),
   );
 
+  const isSabaNotePage = Boolean(
+    matchPath(
+      "/saba-note/*",
+      location.pathname,
+    ),
+  );
+
   const navbarMode: NavbarMode = isComicReaderPage
     ? "none"
-    : isCreatorComicPartPage || isCreatorNovelEditorPage || isAdminActivityLogsPage
+    : isCreatorComicPartPage ||
+        isCreatorNovelEditorPage ||
+        isAdminActivityLogsPage ||
+        isSabaNotePage
       ? "auto"
       : "standard";
 

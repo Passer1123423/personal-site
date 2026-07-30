@@ -46,8 +46,12 @@ export default function DerivationCard({
       <p className="saba-note-card-summary">{derivation.summary}</p>
 
       <div className="saba-note-card-footer">
-        <time dateTime={derivation.updatedAt}>
-          更新于 {DATE_FORMATTER.format(new Date(derivation.updatedAt))}
+        <time
+          dateTime={derivation.updatedAt}
+          className="saba-note-date-stamp"
+        >
+          <span aria-hidden="true">📅</span>
+          {DATE_FORMATTER.format(new Date(derivation.updatedAt))}
         </time>
         {!compact && (
           <Link

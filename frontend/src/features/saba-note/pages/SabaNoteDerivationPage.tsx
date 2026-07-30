@@ -11,6 +11,7 @@ import {
   getTags,
   sabaNoteDerivations,
 } from "../data/mockData";
+import { extractMarkdownHeadings } from "../utils/markdown";
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   year: "numeric",
@@ -58,43 +59,81 @@ export default function SabaNoteDerivationPage() {
           item.categoryId === derivation.categoryId),
     )
     .slice(0, 2);
+  const headings = extractMarkdownHeadings(derivation.contentMd);
 
   return (
     <SabaNoteShell
+      wide
       actions={
         <Link
           to={`/saba-note/workspace?id=${encodeURIComponent(derivation.id)}`}
-          className="admin-button-secondary px-3 py-2 text-sm font-semibold"
+          className="saba-note-reader-action"
         >
           继续推导
         </Link>
       }
     >
-      <article className="saba-note-reading-page">
+      <main className="saba-note-reading-page">
         <Link to="/saba-note" className="saba-note-back-link">
-          ← 返回最近推导
+          ← 最近推导
         </Link>
 
-        <header className="saba-note-article-header">
-          <p className="saba-note-eyebrow">Derivation</p>
-          <h1>{derivation.title}</h1>
-          <p className="saba-note-article-summary">{derivation.summary}</p>
-          <time dateTime={derivation.updatedAt}>
-            更新于 {DATE_FORMATTER.format(new Date(derivation.updatedAt))}
-          </time>
+        <div className="surface-card saba-note-reader-frame">
+          <header className="saba-note-article-header">
+            <p className="saba-note-eyebrow">Derivation</p>
+            <h1>{derivation.title}</h1>
+            <p className="saba-note-article-summary">{derivation.summary}</p>
+            <time dateTime={derivation.updatedAt}>
+              📅 更新于 {DATE_FORMATTER.format(new Date(derivation.updatedAt))}
+            </time>
 
-          <DerivationMeta
-            status={derivation.status}
-            category={category}
-            node={node}
-            tags={tags}
-          />
-        </header>
+            <DerivationMeta
+              status={derivation.status}
+              category={category}
+              node={node}
+              tags={tags}
+            />
+          </header>
 
-        <div className="saba-note-article-body">
-          <SabaMarkdownContent>{derivation.contentMd}</SabaMarkdownContent>
+          <div className="saba-note-reader-body">
+            <div className="saba-note-article-body">
+              <SabaMarkdownContent className="saba-note-reader-markdown">
+                {derivation.contentMd}
+              </SabaMarkdownContent>
+            </div>
+
+            <aside className="saba-note-reader-sidebar">
+              <div className="saba-note-reader-toc">
+                <p className="saba-note-reader-toc-title">文章目录</p>
+                <div className="saba-note-reader-toc-list">
+                  {headings.length > 0 ? (
+                    headings.map((heading) => (
+                      <a
+                        key={`${heading.id}-${heading.level}`}
+                        href={`#${heading.id}`}
+                        className={
+                          heading.level === 3
+                            ? "saba-note-toc-link saba-note-toc-link-child"
+                            : "saba-note-toc-link"
+                        }
+                      >
+                        {heading.text}
+                      </a>
+                    ))
+                  ) : (
+                    <p>正文暂时没有小节标题。</p>
+                  )}
+                </div>
+
+                <div className="saba-note-reader-toc-footer">
+                  <span>归档于</span>
+                  <strong>{node?.title ?? "未归档 Node"}</strong>
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
-      </article>
+      </main>
 
       <section className="saba-note-related-section">
         <div>

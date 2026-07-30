@@ -85,15 +85,19 @@ export default function SabaNoteOverviewPage() {
           这里保留结论，也保留结论形成之前的犹豫、证据与修正。
         </p>
 
-        <SearchBox
-          value={query}
-          onChange={(value) => updateFilter("q", value)}
-          placeholder="搜索标题、摘要、正文或 Tag"
-          className="saba-note-overview-search"
-        />
       </section>
 
       <section className="saba-note-filter-bar" aria-label="知识内容筛选">
+        <div className="saba-note-filter-control saba-note-search-control">
+          <span>Search</span>
+          <SearchBox
+            value={query}
+            onChange={(value) => updateFilter("q", value)}
+            placeholder="搜索标题、摘要、正文或 Tag"
+            className="saba-note-overview-search"
+          />
+        </div>
+
         <div className="saba-note-filter-control">
           <span>Category</span>
           <SearchablePicker

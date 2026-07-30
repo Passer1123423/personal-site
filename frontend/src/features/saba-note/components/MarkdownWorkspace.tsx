@@ -16,13 +16,13 @@ export default function MarkdownWorkspace({
     <section
       className={`saba-note-editor-grid saba-note-mobile-panel-${mobilePanel}`}
     >
-      <div className="surface-card saba-note-editor-pane">
+      <div className="saba-note-editor-pane">
         <div className="saba-note-pane-heading">
           <div>
-            <span>Markdown</span>
-            <p>只保留写作所需的最小界面。</p>
+            <span>Markdown 输入</span>
+            <p>纯文本、无干扰写作</p>
           </div>
-          <span className="saba-note-pane-kicker">编辑</span>
+          <span className="saba-note-pane-kicker">MD</span>
         </div>
 
         <textarea
@@ -34,11 +34,11 @@ export default function MarkdownWorkspace({
         />
       </div>
 
-      <div className="surface-card saba-note-preview-pane">
+      <div className="saba-note-preview-pane">
         <div className="saba-note-pane-heading">
           <div>
             <span>实时预览</span>
-            <p>以最终阅读页的排版呈现。</p>
+            <p>接近最终阅读排版</p>
           </div>
           <span className="saba-note-pane-kicker">预览</span>
         </div>
