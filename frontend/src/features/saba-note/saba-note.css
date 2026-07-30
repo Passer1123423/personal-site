@@ -1,0 +1,762 @@
+.saba-note-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 0%, rgb(219 234 254 / 0.55), transparent 30rem),
+    var(--color-page-bg);
+  color: var(--color-text-main);
+}
+
+.saba-note-container {
+  width: min(100% - 2rem, 64rem);
+  margin-inline: auto;
+}
+
+.saba-note-container-wide {
+  width: min(100% - 2rem, 94rem);
+}
+
+.saba-note-module-header {
+  border-bottom: 1px solid var(--color-border-soft);
+  background: rgb(255 255 255 / 0.72);
+  padding-block: 0.85rem;
+  backdrop-filter: blur(12px);
+}
+
+.saba-note-overview-hero {
+  padding: 5rem 0 2.5rem;
+}
+
+.saba-note-eyebrow {
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.saba-note-overview-hero h1 {
+  max-width: 46rem;
+  margin-top: 0.75rem;
+  color: var(--color-text-strong);
+  font-size: clamp(2.25rem, 6vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+
+.saba-note-overview-hero > p:not(.saba-note-eyebrow) {
+  max-width: 40rem;
+  margin-top: 1.25rem;
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.saba-note-overview-search {
+  max-width: 42rem;
+  margin-top: 2rem;
+  padding-block: 0.75rem;
+  box-shadow: var(--shadow-card);
+}
+
+.saba-note-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) minmax(0, 16rem) 1fr;
+  gap: 1rem;
+  align-items: end;
+  border-top: 1px solid var(--color-border-soft);
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 1.25rem 0;
+}
+
+.saba-note-filter-control > span,
+.saba-note-field > span {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--color-text-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.saba-note-flow-count {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding-bottom: 0.5rem;
+  color: var(--color-text-soft);
+  font-size: 0.8rem;
+}
+
+.saba-note-flow-count strong {
+  color: var(--color-text-main);
+  font-size: 1.4rem;
+}
+
+.saba-note-content-flow {
+  display: grid;
+  gap: 1.25rem;
+  padding: 2rem 0 5rem;
+}
+
+.saba-note-derivation-card {
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.saba-note-derivation-card-compact {
+  padding: 1.35rem;
+}
+
+.saba-note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.saba-note-status,
+.saba-note-taxonomy-tag,
+.saba-note-node-tag,
+.saba-note-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.8rem;
+  border-radius: 9999px;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.saba-note-status {
+  min-height: 2rem;
+  border: 1px solid transparent;
+  padding-inline: 0.85rem;
+  font-size: 0.76rem;
+}
+
+.saba-note-status-verified {
+  border-color: var(--color-success-border);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.saba-note-status-developing {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.saba-note-status-misconception {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.saba-note-status-blocked {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.saba-note-status-unknown {
+  border-color: var(--color-border-control);
+  background: var(--color-panel-muted-bg);
+  color: var(--color-text-muted);
+}
+
+.saba-note-taxonomy-tag {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.saba-note-node-tag {
+  background: var(--color-panel-muted-bg);
+  color: var(--color-text-muted);
+}
+
+.saba-note-tag {
+  background: var(--color-panel-soft-bg);
+  color: var(--color-text-soft);
+}
+
+.saba-note-meta-compact .saba-note-node-tag,
+.saba-note-meta-compact .saba-note-tag {
+  display: none;
+}
+
+.saba-note-card-title {
+  display: inline-block;
+  margin-top: 1.25rem;
+  color: var(--color-text-strong);
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  line-height: 1.35;
+}
+
+.saba-note-card-title:hover {
+  color: var(--color-accent);
+}
+
+.saba-note-card-summary {
+  max-width: 48rem;
+  margin-top: 0.8rem;
+  color: var(--color-text-muted);
+  line-height: 1.8;
+}
+
+.saba-note-card-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.35rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border-soft);
+  color: var(--color-text-soft);
+  font-size: 0.78rem;
+}
+
+.saba-note-state {
+  padding: 4rem 1.5rem;
+  text-align: center;
+}
+
+.saba-note-state-glyph {
+  display: inline-grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 9999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 1.2rem;
+}
+
+.saba-note-state-glyph-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.saba-note-state h2 {
+  margin-top: 1rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.saba-note-state p {
+  margin-top: 0.45rem;
+  color: var(--color-text-soft);
+  font-size: 0.9rem;
+}
+
+.saba-note-back-link {
+  color: var(--color-text-soft);
+  font-size: 0.85rem;
+}
+
+.saba-note-back-link:hover {
+  color: var(--color-accent);
+}
+
+.saba-note-reading-page {
+  max-width: 48rem;
+  margin-inline: auto;
+  padding: 4rem 0;
+}
+
+.saba-note-article-header {
+  padding: 2rem 0 2.5rem;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.saba-note-article-header h1 {
+  margin-top: 0.8rem;
+  color: var(--color-text-strong);
+  font-size: clamp(2.1rem, 6vw, 3.7rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.16;
+}
+
+.saba-note-article-summary {
+  margin-top: 1.25rem;
+  color: var(--color-text-muted);
+  font-size: 1.08rem;
+  line-height: 1.85;
+}
+
+.saba-note-article-header time {
+  display: block;
+  margin: 1.15rem 0;
+  color: var(--color-text-soft);
+  font-size: 0.78rem;
+}
+
+.saba-note-article-body {
+  padding: 2.75rem 0;
+}
+
+.saba-markdown {
+  color: var(--color-text-main);
+  font-size: 1rem;
+  line-height: 1.9;
+  word-break: break-word;
+}
+
+.saba-markdown h1,
+.saba-markdown h2,
+.saba-markdown h3 {
+  color: var(--color-text-strong);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.saba-markdown h1 {
+  margin: 0 0 1.4rem;
+  font-size: 2rem;
+}
+
+.saba-markdown h2 {
+  margin: 2.5rem 0 1rem;
+  font-size: 1.45rem;
+}
+
+.saba-markdown h3 {
+  margin: 2rem 0 0.8rem;
+  font-size: 1.15rem;
+}
+
+.saba-markdown p {
+  margin: 0 0 1.2rem;
+}
+
+.saba-markdown ul,
+.saba-markdown ol {
+  margin: 1rem 0 1.4rem;
+  padding-left: 1.5rem;
+}
+
+.saba-markdown ul {
+  list-style: disc;
+}
+
+.saba-markdown ol {
+  list-style: decimal;
+}
+
+.saba-markdown li {
+  margin: 0.35rem 0;
+}
+
+.saba-markdown blockquote {
+  margin: 1.7rem 0;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-accent-soft);
+  padding: 1rem 1.2rem;
+  color: var(--color-text-muted);
+}
+
+.saba-markdown blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.saba-markdown code {
+  border-radius: 0.35rem;
+  background: var(--color-panel-muted-bg);
+  padding: 0.12rem 0.32rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88em;
+}
+
+.saba-markdown pre {
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border-radius: var(--radius-control);
+  background: var(--color-dark-control-bg);
+  padding: 1rem;
+  color: var(--color-dark-text-main);
+}
+
+.saba-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.saba-markdown a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.saba-note-related-section {
+  border-top: 1px solid var(--color-border-soft);
+  padding: 2.5rem 0 5rem;
+}
+
+.saba-note-related-section h2 {
+  margin-top: 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 750;
+}
+
+.saba-note-related-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.saba-note-workspace-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 2rem 0 1.25rem;
+}
+
+.saba-note-workspace-header h1 {
+  max-width: 48rem;
+  margin-top: 0.3rem;
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saba-note-save-state {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.65rem;
+  align-items: center;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.8);
+  padding: 0.55rem 0.85rem;
+}
+
+.saba-note-save-state > span {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: var(--color-success);
+}
+
+.saba-note-save-state-dirty > span {
+  background: #d97706;
+}
+
+.saba-note-save-state-saving > span {
+  background: var(--color-accent);
+  animation: saba-note-pulse 1s infinite;
+}
+
+.saba-note-save-state strong,
+.saba-note-save-state small {
+  display: block;
+}
+
+.saba-note-save-state strong {
+  color: var(--color-text-main);
+  font-size: 0.75rem;
+}
+
+.saba-note-save-state small {
+  margin-top: 0.1rem;
+  color: var(--color-text-soft);
+  font-size: 0.65rem;
+}
+
+@keyframes saba-note-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.saba-note-workspace-information {
+  padding: 1.1rem 1.25rem;
+}
+
+.saba-note-pane-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  border-bottom: 1px solid var(--color-border-soft);
+  padding-bottom: 0.8rem;
+}
+
+.saba-note-pane-heading span:first-child {
+  color: var(--color-text-main);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.saba-note-pane-heading p {
+  margin-top: 0.15rem;
+  color: var(--color-text-soft);
+  font-size: 0.7rem;
+}
+
+.saba-note-pane-kicker {
+  border-radius: 9999px;
+  background: var(--color-panel-muted-bg);
+  padding: 0.25rem 0.55rem;
+  color: var(--color-text-soft);
+  font-size: 0.65rem !important;
+  font-weight: 650;
+}
+
+.saba-note-workspace-fields {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.4fr) minmax(14rem, 1.6fr) minmax(10rem, 0.8fr) minmax(12rem, 1fr);
+  gap: 1rem;
+  align-items: start;
+  padding-top: 1rem;
+}
+
+.saba-note-field input,
+.saba-note-field textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.saba-note-field textarea {
+  min-height: 4.75rem;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.saba-note-field-tags {
+  grid-column: 1 / -1;
+}
+
+.saba-note-tag-picker {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.saba-note-tag-search {
+  padding-block: 0.45rem;
+}
+
+.saba-note-tag-option {
+  border: 1px solid var(--color-border-soft);
+  border-radius: 9999px;
+  background: var(--color-panel-bg);
+  padding: 0.4rem 0.7rem;
+  color: var(--color-text-soft);
+  font-size: 0.72rem;
+  transition: 150ms ease;
+}
+
+.saba-note-tag-option:hover {
+  border-color: var(--color-accent-border-strong);
+  color: var(--color-accent);
+}
+
+.saba-note-tag-option-selected {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.saba-note-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  height: min(50rem, calc(100vh - 23rem));
+  min-height: 32rem;
+  padding: 1rem 0 2rem;
+}
+
+.saba-note-editor-pane,
+.saba-note-preview-pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1rem;
+}
+
+.saba-note-markdown-input {
+  min-height: 0;
+  flex: 1;
+  margin-top: 1rem;
+  resize: none;
+  padding: 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.86rem;
+  line-height: 1.75;
+}
+
+.saba-note-preview-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 1rem;
+  padding: 0.5rem 1rem 2rem;
+}
+
+.saba-note-mobile-tabs {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .saba-note-overview-hero {
+    padding-top: 3.75rem;
+  }
+
+  .saba-note-filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .saba-note-flow-count {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .saba-note-workspace-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .saba-note-field-tags {
+    grid-column: 1 / -1;
+  }
+
+  .saba-note-tag-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .saba-note-editor-grid {
+    height: auto;
+    min-height: 38rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .saba-note-container,
+  .saba-note-container-wide {
+    width: min(100% - 1.25rem, 64rem);
+  }
+
+  .saba-note-module-header {
+    padding-block: 0.65rem;
+  }
+
+  .saba-note-overview-hero {
+    padding: 3rem 0 2rem;
+  }
+
+  .saba-note-filter-bar,
+  .saba-note-related-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .saba-note-flow-count {
+    grid-column: auto;
+  }
+
+  .saba-note-card-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .saba-note-reading-page {
+    padding: 2.5rem 0;
+  }
+
+  .saba-note-article-header {
+    padding-top: 1.5rem;
+  }
+
+  .saba-note-article-body {
+    padding-top: 2rem;
+  }
+
+  .saba-note-workspace-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-top: 1.4rem;
+  }
+
+  .saba-note-save-state {
+    width: 100%;
+    border-radius: var(--radius-control);
+  }
+
+  .saba-note-mobile-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-control);
+    background: var(--color-panel-bg);
+    padding: 0.25rem;
+  }
+
+  .saba-note-mobile-tabs button {
+    border-radius: var(--radius-control-sm);
+    padding: 0.6rem;
+    color: var(--color-text-soft);
+    font-size: 0.78rem;
+  }
+
+  .saba-note-mobile-tabs button.active {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-weight: 700;
+  }
+
+  .saba-note-information-wrap {
+    display: none;
+    padding-top: 0.75rem;
+  }
+
+  .saba-note-information-wrap.mobile-active {
+    display: block;
+  }
+
+  .saba-note-workspace-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .saba-note-field-tags {
+    grid-column: auto;
+  }
+
+  .saba-note-editor-grid {
+    display: block;
+    min-height: 37rem;
+    padding-top: 0.75rem;
+  }
+
+  .saba-note-editor-pane,
+  .saba-note-preview-pane {
+    height: 37rem;
+  }
+
+  .saba-note-mobile-panel-edit .saba-note-preview-pane,
+  .saba-note-mobile-panel-preview .saba-note-editor-pane,
+  .saba-note-mobile-panel-info .saba-note-editor-pane,
+  .saba-note-mobile-panel-info .saba-note-preview-pane {
+    display: none;
+  }
+
+  .saba-note-mobile-panel-info {
+    min-height: 0;
+    padding: 0;
+  }
+
+  .saba-note-preview-scroll {
+    padding-inline: 0.25rem;
+  }
+}

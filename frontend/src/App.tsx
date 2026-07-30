@@ -36,6 +36,7 @@ import CreatorNovelPage from "./pages/CreatorNovelPage";
 import CreatorNovelChapterEditorPage from "./pages/CreatorNovelChapterEditorPage";
 
 import NotificationsPage from "./pages/NotificationsPage";
+import { SabaNoteRoutes } from "./features/saba-note";
 
 type NavbarMode = "standard" | "auto" | "none";
 
@@ -155,6 +156,7 @@ function App() {
         <Route path="/admin/activity-logs" element={<AdminActivityLogsPage />} />
 
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/saba-note/*" element={<SabaNoteRoutes />} />
       </Routes>
 
       {shouldRenderFooter && (

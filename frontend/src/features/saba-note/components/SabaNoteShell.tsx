@@ -1,0 +1,51 @@
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+
+type SabaNoteShellProps = {
+  children: ReactNode;
+  eyebrow?: string;
+  actions?: ReactNode;
+  wide?: boolean;
+};
+
+export default function SabaNoteShell({
+  children,
+  eyebrow = "私人知识引擎",
+  actions,
+  wide = false,
+}: SabaNoteShellProps) {
+  return (
+    <div className="saba-note-shell">
+      <header className="saba-note-module-header">
+        <div
+          className={[
+            "saba-note-container flex items-center justify-between gap-4",
+            wide ? "saba-note-container-wide" : "",
+          ].join(" ")}
+        >
+          <Link to="/saba-note" className="min-w-0">
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.22em] text-soft">
+              {eyebrow}
+            </span>
+            <span className="mt-1 block truncate text-lg font-bold text-main">
+              Saba-Note
+            </span>
+          </Link>
+
+          {actions && (
+            <div className="flex shrink-0 items-center gap-2">{actions}</div>
+          )}
+        </div>
+      </header>
+
+      <div
+        className={[
+          "saba-note-container",
+          wide ? "saba-note-container-wide" : "",
+        ].join(" ")}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
