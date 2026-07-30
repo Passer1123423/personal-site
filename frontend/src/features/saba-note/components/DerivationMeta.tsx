@@ -32,6 +32,8 @@ type DerivationMetaProps = {
   node?: KnowledgeNode | null;
   tags?: Tag[];
   compact?: boolean;
+  showCategory?: boolean;
+  showNode?: boolean;
 };
 
 export default function DerivationMeta({
@@ -40,6 +42,8 @@ export default function DerivationMeta({
   node,
   tags = [],
   compact = false,
+  showCategory = true,
+  showNode = true,
 }: DerivationMetaProps) {
   return (
     <div
@@ -50,15 +54,16 @@ export default function DerivationMeta({
     >
       <DerivationStatusBadge status={status} />
 
-      {category && (
+      {showCategory && category && (
         <span className="saba-note-taxonomy-tag">分类 · {category.name}</span>
       )}
 
-      {node ? (
-        <span className="saba-note-node-tag">Node · {node.title}</span>
-      ) : (
-        <span className="saba-note-node-tag">未归档</span>
-      )}
+      {showNode &&
+        (node ? (
+          <span className="saba-note-node-tag">Node · {node.title}</span>
+        ) : (
+          <span className="saba-note-node-tag">未归档</span>
+        ))}
 
       {tags.map((tag) => (
         <span key={tag.id} className="saba-note-tag">

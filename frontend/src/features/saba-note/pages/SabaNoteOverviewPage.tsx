@@ -102,6 +102,7 @@ export default function SabaNoteOverviewPage() {
 
   return (
     <SabaNoteShell
+      uncontained
       actions={
         <Link
           to="/saba-note/workspace"
@@ -111,106 +112,115 @@ export default function SabaNoteOverviewPage() {
         </Link>
       }
     >
-      <section className="saba-note-overview-hero">
-        <p className="saba-note-eyebrow">最近的理解</p>
-        <h1>我最近理解了什么</h1>
-        <p>
-          这里保留结论，也保留结论形成之前的犹豫、证据与修正。
-        </p>
-
-      </section>
-
-      <section className="saba-note-filter-bar" aria-label="知识内容筛选">
-        <div className="saba-note-filter-control saba-note-search-control">
-          <span>Search</span>
-          <SearchBox
-            value={query}
-            onChange={(value) => updateFilter("q", value)}
-            placeholder="搜索标题、正文或 Tag"
-            className="saba-note-overview-search"
-          />
-        </div>
-
-        <div className="saba-note-filter-control">
-          <span>Category</span>
-          <SearchablePicker
-            value={categoryId}
-            onChange={(value) => updateFilter("category", value)}
-            options={categoryOptions.map((category) => ({
-              value: category.id,
-              label: category.name,
-            }))}
-            placeholder="全部分类"
-            searchPlaceholder="搜索 Category"
-          />
-        </div>
-
-        <div className="saba-note-filter-control">
-          <span>Tag</span>
-          <SearchablePicker
-            value={tagId}
-            onChange={(value) => updateFilter("tag", value)}
-            options={tagOptions.map((tag) => ({
-              value: tag.id,
-              label: `#${tag.name}`,
-            }))}
-            placeholder="全部 Tag"
-            searchPlaceholder="搜索 Tag"
-          />
-        </div>
-
-        <div className="saba-note-flow-count">
-          <strong>{derivations.length}</strong>
-          <span>条推导</span>
-        </div>
-      </section>
-
-      <section className="saba-note-content-flow">
-        {actionError && (
-          <p className="saba-note-inline-error" role="alert">
-            {actionError}
+      <main className="saba-note-overview-page">
+        <section className="saba-note-overview-hero">
+          <h1>我最近理解了什么</h1>
+          <p>
+            记录结论，也保留结论形成之前的犹豫、证据与修正。
           </p>
-        )}
-        {loading ? (
-          <SabaNoteAsyncState
-            kind="loading"
-            title="正在整理最近推导"
-          />
-        ) : error ? (
-          <SabaNoteAsyncState
-            kind="error"
-            title="内容流加载失败"
-            description={error}
-          />
-        ) : derivations.length > 0 ? (
-          derivations.map((item) => (
-            <DerivationCard
-              key={item.derivation.id}
-              item={item}
-              onDiscard={() =>
-                void handleDiscard(item.derivation.id)
-              }
-              discardPending={pendingId === item.derivation.id}
+        </section>
+
+        <section className="saba-note-filter-bar" aria-label="知识内容筛选">
+          <div className="saba-note-filter-control saba-note-search-control">
+            <span>Search</span>
+            <SearchBox
+              value={query}
+              onChange={(value) => updateFilter("q", value)}
+              placeholder="搜索标题、正文或 Tag"
+              className="saba-note-overview-search"
             />
-          ))
-        ) : (
-          <SabaNoteAsyncState
-            title="没有找到匹配的推导"
-            description="换一个关键词，或者清除当前的 Category 与 Tag 条件。"
-            action={
-              hasFilters ? (
-                <button
-                  type="button"
-                  className="admin-button-secondary px-4 py-2 text-sm font-semibold"
-                  onClick={clearFilters}
-                >
-                  清除筛选
-                </button>
-              ) : null
-            }
-          />
-        )}
-      </section>
+          </div>
+
+          <div className="saba-note-filter-control">
+            <span>Category</span>
+            <SearchablePicker
+              value={categoryId}
+              onChange={(value) => updateFilter("category", value)}
+              options={categoryOptions.map((category) => ({
+                value: category.id,
+                label: category.name,
+              }))}
+              placeholder="全部分类"
+              searchPlaceholder="搜索 Category"
+            />
+          </div>
+
+          <div className="saba-note-filter-control">
+            <span>Tag</span>
+            <SearchablePicker
+              value={tagId}
+              onChange={(value) => updateFilter("tag", value)}
+              options={tagOptions.map((tag) => ({
+                value: tag.id,
+                label: `#${tag.name}`,
+              }))}
+              placeholder="全部 Tag"
+              searchPlaceholder="搜索 Tag"
+            />
+          </div>
+
+          <button
+            type="button"
+            className="saba-note-filter-clear"
+            disabled={!hasFilters}
+            onClick={clearFilters}
+          >
+            清除
+          </button>
+
+          <div className="saba-note-flow-count">
+            <strong>{derivations.length}</strong>
+            <span>条推导</span>
+          </div>
+        </section>
+
+        <section className="saba-note-content-flow">
+          {actionError && (
+            <p className="saba-note-inline-error" role="alert">
+              {actionError}
+            </p>
+          )}
+          {loading ? (
+            <SabaNoteAsyncState
+              kind="loading"
+              title="正在整理最近推导"
+            />
+          ) : error ? (
+            <SabaNoteAsyncState
+              kind="error"
+              title="内容流加载失败"
+              description={error}
+            />
+          ) : derivations.length > 0 ? (
+            derivations.map((item) => (
+              <DerivationCard
+                key={item.derivation.id}
+                item={item}
+                onDiscard={() =>
+                  void handleDiscard(item.derivation.id)
+                }
+                discardPending={pendingId === item.derivation.id}
+              />
+            ))
+          ) : (
+            <SabaNoteAsyncState
+              title="没有找到匹配的推导"
+              description="换一个关键词，或者清除当前的 Category 与 Tag 条件。"
+              action={
+                hasFilters ? (
+                  <button
+                    type="button"
+                    className="admin-button-secondary px-4 py-2 text-sm font-semibold"
+                    onClick={clearFilters}
+                  >
+                    清除筛选
+                  </button>
+                ) : null
+              }
+            />
+          )}
+        </section>
+      </main>
     </SabaNoteShell>
   );
 }

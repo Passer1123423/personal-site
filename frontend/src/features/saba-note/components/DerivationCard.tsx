@@ -31,47 +31,67 @@ export default function DerivationCard({
         compact ? "saba-note-derivation-card-compact" : "",
       ].join(" ")}
     >
-      <div className="saba-note-card-meta-row">
-        <DerivationMeta
-          status={derivation.status}
-          category={category}
-          node={node}
-          tags={tags}
-          compact={compact}
-        />
-        {!compact && (
-          <DerivationActionMenu
-            derivationId={derivation.id}
-            onDiscard={onDiscard}
-            pending={discardPending}
-          />
-        )}
-      </div>
+      <aside className="saba-note-card-structure">
+        <span>{category?.name ?? "未分类"}</span>
+        <strong>{node?.title ?? "未归档"}</strong>
+        <small>{node ? "知识节点" : "等待整理"}</small>
+      </aside>
 
-      <Link
-        to={`/saba-note/derivation/${derivation.id}`}
-        className="saba-note-card-title"
-      >
-        {getDerivationDisplayTitle(derivation.title)}
-      </Link>
+      <div className="saba-note-card-content">
+        <div className="saba-note-card-meta-row">
+          <div className="saba-note-card-metadata">
+            <time
+              dateTime={derivation.updatedAt}
+              className="saba-note-date-stamp"
+            >
+              <span aria-hidden="true">📅</span>
+              {DATE_FORMATTER.format(new Date(derivation.updatedAt))}
+            </time>
+            <DerivationMeta
+              status={derivation.status}
+              category={category}
+              node={node}
+              tags={tags}
+              compact={compact}
+              showCategory={false}
+              showNode={false}
+            />
+          </div>
+          {!compact && (
+            <DerivationActionMenu
+              derivationId={derivation.id}
+              onDiscard={onDiscard}
+              pending={discardPending}
+            />
+          )}
+        </div>
 
-      <p className="saba-note-card-summary">{excerpt}</p>
-
-      <div className="saba-note-card-footer">
-        <time
-          dateTime={derivation.updatedAt}
-          className="saba-note-date-stamp"
+        <Link
+          to={`/saba-note/derivation/${derivation.id}`}
+          className="saba-note-card-title"
         >
-          <span aria-hidden="true">📅</span>
-          {DATE_FORMATTER.format(new Date(derivation.updatedAt))}
-        </time>
+          {getDerivationDisplayTitle(derivation.title)}
+        </Link>
+
+        <p className="saba-note-card-summary">
+          {excerpt || "这条推导暂时没有正文。"}
+        </p>
+
         {!compact && (
-          <Link
-            to={`/saba-note/workspace?id=${encodeURIComponent(derivation.id)}`}
-            className="link-accent font-medium"
-          >
-            继续推导
-          </Link>
+          <div className="saba-note-card-links">
+            <Link
+              to={`/saba-note/derivation/${derivation.id}`}
+              className="font-semibold text-main"
+            >
+              阅读全文
+            </Link>
+            <Link
+              to={`/saba-note/workspace?id=${encodeURIComponent(derivation.id)}`}
+              className="link-accent font-medium"
+            >
+              继续推导
+            </Link>
+          </div>
         )}
       </div>
     </article>
