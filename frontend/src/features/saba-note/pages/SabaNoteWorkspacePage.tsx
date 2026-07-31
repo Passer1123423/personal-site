@@ -15,6 +15,7 @@ import { DERIVATION_STATUS_OPTIONS } from "../data/statuses";
 import useDerivationActions from "../hooks/useDerivationActions";
 import useDerivationEditor from "../hooks/useDerivationEditor";
 import useSabaNoteDraft from "../hooks/useSabaNoteDraft";
+import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 import useWorkspaceData from "../hooks/useWorkspaceData";
 import type {
   DerivationStatus,
@@ -102,9 +103,11 @@ function WorkspaceEditor({
     cachedDraft,
     saveStatus: draftSaveStatus,
     savedAt: draftSavedAt,
+    isDirty,
     update,
     clearCachedDraft,
     restoreCachedDraft,
+    markBackendSaved,
   } = useSabaNoteDraft(
     source?.derivation.id ?? "new",
     initialDraft,
@@ -121,21 +124,26 @@ function WorkspaceEditor({
     error: actionError,
   } = useDerivationActions();
 
+  useUnsavedChangesWarning(isDirty);
+
   const isSaving = backendSaveStatus === "saving";
   const statusTitle =
     backendSaveStatus === "saving"
       ? "正在写入 Saba-Note…"
-      : backendSaveStatus === "saved"
-        ? "已保存到知识引擎"
-        : backendSaveStatus === "error"
-          ? "后端保存失败"
-          : SAVE_STATUS_TEXT[draftSaveStatus];
+      : backendSaveStatus === "error"
+        ? "后端保存失败"
+        : isDirty
+          ? SAVE_STATUS_TEXT[draftSaveStatus]
+          : backendSaveStatus === "saved"
+            ? "已保存到知识引擎"
+            : SAVE_STATUS_TEXT[draftSaveStatus];
   const statusTime = backendSavedAt ?? draftSavedAt;
 
   async function handleSave() {
     try {
-      const id = await save({ ...draft, title: draft.title.trim() });
-      clearCachedDraft();
+      const savedDraft = { ...draft, title: draft.title.trim() };
+      const id = await save(savedDraft);
+      markBackendSaved(savedDraft);
       if (!source) {
         navigate(`/saba-note/workspace?id=${encodeURIComponent(id)}`, {
           replace: true,

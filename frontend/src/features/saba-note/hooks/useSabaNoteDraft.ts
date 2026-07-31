@@ -5,6 +5,16 @@ import type {
   SabaNoteDraft,
 } from "../types";
 
+function serializeBackendDraft(draft: SabaNoteDraft) {
+  return JSON.stringify({
+    title: draft.title.trim(),
+    contentMd: draft.contentMd,
+    status: draft.status,
+    nodeId: draft.nodeId,
+    tagIds: [...draft.tagIds].sort(),
+  });
+}
+
 function readCachedDraft(storageKey: string) {
   try {
     const raw = localStorage.getItem(storageKey);
@@ -27,6 +37,14 @@ export default function useSabaNoteDraft(
     useState<DraftSaveStatus>("saved");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const hasEditedRef = useRef(false);
+  const [backendDraft, setBackendDraft] = useState(() =>
+    serializeBackendDraft(initialDraft),
+  );
+
+  const isDirty = useMemo(
+    () => serializeBackendDraft(draft) !== backendDraft,
+    [backendDraft, draft],
+  );
 
   useEffect(() => {
     if (!hasEditedRef.current) {
@@ -57,24 +75,47 @@ export default function useSabaNoteDraft(
     key: K,
     value: SabaNoteDraft[K],
   ) {
-    hasEditedRef.current = true;
-    setDraft((current) => ({ ...current, [key]: value }));
-    setSaveStatus("dirty");
+    const nextDraft = { ...draft, [key]: value };
+    if (JSON.stringify(nextDraft) === JSON.stringify(draft)) {
+      return;
+    }
+
+    const nextIsDirty = serializeBackendDraft(nextDraft) !== backendDraft;
+
+    if (!nextIsDirty) {
+      localStorage.removeItem(storageKey);
+      hasEditedRef.current = false;
+      setCachedDraft(null);
+    } else {
+      hasEditedRef.current = true;
+    }
+
+    setDraft(nextDraft);
+    setSaveStatus(nextIsDirty ? "dirty" : "saved");
   }
 
   function clearCachedDraft() {
     localStorage.removeItem(storageKey);
     hasEditedRef.current = false;
     setCachedDraft(null);
-    setSaveStatus("saved");
+    setSaveStatus(isDirty ? "dirty" : "saved");
   }
 
   function restoreCachedDraft() {
     if (!cachedDraft) return;
-    hasEditedRef.current = true;
+    const nextIsDirty = serializeBackendDraft(cachedDraft) !== backendDraft;
+    hasEditedRef.current = nextIsDirty;
     setDraft(cachedDraft);
     setCachedDraft(null);
-    setSaveStatus("dirty");
+    setSaveStatus(nextIsDirty ? "dirty" : "saved");
+  }
+
+  function markBackendSaved(savedDraft: SabaNoteDraft) {
+    localStorage.removeItem(storageKey);
+    hasEditedRef.current = false;
+    setCachedDraft(null);
+    setBackendDraft(serializeBackendDraft(savedDraft));
+    setSaveStatus("saved");
   }
 
   return {
@@ -82,8 +123,10 @@ export default function useSabaNoteDraft(
     cachedDraft,
     saveStatus,
     savedAt,
+    isDirty,
     update,
     clearCachedDraft,
     restoreCachedDraft,
+    markBackendSaved,
   };
 }
