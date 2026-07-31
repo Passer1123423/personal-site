@@ -527,13 +527,14 @@ Workspace 已在 Tag 选择附近提供轻量“新建 Tag”：创建成功后�
 
 它不是管理员后台，而是作者的知识整理空间。
 
-建议使用 query 参数保存视图和当前对象，例如：
+当前使用 query 参数保存视图和当前对象，例如：
 
 ```text
 /saba-note/manage?view=nodes&node=<id>
 /saba-note/manage?view=categories&category=<id>
 /saba-note/manage?view=tags&tag=<id>
 /saba-note/manage?view=relations&relation=<id>
+/saba-note/manage?view=derivations&derivation=<id>
 ```
 
 Markdown 内部 Node 链接已经指向 `/saba-note/manage?node=<id>`，Manage 必须能够识别并打开对应 Node。
@@ -619,6 +620,22 @@ Manage 不能复制普通 Admin 页面。
 - 使用主站 Card、Button、SearchBox、SearchablePicker 和视觉 token；
 - 危险操作使用明确的领域确认 Dialog；
 - 不用统计卡片和数据表格占据首屏。
+
+#### Manage 当前实现基线
+
+`personal-site` 已经完成完整的单页知识工作台，不再是占位页面：
+
+- Node 是默认视图；
+- Node、Category、Tag、Relation 和 Derivation 使用同一组页内视图切换；
+- 桌面端使用左侧对象列表、右侧当前对象详情；两个区域独立滚动；
+- 移动端使用“列表 → 对象详情”的进入式交互，不固定压缩为双栏；
+- 搜索和筛选在前端基于已加载数据完成；
+- 创建、修改、关联、解除关联、移入回收站和删除均调用真实 HTTP API；
+- Derivation 视图只负责内容总览、归属与 Tag 整理，Markdown 编辑仍跳转 Workspace；
+- 所有危险操作使用领域确认 Dialog，明确展示删除项、保留项、解除的关联和可恢复性；
+- `/saba-note/manage?node=<id>` 可以直接打开 Markdown 内部链接指向的 Node。
+
+Manage 当前刻意没有加入分页控件、Dashboard、图谱画布、批量操作和 Category 拖拽。这些不是页面未完成的占位，而是由当前数据规模、产品定位和 API 能力共同决定的范围边界。
 
 ## 职责边界
 
@@ -735,7 +752,15 @@ personal-site 中已经完成：
 - 阅读页；
 - Workspace；
 - 回收站；
-- Manage 占位路由；
+- 完整 Manage 知识整理工作台；
+- Manage 的 Node、Category、Tag、Relation 和 Derivation 页内视图；
+- Manage 搜索、筛选、query 选中状态和响应式列表/详情布局；
+- Node 创建、标题与 summary 编辑、Category 绑定、Node-Tag、关联内容和删除；
+- Category 根/子级创建、重命名、安全删除和树删除；
+- Tag 创建、重命名、反向关联查看、安全删除和强制删除；
+- Relation 创建、relationType 与 note 修改和删除；
+- Derivation 内容总览、Node 与 Tag 调整、阅读/编辑入口和移入回收站；
+- 领域删除确认 Dialog；
 - schema 对齐的领域类型；
 - feature API contract；
 - HTTP API adapter；
@@ -766,16 +791,18 @@ mock adapter 仍可保留，但 HTTP 是默认数据源。页面已经不再直�
 - 恢复；
 - 永久删除。
 
+Manage 的实现直接复用 feature 内的 `httpSabaNoteApi`，没有 mock 专用字段，也没有为页面虚构聚合接口。当前列表加载会读取 Category、Node、Tag、Relation 和正常 Derivation，并补充每条 Derivation 的 Tag；Tag 详情和 Node backlinks 在选中对象后按需读取。
+
 ## 下一阶段目标
 
 建议顺序：
 
-1. 完善 Manage 页面信息架构和视觉设计；
-2. 接入 Category、Node、Tag、Node-Tag 与 Relation 的全部已有 API；
-3. 使用真实 `knowledge.db` 验证完整整理流程；
+1. 使用真实 `knowledge.db` 走查 Manage 的完整创建、整理和删除流程；
+2. 根据真实数据量观察 Manage 首次加载请求数和列表性能；
+3. 完善 Markdown 内部引用和 backlinks 阅读；
 4. 优化 Node 快速创建与归档体验；
-5. 完善 Markdown 内部引用和 backlinks 阅读；
-6. 根据真实使用情况决定后端聚合与搜索接口。
+5. 为 Manage 的表单草稿评估统一离开保护；
+6. 只有在真实使用证明必要后，再增加后端聚合、搜索或分页接口。
 
 开发原则：
 
@@ -798,38 +825,50 @@ mock adapter 仍可保留，但 HTTP 是默认数据源。页面已经不再直�
 - 真实 Derivation 读写；
 - status、Node、Tag 和删除生命周期；
 - 阅读页与主站小说阅读体验的视觉对齐；
-- Saba-Note 顶栏、自动收起 Navbar 和响应式基础。
+- Saba-Note 顶栏、自动收起 Navbar 和响应式基础；
+- 完整 Manage 知识整理工作台及真实领域 API 接入；
+- Manage 桌面双栏、移动端列表到详情和领域删除确认交互。
 
 ### 当前正在进行
 
-- 阅读页视觉和相关知识区域的最后合理性调整；
-- Manage 页面开发前的领域与信息架构审计；
-- 将本文档建立为两个仓库共享的长期设计锚点。
+- 使用真实个人数据持续校验 Manage 的信息密度与整理流程；
+- 阅读页、backlinks 与相关知识区域的合理性调整；
+- 将本文档维护为两个仓库共享的长期设计锚点。
 
 ### 下一步
 
-- 单独提交当前阅读页调整；
-- 实现 `/saba-note/manage` 的基础布局、query 状态和空状态；
-- 先完成 Node 与 Category 管理；
-- 再完成 Tag、Node-Tag 与 Relation 管理；
-- 对安全删除和强制删除进行真实数据库验证。
+- 对 Manage 安全删除、强制删除和回收站流转进行真实数据库走查；
+- 观察 Derivation 数量增加后的聚合读取成本；
+- 增强 ContentLink/backlinks 的阅读上下文；
+- 评估 Manage 局部编辑未保存时的离开保护；
+- 根据真实瓶颈决定是否新增后端接口。
 
 ## 未解决问题
 
 ### 未来可能需要扩展的 API
 
-- Category 修改 parent 的接口；
-- 管理页删除前的影响范围聚合接口；
-- Derivation 列表聚合 Node、Category 和 Tag，减少 N+1 请求；
-- Node 详情聚合 Derivation、Tag、Relation 和 backlinks 计数；
-- 批量 Tag 关联更新；
-- 服务端搜索和分页；
-- 丰富 backlinks 来源信息，例如来源 Derivation 标题；
-- 原子化 Derivation 聚合保存接口；
-- 并发版本控制或 ETag；
-- 正式数据库迁移与版本管理。
+#### 近期价值较明确
 
-这些接口应在真实 UI 和数据规模证明需要后再增加，不为抽象完整性提前扩展。
+- **Derivation 列表聚合 Node、Category 和 Tag。** 当前 Manage 为每条 Derivation 单独读取 Tag，数据增长后会形成明显的 N+1 请求。这是最先值得观测和优化的读取缺口。
+- **丰富 backlinks 来源信息。** 当前 Node 详情只能可靠展示引用数量；若 API 返回来源 Derivation 标题和必要上下文，backlinks 才能从计数升级为可用的回顾入口。
+- **删除前影响范围查询。** 当前 Dialog 使用已加载数据说明可见影响，并由后端在执行时保证约束。若知识树和关联规模增大，应增加只读 impact/preview endpoint，避免客户端统计遗漏深层 Category 或未加载关联。
+- **并发版本控制或 ETag。** Saba-Note 是长期知识资产，多个标签页或未来多设备编辑时需要防止后写覆盖先写。
+- **正式数据库迁移与版本管理。** 这是长期保存与部署可靠性的基础，优先级高于纯展示能力。
+
+#### 数据规模证明后再做
+
+- **服务端搜索和分页。** 当前个人知识规模下，客户端搜索与局部滚动更直接；当首屏加载时间、内存或请求量出现真实问题后再引入。
+- **Node 详情聚合接口。** 当前 Derivation、Tag、Relation 已经随工作台数据可用，backlinks 按需读取。只有请求延迟或一致性成为问题时，才值得增加专用聚合接口。
+- **批量 Tag 关联更新。** 现阶段胶囊式单次切换更符合渐进整理；批量 API 应由真实的批量整理场景驱动。
+- **原子化 Derivation 聚合保存接口。** Workspace 目前按真实独立 API 保存字段。只有部分成功导致的一致性问题被观察到后，才考虑聚合事务接口。
+
+#### 当前不建议为 UI 补齐
+
+- **Category 修改 parent。** 这会把分类体验推向文件系统和拖拽树；在确认用户确实需要重构分类树前，不应仅为了界面完整而增加。
+- **Relation 修改 source/target。** 关系端点选错时删除并重建更清楚，也更容易审计；当前只修改 `relationType` 和 `note` 是合理边界。
+- **人工维护 Derivation Relation。** Derivation 关系应主要由 Markdown 引用生成 ContentLink，不应新增一套 Manage CRUD API。
+
+以上判断遵循“真实瓶颈优先”。接口应在真实 UI、真实数据规模或数据安全要求证明必要后增加，不为抽象完整性提前扩展。
 
 ### 暂缓的 UI 设计
 
@@ -841,6 +880,8 @@ mock adapter 仍可保留，但 HTTP 是默认数据源。页面已经不再直�
 - 失效链接修复界面；
 - 图片上传；
 - 复杂批量管理；
+- Manage 内嵌 Markdown 编辑器；
+- 人工 Derivation Relation 管理；
 - 公开分享和导出。
 
 ### 长期规划
