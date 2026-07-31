@@ -513,7 +513,7 @@ Node、Category 和 Tag 都不能成为写作门槛：
 - Tag 可以为空；
 - title 当前后端允许为空，前端只在展示层使用“未命名推导”。
 
-Workspace 后续应在 Tag 附近增加“新建 Tag”，并评估提供轻量“新建 Node”；完整整理与删除仍属于 Manage。
+Workspace 已在 Tag 选择附近提供轻量“新建 Tag”：创建成功后直接关联当前 Derivation，现有 Tag 通过胶囊按钮快速关联或解除。该入口不提供重命名和删除，完整整理仍属于 Manage；后续可继续评估轻量“新建 Node”。
 
 ### Manage 页面
 
@@ -746,6 +746,7 @@ personal-site 中已经完成：
 - status 修改；
 - Node 绑定与解除；
 - Derivation-Tag 关联；
+- Workspace Tag 胶囊选择与快捷创建；
 - 弃置、恢复和永久删除；
 - backlinks 数量读取；
 - Markdown 内部链接基础展示；
@@ -772,10 +773,9 @@ mock adapter 仍可保留，但 HTTP 是默认数据源。页面已经不再直�
 1. 完善 Manage 页面信息架构和视觉设计；
 2. 接入 Category、Node、Tag、Node-Tag 与 Relation 的全部已有 API；
 3. 使用真实 `knowledge.db` 验证完整整理流程；
-4. 在 Workspace 增加快速创建 Tag；
-5. 优化 Node 快速创建与归档体验；
-6. 完善 Markdown 内部引用和 backlinks 阅读；
-7. 根据真实使用情况决定后端聚合与搜索接口。
+4. 优化 Node 快速创建与归档体验；
+5. 完善 Markdown 内部引用和 backlinks 阅读；
+6. 根据真实使用情况决定后端聚合与搜索接口。
 
 开发原则：
 

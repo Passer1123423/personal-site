@@ -108,21 +108,20 @@ export default function SabaNoteOverviewPage() {
           to="/saba-note/workspace"
           className="admin-button-primary px-3 py-2 text-sm font-semibold"
         >
-          写一条推导
+          写一条想法/推导
         </Link>
       }
     >
       <main className="saba-note-overview-page">
         <section className="saba-note-overview-hero">
-          <h1>我最近理解了什么</h1>
+          <h1>随便写点啥</h1>
           <p>
-            记录结论，也保留结论形成之前的犹豫、证据与修正。
+            积累你的私人知识库，可供未来展望与炫耀。
           </p>
         </section>
 
         <section className="saba-note-filter-bar" aria-label="知识内容筛选">
           <div className="saba-note-filter-control saba-note-search-control">
-            <span>Search</span>
             <SearchBox
               value={query}
               onChange={(value) => updateFilter("q", value)}
@@ -132,7 +131,6 @@ export default function SabaNoteOverviewPage() {
           </div>
 
           <div className="saba-note-filter-control">
-            <span>Category</span>
             <SearchablePicker
               value={categoryId}
               onChange={(value) => updateFilter("category", value)}
@@ -146,7 +144,6 @@ export default function SabaNoteOverviewPage() {
           </div>
 
           <div className="saba-note-filter-control">
-            <span>Tag</span>
             <SearchablePicker
               value={tagId}
               onChange={(value) => updateFilter("tag", value)}

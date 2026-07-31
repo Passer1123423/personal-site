@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 
 import SearchablePicker from "../../../components/SearchablePicker";
+import { httpSabaNoteApi } from "../api";
 import MarkdownWorkspace from "../components/MarkdownWorkspace";
 import SabaNoteAsyncState from "../components/SabaNoteAsyncState";
 import SabaNoteShell from "../components/SabaNoteShell";
@@ -74,6 +75,7 @@ function WorkspaceEditor({
   const navigate = useNavigate();
   const [mobilePanel, setMobilePanel] =
     useState<MobileWorkspacePanel>("edit");
+  const [workspaceTags, setWorkspaceTags] = useState(lookups.tags);
 
   const initialDraft = useMemo<SabaNoteDraft>(
     () =>
@@ -155,6 +157,12 @@ function WorkspaceEditor({
     }
   }
 
+  async function handleCreateTag(name: string) {
+    const created = await httpSabaNoteApi.graph.createTag(name);
+    setWorkspaceTags((current) => [...current, created]);
+    return created;
+  }
+
   const selectedNode =
     lookups.nodes.find((node) => node.id === draft.nodeId) ?? null;
   const selectedCategory = selectedNode
@@ -197,7 +205,7 @@ function WorkspaceEditor({
               {
                 value: "",
                 label: "未归档",
-                description: "可以先写，后续再绑定 Node",
+                description: "先随便写点想法，整理丢给未来",
               },
               ...lookups.nodes.map((node) => ({
                 value: node.id,
@@ -215,11 +223,11 @@ function WorkspaceEditor({
         </label>
 
         <div className="saba-note-field saba-note-field-tags">
-          <span>Tag</span>
           <TagPicker
-            tags={lookups.tags}
+            tags={workspaceTags}
             value={draft.tagIds}
             onChange={(value) => update("tagIds", value)}
+            onCreate={handleCreateTag}
           />
         </div>
       </div>
@@ -293,7 +301,7 @@ function WorkspaceEditor({
                   className="saba-note-title-input"
                   value={draft.title}
                   onChange={(event) => update("title", event.target.value)}
-                  placeholder="这次理解了什么？"
+                  placeholder="标题不写默认是未命名推导"
                 />
 
                 <div className="saba-note-writing-actions">
