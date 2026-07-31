@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { clearAccessToken, getMe, login, saveAccessToken } from "../api/auth";
+
+function getSafeRedirectPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return null;
+  }
+  return value;
+}
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextPath = getSafeRedirectPath(searchParams.get("next"));
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -15,14 +24,14 @@ export default function AdminLoginPage() {
     async function redirectIfAlreadyLoggedIn() {
       try {
         const user = await getMe();
-        navigate(`/users/${user.username}`, { replace: true });
+        navigate(nextPath ?? `/users/${user.username}`, { replace: true });
       } catch {
         clearAccessToken();
       }
     }
 
     redirectIfAlreadyLoggedIn();
-  }, [navigate]);
+  }, [navigate, nextPath]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,7 +42,7 @@ export default function AdminLoginPage() {
     try {
       const result = await login(username.trim(), password);
       saveAccessToken(result.accessToken);
-      navigate(`/users/${result.user.username}`);
+      navigate(nextPath ?? `/users/${result.user.username}`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "登录失败");
     } finally {
