@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import SabaNoteBulletin from "./SabaNoteBulletin";
+
 type SabaNoteShellProps = {
   children: ReactNode;
   eyebrow?: string;
@@ -28,14 +30,17 @@ export default function SabaNoteShell({
               wide ? "saba-note-container-wide" : "",
             ].join(" ")}
           >
-            <Link to="/saba-note" className="min-w-0">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.22em] text-soft">
-                {eyebrow}
-              </span>
-              <span className="mt-1 block truncate text-lg font-bold text-main">
-                Saba-Note
-              </span>
-            </Link>
+            <div className="saba-note-module-brand">
+              <Link to="/saba-note" className="min-w-0">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.22em] text-soft">
+                  {eyebrow}
+                </span>
+                <span className="mt-1 block truncate text-lg font-bold text-main">
+                  Saba-Note
+                </span>
+              </Link>
+              <SabaNoteBulletin />
+            </div>
 
             {actions && (
               <div className="flex shrink-0 items-center gap-2">{actions}</div>
