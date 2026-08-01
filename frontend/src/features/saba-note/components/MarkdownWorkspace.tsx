@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 
 import type { DerivationView, MobileWorkspacePanel } from "../types";
 import DerivationReferencePicker from "./DerivationReferencePicker";
+import MarkdownExampleGuide from "./MarkdownExampleGuide";
 import SabaMarkdownContent from "./SabaMarkdownContent";
 
 type MarkdownWorkspaceProps = {
@@ -24,6 +25,7 @@ export default function MarkdownWorkspace({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selectionRef = useRef({ start: value.length, end: value.length });
   const [referencePickerOpen, setReferencePickerOpen] = useState(false);
+  const [exampleMode, setExampleMode] = useState(false);
 
   const rememberSelection = useCallback(() => {
     const textarea = textareaRef.current;
@@ -106,18 +108,32 @@ export default function MarkdownWorkspace({
 
       <div className="saba-note-preview-pane">
         <div className="saba-note-pane-heading">
-          <span>实时预览</span>
-          <span className="saba-note-pane-kicker">预览</span>
+          <span>{exampleMode ? "示例教学" : "实时预览"}</span>
+          <div className="saba-note-preview-toolbar-actions">
+            <span className="saba-note-pane-kicker">预览</span>
+            <button
+              type="button"
+              className="saba-note-example-toggle"
+              aria-pressed={exampleMode}
+              onClick={() => setExampleMode((current) => !current)}
+            >
+              {exampleMode ? "返回预览" : "示例"}
+            </button>
+          </div>
         </div>
 
         <div className="saba-note-preview-scroll">
-          <SabaMarkdownContent
-            readingStyle="novel"
-            className="novel-reader-markdown"
-            derivations={referenceCandidates}
-          >
-            {value}
-          </SabaMarkdownContent>
+          {exampleMode ? (
+            <MarkdownExampleGuide />
+          ) : (
+            <SabaMarkdownContent
+              readingStyle="novel"
+              className="novel-reader-markdown"
+              derivations={referenceCandidates}
+            >
+              {value}
+            </SabaMarkdownContent>
+          )}
         </div>
       </div>
     </section>

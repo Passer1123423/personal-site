@@ -2011,7 +2011,8 @@
   border-bottom: 1px solid var(--color-border-soft);
   padding: 0.42rem 0.65rem;
   color: var(--color-text-soft);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
   font-size: 0.7rem;
 }
 
@@ -2046,6 +2047,21 @@
   border-radius: 0;
   background: transparent;
   padding: 1rem 1.1rem;
+  color: #24292f;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 0.85em;
+  line-height: 1.45;
+  tab-size: 4;
+}
+
+.saba-note-code-block code,
+.saba-note-code-block .hljs {
+  color: #24292f;
+  font-family: inherit;
+  font-size: inherit;
+  font-variant-ligatures: none;
+  line-height: inherit;
 }
 
 .saba-note-code-block .hljs-comment,
@@ -2571,6 +2587,38 @@
   gap: 0.45rem;
 }
 
+.saba-note-preview-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.saba-note-example-toggle {
+  min-height: 1.75rem;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-control-sm);
+  background: var(--color-panel-bg);
+  padding: 0.3rem 0.55rem;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  transition: 150ms ease;
+}
+
+.saba-note-example-toggle:hover,
+.saba-note-example-toggle[aria-pressed="true"] {
+  border-color: var(--color-accent-border-strong);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.saba-note-example-toggle:focus-visible {
+  outline: 2px solid var(--color-accent-border-strong);
+  outline-offset: 2px;
+}
+
 .saba-note-reference-trigger {
   display: inline-flex;
   width: 1.75rem;
@@ -2965,6 +3013,117 @@
   flex: 1;
   overflow-y: auto;
   padding: 0;
+}
+
+.saba-note-example-guide {
+  padding: 1.5rem clamp(1rem, 2vw, 1.75rem) 3rem;
+}
+
+.saba-note-example-intro {
+  border-bottom: 1px solid var(--color-border-soft);
+  padding-bottom: 1.25rem;
+}
+
+.saba-note-example-intro > p,
+.saba-note-example-section-heading > p {
+  color: var(--color-accent);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.saba-note-example-intro h2 {
+  margin-top: 0.35rem;
+  color: var(--color-text-strong);
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+.saba-note-example-intro > span,
+.saba-note-example-section-heading > span {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--color-text-soft);
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+.saba-note-example-section {
+  margin-top: 2rem;
+}
+
+.saba-note-example-section-heading h3 {
+  margin-top: 0.25rem;
+  color: var(--color-text-main);
+  font-size: 1.1rem;
+  font-weight: 720;
+}
+
+.saba-note-example-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.saba-note-example-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-control);
+  background: var(--color-panel-bg);
+}
+
+.saba-note-example-card > header {
+  padding: 0.9rem 1rem 0.8rem;
+}
+
+.saba-note-example-card > header h4 {
+  color: var(--color-text-main);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.saba-note-example-card > header p {
+  margin-top: 0.25rem;
+  color: var(--color-text-soft);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.saba-note-example-source,
+.saba-note-example-result {
+  border-top: 1px solid var(--color-border-soft);
+  padding: 0.8rem 1rem 1rem;
+}
+
+.saba-note-example-source > span,
+.saba-note-example-result > span {
+  color: var(--color-text-soft);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.saba-note-example-source .saba-note-code-block {
+  margin: 0.55rem 0 0;
+}
+
+.saba-note-example-result {
+  background: var(--color-panel-soft-bg);
+}
+
+.saba-note-example-result > .novel-markdown {
+  margin-top: 0.65rem;
+  font-size: 0.92rem;
+}
+
+.saba-note-example-result > .novel-markdown > :first-child {
+  margin-top: 0;
+}
+
+.saba-note-example-result > .novel-markdown > :last-child {
+  margin-bottom: 0;
 }
 
 .saba-note-editor-pane > .saba-note-pane-heading,
