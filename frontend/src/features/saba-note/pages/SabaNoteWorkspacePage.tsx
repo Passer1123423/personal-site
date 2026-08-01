@@ -189,200 +189,207 @@ function WorkspaceEditor({
 
   const informationPanel = (
     <aside className="saba-note-workspace-information">
-      <div className="saba-note-pane-heading">
-        <span>内容属性</span>
-        {selectedCategory && (
-          <span className="saba-note-pane-kicker">
-            {selectedCategory.name}
-          </span>
-        )}
+      <div className="saba-note-workspace-sidebar-header">
+        <Link to="/saba-note" className="saba-note-workspace-back">
+          返回内容流
+        </Link>
       </div>
 
-      <div className="saba-note-workspace-fields">
-        <label className="saba-note-field">
-          <span>状态</span>
-          <SearchablePicker
-            value={draft.status}
-            onChange={(value) =>
-              update("status", value as DerivationStatus)
-            }
-            options={DERIVATION_STATUS_OPTIONS}
-            placeholder="选择推导状态"
-            searchPlaceholder="搜索状态"
-          />
-        </label>
+      <div className="saba-note-workspace-properties">
+        {cachedDraft && (
+          <div className="saba-note-draft-recovery" role="status">
+            <span>检测到本地恢复草稿。</span>
+            <div>
+              <button type="button" onClick={restoreCachedDraft}>
+                恢复
+              </button>
+              <button type="button" onClick={clearCachedDraft}>
+                忽略
+              </button>
+            </div>
+          </div>
+        )}
 
-        <label className="saba-note-field">
-          <span>归档</span>
-          <SearchablePicker
-            value={draft.nodeId ?? ""}
-            onChange={(value) => update("nodeId", value || null)}
-            options={[
-              {
-                value: "",
-                label: "未归档",
-                description: "先随便写点想法，整理丢给未来",
-              },
-              ...lookups.nodes.map((node) => ({
-                value: node.id,
-                label: node.title,
-                description:
-                  lookups.categories.find(
-                    (category) => category.id === node.categoryId,
-                  )?.name ?? "",
-              })),
-            ]}
-            placeholder="未归档"
-            searchPlaceholder="搜索 Node"
-            emptyText="没有匹配的 Node；当前推导仍可保持未归档"
-          />
-        </label>
+        <div className="saba-note-pane-heading">
+          <span>内容属性</span>
+          {selectedCategory && (
+            <span className="saba-note-pane-kicker">
+              {selectedCategory.name}
+            </span>
+          )}
+        </div>
 
-        <div className="saba-note-field saba-note-field-tags">
-          <TagPicker
-            tags={workspaceTags}
-            value={draft.tagIds}
-            onChange={(value) => update("tagIds", value)}
-            onCreate={handleCreateTag}
-          />
+        <div className="saba-note-workspace-fields">
+          <label className="saba-note-field">
+            <span>状态</span>
+            <SearchablePicker
+              value={draft.status}
+              onChange={(value) =>
+                update("status", value as DerivationStatus)
+              }
+              options={DERIVATION_STATUS_OPTIONS}
+              placeholder="选择推导状态"
+              searchPlaceholder="搜索状态"
+            />
+          </label>
+
+          <label className="saba-note-field">
+            <span>归档</span>
+            <SearchablePicker
+              value={draft.nodeId ?? ""}
+              onChange={(value) => update("nodeId", value || null)}
+              options={[
+                {
+                  value: "",
+                  label: "未归档",
+                  description: "先随便写点想法，整理丢给未来",
+                },
+                ...lookups.nodes.map((node) => ({
+                  value: node.id,
+                  label: node.title,
+                  description:
+                    lookups.categories.find(
+                      (category) => category.id === node.categoryId,
+                    )?.name ?? "",
+                })),
+              ]}
+              placeholder="未归档"
+              searchPlaceholder="搜索 Node"
+              emptyText="没有匹配的 Node；当前推导仍可保持未归档"
+            />
+          </label>
+
+          <div className="saba-note-field saba-note-field-tags">
+            <TagPicker
+              tags={workspaceTags}
+              value={draft.tagIds}
+              onChange={(value) => update("tagIds", value)}
+              onCreate={handleCreateTag}
+            />
+          </div>
         </div>
       </div>
     </aside>
   );
 
-  return (
-    <SabaNoteShell
-      wide
-      hideHeader
+  const editorHeader = (
+    <div className="saba-note-workspace-editor-heading">
+      <input
+        className="saba-note-title-input"
+        value={draft.title}
+        onChange={(event) => update("title", event.target.value)}
+        placeholder="标题不写默认是未命名推导"
+      />
+      <p>{selectedNode?.title ?? "未归档"} / Markdown</p>
+    </div>
+  );
+
+  const previewStatus = (
+    <div
+      className={`saba-note-save-state saba-note-save-state-${draftSaveStatus}`}
+      aria-live="polite"
     >
-      <div className="saba-note-mobile-tabs" aria-label="工作台区域">
-        {(
-          [
-            ["edit", "编辑"],
-            ["preview", "预览"],
-            ["info", "信息"],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            className={mobilePanel === value ? "active" : ""}
-            onClick={() => setMobilePanel(value)}
-          >
-            {label}
-          </button>
-        ))}
+      <span />
+      <div>
+        <strong>{statusTitle}</strong>
+        <small>
+          {statusTime
+            ? `最近记录 ${statusTime.toLocaleTimeString("zh-CN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}`
+            : "尚未写入后端"}
+        </small>
       </div>
+    </div>
+  );
 
-      <section className="surface-card saba-note-workspace-canvas">
-        <div className="saba-note-workspace-body">
-          <div
-            className={
-              mobilePanel === "info"
-                ? "saba-note-information-wrap mobile-active"
-                : "saba-note-information-wrap"
-            }
-          >
-            {informationPanel}
-          </div>
+  const previewFooter = (
+    <footer className="saba-note-workspace-footer">
+      {(saveError || actionError) && (
+        <p className="saba-note-workspace-error" role="alert">
+          {saveError ?? actionError}
+        </p>
+      )}
 
-          <div
-            className={[
-              "saba-note-writing-area",
-              mobilePanel === "info" ? "saba-note-writing-area-hidden" : "",
-            ].join(" ")}
-          >
-            <header className="saba-note-writing-header">
-              {cachedDraft && (
-                <div className="saba-note-draft-recovery" role="status">
-                  <span>检测到当前内容的本地恢复草稿。</span>
-                  <div>
-                    <button
-                      type="button"
-                      onClick={restoreCachedDraft}
-                    >
-                      恢复草稿
-                    </button>
-                    <button
-                      type="button"
-                      onClick={clearCachedDraft}
-                    >
-                      忽略
-                    </button>
-                  </div>
-                </div>
-              )}
-              <div className="saba-note-writing-title-row">
-                <input
-                  className="saba-note-title-input"
-                  value={draft.title}
-                  onChange={(event) => update("title", event.target.value)}
-                  placeholder="标题不写默认是未命名推导"
-                />
+      <div className="saba-note-workspace-footer-actions">
+        <button
+          type="button"
+          className="admin-button-danger px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55"
+          disabled={!source || actionPendingId !== null}
+          title={source ? "移入回收站" : "请先保存 Derivation"}
+          onClick={() => void handleDiscard()}
+        >
+          {actionPendingId ? "弃置中…" : "弃置"}
+        </button>
 
-                <div className="saba-note-writing-actions">
-                  <div
-                    className={`saba-note-save-state saba-note-save-state-${draftSaveStatus}`}
-                    aria-live="polite"
-                  >
-                    <span />
-                    <div>
-                      <strong>{statusTitle}</strong>
-                      <small>
-                        {statusTime
-                          ? `最近记录 ${statusTime.toLocaleTimeString("zh-CN", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              second: "2-digit",
-                            })}`
-                          : "尚未写入后端"}
-                      </small>
-                    </div>
-                  </div>
+        <button
+          type="button"
+          className="admin-button-primary px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55"
+          disabled={isSaving}
+          onClick={() => void handleSave()}
+        >
+          {isSaving ? "保存中…" : "保存"}
+        </button>
+      </div>
+    </footer>
+  );
 
-                  <button
-                    type="button"
-                    className="saba-note-workspace-command"
-                    disabled={isSaving}
-                    onClick={() => void handleSave()}
-                  >
-                    {isSaving ? "保存中…" : "保存"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="saba-note-workspace-command saba-note-workspace-command-danger"
-                    disabled={!source || actionPendingId !== null}
-                    title={source ? "移入回收站" : "请先保存 Derivation"}
-                    onClick={() => void handleDiscard()}
-                  >
-                    {actionPendingId ? "弃置中…" : "弃置"}
-                  </button>
-
-                  <Link
-                    to={"/saba-note"}
-                    className="saba-note-workspace-back"
-                  >
-                    返回内容流
-                  </Link>
-                </div>
-              </div>
-              {(saveError || actionError) && (
-                <p className="saba-note-workspace-error" role="alert">
-                  {saveError ?? actionError}
-                </p>
-              )}
-            </header>
-
-            <MarkdownWorkspace
-              value={draft.contentMd}
-              onChange={(value) => update("contentMd", value)}
-              mobilePanel={mobilePanel}
-              referenceCandidates={referenceCandidates}
-            />
-          </div>
+  return (
+    <SabaNoteShell hideHeader uncontained>
+      <main className="saba-note-workspace-page">
+        <div className="saba-note-mobile-tabs" aria-label="工作台区域">
+          {(
+            [
+              ["edit", "编辑"],
+              ["preview", "预览"],
+              ["info", "信息"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={mobilePanel === value ? "active" : ""}
+              onClick={() => setMobilePanel(value)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-      </section>
+
+        <section className="saba-note-workspace-canvas">
+          <div className="saba-note-workspace-body">
+            <div
+              className={
+                mobilePanel === "info"
+                  ? "saba-note-information-wrap mobile-active"
+                  : "saba-note-information-wrap"
+              }
+            >
+              {informationPanel}
+            </div>
+
+            <div
+              className={
+                mobilePanel === "info"
+                  ? "saba-note-writing-area saba-note-writing-area-hidden"
+                  : "saba-note-writing-area"
+              }
+            >
+              <MarkdownWorkspace
+                value={draft.contentMd}
+                onChange={(value) => update("contentMd", value)}
+                mobilePanel={mobilePanel}
+                referenceCandidates={referenceCandidates}
+                editorHeader={editorHeader}
+                previewStatus={previewStatus}
+                previewFooter={previewFooter}
+              />
+            </div>
+          </div>
+        </section>
+      </main>
     </SabaNoteShell>
   );
 }
