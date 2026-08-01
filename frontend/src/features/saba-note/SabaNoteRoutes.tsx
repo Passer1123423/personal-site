@@ -1,5 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 
+import "katex/dist/katex.min.css";
+
 import SabaNoteAuthGate from "./components/SabaNoteAuthGate";
 import SabaNoteDerivationPage from "./pages/SabaNoteDerivationPage";
 import SabaNoteManagePage from "./pages/SabaNoteManagePage";

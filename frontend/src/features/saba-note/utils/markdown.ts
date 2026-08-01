@@ -15,7 +15,7 @@ type MarkdownAstNode = {
   url?: string;
   children?: MarkdownAstNode[];
   data?: {
-    hProperties?: Record<string, string>;
+    hProperties?: Record<string, unknown>;
   };
 };
 
@@ -23,16 +23,30 @@ const SABA_INTERNAL_LINK_PATTERN =
   /\[\[(node|derivation):([0-9a-fA-F-]+)(?:\|([^\]]+))?\]\]/g;
 
 export function getMarkdownHeadingId(text: string) {
-  return text
+  return (
+    text
     .trim()
     .toLowerCase()
     .replace(/[`*_~[\]()]/g, "")
     .replace(/[^\p{L}\p{N}\u4e00-\u9fff]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+|-+$/g, "") || "section"
+  );
+}
+
+export function createMarkdownHeadingIdFactory() {
+  const occurrences = new Map<string, number>();
+
+  return (text: string) => {
+    const baseId = getMarkdownHeadingId(text);
+    const occurrence = (occurrences.get(baseId) ?? 0) + 1;
+    occurrences.set(baseId, occurrence);
+    return occurrence === 1 ? baseId : `${baseId}-${occurrence}`;
+  };
 }
 
 export function extractMarkdownHeadings(markdown: string): MarkdownHeading[] {
   const headings: MarkdownHeading[] = [];
+  const makeHeadingId = createMarkdownHeadingIdFactory();
   let insideCodeBlock = false;
 
   for (const line of markdown.split(/\r?\n/)) {
@@ -62,7 +76,7 @@ export function extractMarkdownHeadings(markdown: string): MarkdownHeading[] {
     headings.push({
       level: match[1].length as 2 | 3,
       text,
-      id: getMarkdownHeadingId(text),
+      id: makeHeadingId(text),
     });
   }
 
@@ -165,5 +179,48 @@ function transformInternalLinkText(parent: MarkdownAstNode) {
 export function remarkSabaInternalLinks() {
   return (tree: MarkdownAstNode) => {
     transformInternalLinkText(tree);
+  };
+}
+
+const CALLOUT_TYPES = new Set([
+  "note",
+  "tip",
+  "important",
+  "warning",
+  "caution",
+]);
+
+export function remarkSabaCallouts() {
+  return (tree: MarkdownAstNode) => {
+    function visit(node: MarkdownAstNode) {
+      if (node.type === "blockquote") {
+        const paragraph = node.children?.[0];
+        const marker = paragraph?.children?.[0];
+        const match = marker?.value?.match(
+          /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:\r?\n)?/i,
+        );
+
+        if (match) {
+          const type = match[1].toLowerCase();
+          if (CALLOUT_TYPES.has(type)) {
+            node.data = {
+              ...node.data,
+              hProperties: {
+                ...node.data?.hProperties,
+                className: ["saba-note-callout", `saba-note-callout-${type}`],
+                "data-callout": type,
+              },
+            };
+            marker!.value = marker!.value!.slice(match[0].length);
+            if (!marker!.value) paragraph!.children!.shift();
+            if (paragraph!.children?.length === 0) node.children!.shift();
+          }
+        }
+      }
+
+      node.children?.forEach(visit);
+    }
+
+    visit(tree);
   };
 }

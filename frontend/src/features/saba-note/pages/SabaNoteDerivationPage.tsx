@@ -166,14 +166,17 @@ export default function SabaNoteDerivationPage() {
                   目录
                 </p>
 
-                <div className="novel-reader-toc-list mt-4 space-y-2">
+                <nav
+                  className="novel-reader-toc-list mt-4 space-y-2"
+                  aria-label="本文目录"
+                >
                   {headings.length > 0 ? (
                     headings.map((heading) => (
                       <a
-                        key={`${heading.id}-${heading.level}`}
+                        key={heading.id}
                         href={`#${heading.id}`}
                         className={[
-                          "novel-toc-link",
+                          "saba-note-toc-link",
                           heading.level === 3
                             ? "saba-note-reader-heading-child"
                             : "",
@@ -185,7 +188,7 @@ export default function SabaNoteDerivationPage() {
                   ) : (
                     <p>正文暂时没有小节标题。</p>
                   )}
-                </div>
+                </nav>
 
                 <div className="novel-reader-toc-footer">
                   <p className="text-xs text-soft">归档于</p>

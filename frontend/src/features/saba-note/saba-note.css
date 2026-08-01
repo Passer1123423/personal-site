@@ -1941,6 +1941,248 @@
   opacity: 1;
 }
 
+.saba-note-markdown-table-scroll {
+  max-width: 100%;
+  margin-block: 1.25rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.saba-note-markdown-table-scroll:focus-visible {
+  outline: 2px solid var(--color-accent-border-strong);
+  outline-offset: 2px;
+}
+
+.novel-markdown .saba-note-markdown-table-scroll table,
+.saba-markdown .saba-note-markdown-table-scroll table {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+}
+
+.novel-markdown .saba-note-markdown-table-scroll th,
+.novel-markdown .saba-note-markdown-table-scroll td,
+.saba-markdown .saba-note-markdown-table-scroll th,
+.saba-markdown .saba-note-markdown-table-scroll td {
+  min-width: 7rem;
+  white-space: normal;
+}
+
+.saba-note-shell :is(.katex-display, .katex-display > .katex) {
+  max-width: 100%;
+}
+
+.saba-note-shell .katex-display {
+  margin-block: 1.35rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.35rem;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.saba-note-shell .katex-display > .katex {
+  width: max-content;
+  min-width: 100%;
+  text-align: center;
+}
+
+.saba-note-shell .katex-error {
+  color: var(--color-danger);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.saba-note-code-block {
+  position: relative;
+  margin-block: 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 0.55rem;
+  background: #f6f8fa;
+}
+
+.saba-note-code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 0.42rem 0.65rem;
+  color: var(--color-text-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+}
+
+.saba-note-code-toolbar span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+.saba-note-code-toolbar button {
+  flex: 0 0 auto;
+  border-radius: 0.25rem;
+  padding: 0.22rem 0.42rem;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+}
+
+.saba-note-code-toolbar button:hover {
+  background: var(--color-panel-bg);
+  color: var(--color-accent);
+}
+
+.saba-note-code-toolbar button:focus-visible {
+  outline: 2px solid var(--color-accent-border-strong);
+  outline-offset: 1px;
+}
+
+.novel-markdown .saba-note-code-block pre,
+.saba-markdown .saba-note-code-block pre {
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 1rem 1.1rem;
+}
+
+.saba-note-code-block .hljs-comment,
+.saba-note-code-block .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.saba-note-code-block .hljs-keyword,
+.saba-note-code-block .hljs-selector-tag,
+.saba-note-code-block .hljs-type {
+  color: #d73a49;
+}
+
+.saba-note-code-block .hljs-string,
+.saba-note-code-block .hljs-attr,
+.saba-note-code-block .hljs-template-variable {
+  color: #032f62;
+}
+
+.saba-note-code-block .hljs-number,
+.saba-note-code-block .hljs-literal,
+.saba-note-code-block .hljs-variable {
+  color: #005cc5;
+}
+
+.saba-note-code-block .hljs-title,
+.saba-note-code-block .hljs-section,
+.saba-note-code-block .hljs-function .hljs-title {
+  color: #6f42c1;
+}
+
+.saba-note-code-block .hljs-built_in,
+.saba-note-code-block .hljs-builtin-name,
+.saba-note-code-block .hljs-meta {
+  color: #e36209;
+}
+
+.saba-note-code-block .hljs-addition {
+  background: #e6ffed;
+  color: #22863a;
+}
+
+.saba-note-code-block .hljs-deletion {
+  background: #ffeef0;
+  color: #b31d28;
+}
+
+.saba-note-shell :is(.novel-markdown, .saba-markdown) :is(h2, h3) {
+  scroll-margin-top: 1rem;
+}
+
+.saba-note-shell .saba-note-callout {
+  margin-block: 1.5rem;
+  border: 1px solid var(--color-border-soft);
+  border-left: 3px solid var(--color-accent-border-strong);
+  border-radius: 0.4rem;
+  background: var(--color-panel-soft-bg);
+  padding: 0.9rem 1rem;
+}
+
+.saba-note-callout-title {
+  margin: 0 0 0.35rem;
+  color: var(--color-accent);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.saba-note-callout-content > :last-child {
+  margin-bottom: 0;
+}
+
+.saba-note-callout-tip {
+  border-left-color: #2f855a;
+}
+
+.saba-note-callout-tip .saba-note-callout-title {
+  color: #28704c;
+}
+
+.saba-note-callout-important {
+  border-left-color: #805ad5;
+}
+
+.saba-note-callout-important .saba-note-callout-title {
+  color: #6b46c1;
+}
+
+.saba-note-callout-warning,
+.saba-note-callout-caution {
+  border-left-color: #c05621;
+  background: #fffaf0;
+}
+
+.saba-note-callout-warning .saba-note-callout-title,
+.saba-note-callout-caution .saba-note-callout-title {
+  color: #9c4221;
+}
+
+.saba-note-shell :is(.novel-markdown, .saba-markdown) [data-footnote-ref] {
+  font-family: var(--font-sans);
+  font-size: 0.72em;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.saba-note-shell :is(.novel-markdown, .saba-markdown) [data-footnotes] {
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--color-border-soft);
+  padding-top: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+}
+
+.saba-note-shell :is(.novel-markdown, .saba-markdown) [data-footnotes] h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.saba-note-shell :is(.novel-markdown, .saba-markdown) [data-footnotes] ol {
+  margin: 0;
+  padding-left: 1.35rem;
+}
+
+.saba-note-shell :is(.novel-markdown, .saba-markdown) [data-footnote-backref] {
+  margin-left: 0.3rem;
+  font-family: var(--font-sans);
+  text-decoration: none;
+}
+
 .saba-note-related-section {
   border-top: 1px solid var(--color-border-soft);
   padding: 2.5rem 0 5rem;
