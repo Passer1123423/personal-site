@@ -29,12 +29,12 @@ function HomePage() {
       <section className="border-y border-slate-200 bg-white">
         <div className="mx-auto grid max-w-6xl gap-4 px-4 py-12 sm:gap-6 sm:px-6 sm:py-16 md:grid-cols-2">
           <Link
-            to="/works"
+            to="/saba-note"
             className="surface-card surface-card-link p-5 sm:p-8"
           >
-            <h2 className="text-xl font-bold text-main sm:text-2xl">小说存档</h2>
+            <h2 className="text-xl font-bold text-main sm:text-2xl">笔记功能</h2>
             <p className="mt-4 leading-7 text-muted">
-              上传章节、整理目录、展示更新记录，并支持后续下载。
+              尝试一下Saba-note！随时记录您宝贵的思想，记录美好的今天。
             </p>
           </Link>
 

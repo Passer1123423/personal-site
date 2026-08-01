@@ -327,11 +327,11 @@ export default function SabaNoteManagePage() {
           <div>
             <p>PERSONAL KNOWLEDGE WORKSPACE</p>
             <h1>整理你的知识空间</h1>
-            <span>从真实推导中逐步形成概念、分类、标签和关系。</span>
+            <span>已经写下了内容？可以考虑将它们归类到节点和目录中，形成更好的结构。</span>
           </div>
           <div className="saba-note-manage-hero-actions">
             <Link to="/saba-note/trash" className="admin-button-secondary">回收站</Link>
-            <Link to="/saba-note" className="admin-button-secondary">内容流</Link>
+            <Link to="/saba-note" className="admin-button-secondary">总览页</Link>
             {view === "derivations" ? (
               <Link to="/saba-note/workspace" className="admin-button-primary">写一条推导</Link>
             ) : (

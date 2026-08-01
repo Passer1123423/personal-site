@@ -210,7 +210,7 @@ export default function SabaNoteOverviewPage() {
           ) : (
             <SabaNoteAsyncState
               title="没有找到匹配的推导"
-              description="换一个关键词，或者清除当前的 Category 与 Tag 条件。"
+              description="随时写下您的想法：种一棵大树最好的时间是十年前，其次是今天。"
               action={
                 hasFilters ? (
                   <button

@@ -23,7 +23,7 @@ function nodeText(children: ReactNode): string {
 
 export default function SabaMarkdownContent({
   children,
-  emptyText = "这里还没有正文。",
+  emptyText = "放心书写吧。您的思路值得被认真记录和对待",
   className = "",
   readingStyle = "saba",
   derivations = [],
