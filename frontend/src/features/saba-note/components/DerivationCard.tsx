@@ -34,7 +34,7 @@ export default function DerivationCard({
       <aside className="saba-note-card-structure">
         <span>{category?.name ?? "未分类"}</span>
         <strong>{node?.title ?? "未归档"}</strong>
-        <small>{node ? "知识节点" : "等待整理"}</small>
+        <small>{node ? "节点" : "等待整理"}</small>
       </aside>
 
       <div className="saba-note-card-content">

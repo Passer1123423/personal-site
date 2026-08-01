@@ -548,7 +548,7 @@ export function DerivationManagePanel({ item, data, onChanged, onDeleted }: Pane
       <PanelSection title="Node 归属" description="未归档推导是合法状态，可以稍后再整理。">
         <SearchablePicker value={derivation.nodeId ?? ""} onChange={(value) => void run("node", () => httpSabaNoteApi.derivations.updateNode(derivation.id, value || null), "推导归属已更新")} options={data.nodes.map((node) => ({ value: node.id, label: node.title, description: data.categories.find((category) => category.id === node.categoryId)?.name }))} placeholder="未归档" searchPlaceholder="搜索 Node" disabled={pending !== null} />
       </PanelSection>
-      <PanelSection title="Tag" description="在这里整理横向属性；Tag 删除仍只属于 Tag 管理。">
+      <PanelSection title="Tag">
         <div className="saba-note-manage-tag-cloud">{data.tags.map((tag) => { const selected = selectedTagIds.has(tag.id); return <button key={tag.id} type="button" className={selected ? "saba-note-tag-option saba-note-tag-option-selected" : "saba-note-tag-option"} disabled={pending !== null} aria-pressed={selected} onClick={() => void toggleTag(tag)}>{selected ? "✓ " : ""}#{tag.name}</button>; })}{data.tags.length === 0 && <p className="saba-note-manage-empty-copy">还没有 Tag。</p>}</div>
       </PanelSection>
       <PanelSection title="内容信息"><dl className="saba-note-manage-facts"><div><dt>Category</dt><dd>{item.category?.name ?? "未分类"}</dd></div><div><dt>Node</dt><dd>{item.node?.title ?? "未归档"}</dd></div><div><dt>更新时间</dt><dd>{DATE_FORMATTER.format(new Date(derivation.updatedAt))}</dd></div></dl></PanelSection>

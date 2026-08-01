@@ -1008,6 +1008,20 @@
 
 .saba-note-overview-hero {
   padding: 2.65rem 0 1.65rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.saba-note-overview-page .admin-button-secondary,
+.saba-note-overview-page .admin-button-primary {
+  display: inline-flex;
+  min-height: 2.25rem;
+  justify-content: center;
+  align-items: center;
+  padding: 0.48rem 0.8rem;
+  font-size: 0.77rem;
+  font-weight: 680;
 }
 
 .saba-note-eyebrow {
@@ -2315,6 +2329,8 @@
 
   .saba-note-overview-hero {
     padding: 2rem 0.4rem 1.35rem;
+    flex-direction: column;
+    gap: 16px;
   }
 
   .saba-note-filter-bar {

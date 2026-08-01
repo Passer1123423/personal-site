@@ -114,10 +114,18 @@ export default function SabaNoteOverviewPage() {
     >
       <main className="saba-note-overview-page">
         <section className="saba-note-overview-hero">
-          <h1>随便写点啥</h1>
-          <p>
-            积累你的私人知识库，可供未来展望与炫耀。
-          </p>
+          <div>
+            <h1>随便写点啥</h1>
+            <p>
+              积累你的私人知识库，可供未来展望与炫耀。
+            </p>
+          </div>
+          <Link
+            to="/saba-note/manage"
+            className="admin-button-secondary"
+          >
+            管理
+          </Link>
         </section>
 
         <section className="saba-note-filter-bar" aria-label="知识内容筛选">

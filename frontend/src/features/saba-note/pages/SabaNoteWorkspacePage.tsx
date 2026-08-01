@@ -352,14 +352,10 @@ function WorkspaceEditor({
                   </button>
 
                   <Link
-                    to={
-                      source
-                        ? `/saba-note/derivation/${source.derivation.id}`
-                        : "/saba-note"
-                    }
+                    to={"/saba-note"}
                     className="saba-note-workspace-back"
                   >
-                    {source ? "返回阅读" : "返回内容流"}
+                    返回内容流
                   </Link>
                 </div>
               </div>
