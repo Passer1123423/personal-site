@@ -16,7 +16,10 @@ import useDerivationBacklinks from "../hooks/useDerivationBacklinks";
 import useDerivationDetail from "../hooks/useDerivationDetail";
 import useDerivationList from "../hooks/useDerivationList";
 import { getDerivationDisplayTitle } from "../utils/derivation";
-import { extractMarkdownHeadings } from "../utils/markdown";
+import {
+  extractDerivationReferences,
+  extractMarkdownHeadings,
+} from "../utils/markdown";
 
 export default function SabaNoteDerivationPage() {
   const navigate = useNavigate();
@@ -75,6 +78,16 @@ export default function SabaNoteDerivationPage() {
     )
     .slice(0, 2);
   const headings = extractMarkdownHeadings(derivation.contentMd);
+  const outgoingReferences = extractDerivationReferences(derivation.contentMd);
+  const derivationById = new Map(
+    allItems.map((candidate) => [candidate.derivation.id, candidate]),
+  );
+  const backlinkSourceIds = new Set(
+    backlinks.map((link) => link.sourceDerivationId),
+  );
+  const backlinkSources = allItems.filter((candidate) =>
+    backlinkSourceIds.has(candidate.derivation.id),
+  );
 
   async function handleDiscard() {
     try {
@@ -141,6 +154,7 @@ export default function SabaNoteDerivationPage() {
               <SabaMarkdownContent
                 readingStyle="novel"
                 className="novel-reader-markdown"
+                derivations={allItems}
               >
                 {derivation.contentMd}
               </SabaMarkdownContent>
@@ -189,6 +203,63 @@ export default function SabaNoteDerivationPage() {
           </div>
 
         </div>
+
+          <section className="saba-note-reader-links" aria-labelledby="saba-note-references-title">
+            <div className="saba-note-reader-link-group">
+              <div>
+                <p className="saba-note-eyebrow">References</p>
+                <h2 id="saba-note-references-title">引用</h2>
+              </div>
+              {outgoingReferences.length > 0 ? (
+                <ol>
+                  {outgoingReferences.map((reference) => {
+                    const target = derivationById.get(reference.id);
+                    return (
+                      <li key={reference.id}>
+                        <Link to={`/saba-note/derivation/${encodeURIComponent(reference.id)}`}>
+                          <strong>
+                            {target
+                              ? getDerivationDisplayTitle(target.derivation.title)
+                              : reference.label ?? `derivation:${reference.id}`}
+                          </strong>
+                          <span>{target?.node?.title ?? "目标信息暂不可用"}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <p className="saba-note-reader-links-empty">本文没有引用其他 Derivation。</p>
+              )}
+            </div>
+
+            <div className="saba-note-reader-link-group" aria-labelledby="saba-note-backlinks-title">
+              <div>
+                <p className="saba-note-eyebrow">Cited by</p>
+                <h2 id="saba-note-backlinks-title">被引用</h2>
+              </div>
+              {backlinksError ? (
+                <p className="saba-note-reader-links-empty">反向链接暂时无法读取。</p>
+              ) : backlinkSources.length > 0 ? (
+                <ul>
+                  {backlinkSources.map((sourceItem) => (
+                    <li key={sourceItem.derivation.id}>
+                      <Link to={`/saba-note/derivation/${encodeURIComponent(sourceItem.derivation.id)}`}>
+                        <strong>{getDerivationDisplayTitle(sourceItem.derivation.title)}</strong>
+                        <span>{sourceItem.node?.title ?? "未归档"}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="saba-note-reader-links-empty">
+                  {backlinks.length > 0
+                    ? `${backlinks.length} 条反向链接，来源信息当前不可用。`
+                    : "暂时没有其他 Derivation 引用本文。"}
+                </p>
+              )}
+            </div>
+          </section>
 
           <section className="saba-note-reader-related">
             <div className="saba-note-reader-related-heading">

@@ -35,7 +35,7 @@ const SAVE_STATUS_TEXT: Record<DraftSaveStatus, string> = {
 export default function SabaNoteWorkspacePage() {
   const [searchParams] = useSearchParams();
   const derivationId = searchParams.get("id");
-  const { derivation, lookups, loading, error } =
+  const { derivation, lookups, referenceCandidates, loading, error } =
     useWorkspaceData(derivationId);
 
   if (loading || error || (derivationId && !derivation)) {
@@ -62,6 +62,7 @@ export default function SabaNoteWorkspacePage() {
       key={derivation?.derivation.id ?? "new"}
       source={derivation}
       lookups={lookups}
+      derivationCandidates={referenceCandidates}
     />
   );
 }
@@ -69,9 +70,11 @@ export default function SabaNoteWorkspacePage() {
 function WorkspaceEditor({
   source,
   lookups,
+  derivationCandidates,
 }: {
   source: DerivationView | null;
   lookups: SabaNoteLookups;
+  derivationCandidates: DerivationView[];
 }) {
   const navigate = useNavigate();
   const [mobilePanel, setMobilePanel] =
@@ -178,6 +181,11 @@ function WorkspaceEditor({
         (category) => category.id === selectedNode.categoryId,
       ) ?? null
     : null;
+  const referenceCandidates = derivationCandidates.filter(
+    (item) =>
+      !item.derivation.isDiscarded &&
+      item.derivation.id !== source?.derivation.id,
+  );
 
   const informationPanel = (
     <aside className="saba-note-workspace-information">
@@ -370,6 +378,7 @@ function WorkspaceEditor({
               value={draft.contentMd}
               onChange={(value) => update("contentMd", value)}
               mobilePanel={mobilePanel}
+              referenceCandidates={referenceCandidates}
             />
           </div>
         </div>

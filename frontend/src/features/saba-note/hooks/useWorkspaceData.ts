@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { sabaNoteReadAdapter } from "../api";
+import { httpSabaNoteApi, sabaNoteReadAdapter } from "../api";
 import type {
   DerivationView,
   SabaNoteLookups,
 } from "../types";
+import { buildDerivationView } from "../utils/derivation";
 
 const EMPTY_LOOKUPS: SabaNoteLookups = {
   categories: [],
@@ -15,6 +16,9 @@ const EMPTY_LOOKUPS: SabaNoteLookups = {
 export default function useWorkspaceData(id: string | null) {
   const [derivation, setDerivation] = useState<DerivationView | null>(null);
   const [lookups, setLookups] = useState<SabaNoteLookups>(EMPTY_LOOKUPS);
+  const [referenceCandidates, setReferenceCandidates] = useState<
+    DerivationView[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,11 +28,22 @@ export default function useWorkspaceData(id: string | null) {
     void Promise.all([
       id ? sabaNoteReadAdapter.getDerivation(id) : Promise.resolve(null),
       sabaNoteReadAdapter.getLookups(),
+      httpSabaNoteApi.derivations.list(),
     ])
-      .then(([nextDerivation, nextLookups]) => {
+      .then(([nextDerivation, nextLookups, derivations]) => {
         if (!active) return;
         setDerivation(nextDerivation);
         setLookups(nextLookups);
+        setReferenceCandidates(
+          derivations.map((item) =>
+            buildDerivationView(
+              item,
+              nextLookups.nodes,
+              nextLookups.categories,
+              [],
+            ),
+          ),
+        );
       })
       .catch((reason: unknown) => {
         if (active) {
@@ -44,5 +59,5 @@ export default function useWorkspaceData(id: string | null) {
     };
   }, [id]);
 
-  return { derivation, lookups, loading, error };
+  return { derivation, lookups, referenceCandidates, loading, error };
 }

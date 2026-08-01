@@ -1755,6 +1755,74 @@
   text-underline-offset: 0.18em;
 }
 
+.saba-note-citation-wrap {
+  position: relative;
+  display: inline-block;
+  margin-inline: 0.12em;
+  vertical-align: 0.04em;
+}
+
+.saba-note-shell .saba-note-citation {
+  display: inline-flex;
+  max-width: 14rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 7%, white);
+  padding: 0.05em 0.48em;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.78em;
+  font-weight: 650;
+  line-height: 1.55;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: 150ms ease;
+}
+
+.saba-note-shell .saba-note-citation:hover,
+.saba-note-shell .saba-note-citation:focus-visible {
+  border-color: var(--color-accent-border-strong);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  outline: none;
+}
+
+.saba-note-citation-card {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  display: grid;
+  width: max-content;
+  max-width: min(19rem, 80vw);
+  transform: translate(-50%, 0.25rem);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-control);
+  background: var(--color-panel-bg);
+  box-shadow: var(--shadow-card);
+  padding: 0.7rem 0.8rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  opacity: 0;
+  pointer-events: none;
+  transition: 140ms ease;
+}
+
+.saba-note-citation-card strong {
+  color: var(--color-text-main);
+  font-size: 0.82rem;
+}
+
+.saba-note-citation-wrap:hover .saba-note-citation-card,
+.saba-note-citation-wrap:focus-within .saba-note-citation-card {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
 .saba-note-related-section {
   border-top: 1px solid var(--color-border-soft);
   padding: 2.5rem 0 5rem;
@@ -1771,6 +1839,102 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 1.25rem;
+}
+
+.saba-note-reader-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.saba-note-reader-link-group {
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-card);
+  background: var(--color-panel-bg);
+  padding: 1.3rem 1.4rem;
+}
+
+.saba-note-reader-link-group h2 {
+  margin-top: 0.2rem;
+  color: var(--color-text-strong);
+  font-size: 1.15rem;
+  font-weight: 760;
+}
+
+.saba-note-reader-link-group ol,
+.saba-note-reader-link-group ul {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1rem;
+  padding-left: 1.35rem;
+}
+
+.saba-note-reader-link-group ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.saba-note-reader-link-group li {
+  color: var(--color-text-soft);
+}
+
+.saba-note-reader-link-group a {
+  display: grid;
+  gap: 0.12rem;
+  border-radius: var(--radius-control-sm);
+  padding: 0.35rem 0.45rem;
+  transition: 150ms ease;
+}
+
+.saba-note-reader-link-group a:hover {
+  background: var(--color-panel-soft-bg);
+}
+
+.saba-note-reader-link-group strong {
+  color: var(--color-text-main);
+  font-size: 0.9rem;
+}
+
+.saba-note-reader-link-group a:hover strong {
+  color: var(--color-accent);
+}
+
+.saba-note-reader-link-group span,
+.saba-note-reader-links-empty {
+  color: var(--color-text-soft);
+  font-size: 0.76rem;
+}
+
+.saba-note-reader-links-empty {
+  margin-top: 1rem;
+  line-height: 1.7;
+}
+
+@media (max-width: 767px) {
+  .saba-note-reader-links {
+    grid-template-columns: 1fr;
+    padding-inline: 1rem;
+  }
+
+  .saba-note-reference-picker {
+    position: fixed;
+    top: 4.5rem;
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+    max-height: calc(100dvh - 6rem);
+  }
+
+  .saba-note-citation-card {
+    left: 0;
+    transform: translate(0, 0.25rem);
+  }
+
+  .saba-note-citation-wrap:hover .saba-note-citation-card,
+  .saba-note-citation-wrap:focus-within .saba-note-citation-card {
+    transform: translate(0, 0);
+  }
 }
 
 .saba-note-workspace-canvas {
@@ -2035,6 +2199,182 @@
   align-items: start;
   border-bottom: 1px solid var(--color-border-soft);
   padding-bottom: 0.8rem;
+}
+
+.saba-note-markdown-toolbar {
+  position: relative;
+}
+
+.saba-note-markdown-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.saba-note-reference-trigger {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-control-sm);
+  background: var(--color-panel-bg);
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  transition: 150ms ease;
+}
+
+.saba-note-reference-trigger:hover {
+  border-color: var(--color-accent-border-strong);
+  color: var(--color-accent);
+}
+
+.saba-note-reference-picker {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 0.4rem);
+  left: 0.75rem;
+  display: flex;
+  width: min(27rem, calc(100% - 1.5rem));
+  max-height: min(32rem, calc(100dvh - 10rem));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-card);
+  background: var(--color-panel-bg);
+  box-shadow: var(--shadow-card);
+}
+
+.saba-note-reference-picker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 0.8rem 0.9rem;
+}
+
+.saba-note-reference-picker-heading > div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.saba-note-reference-picker-heading strong {
+  color: var(--color-text-main);
+  font-size: 0.88rem;
+}
+
+.saba-note-reference-picker-heading span,
+.saba-note-reference-options time {
+  color: var(--color-text-soft);
+  font-size: 0.7rem;
+}
+
+.saba-note-reference-picker-heading button {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: var(--radius-control-sm);
+  color: var(--color-text-soft);
+}
+
+.saba-note-reference-picker-heading button:hover {
+  background: var(--color-panel-soft-bg);
+  color: var(--color-text-main);
+}
+
+.saba-note-reference-search {
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 0.7rem 0.9rem;
+}
+
+.saba-note-reference-search input {
+  width: 100%;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-control);
+  background: var(--color-panel-soft-bg);
+  padding: 0.55rem 0.7rem;
+  color: var(--color-text-main);
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.saba-note-reference-search input:focus {
+  border-color: var(--color-accent-border-strong);
+  background: var(--color-panel-bg);
+}
+
+.saba-note-reference-message {
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 0.45rem 0.9rem;
+  color: var(--color-accent);
+  font-size: 0.72rem;
+}
+
+.saba-note-reference-options {
+  min-height: 4rem;
+  overflow-y: auto;
+  padding: 0.4rem;
+}
+
+.saba-note-reference-options > p {
+  padding: 1.5rem 0.8rem;
+  color: var(--color-text-soft);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.saba-note-reference-options article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+  border-radius: var(--radius-control);
+  padding: 0.25rem;
+}
+
+.saba-note-reference-options article:hover {
+  background: var(--color-panel-soft-bg);
+}
+
+.saba-note-reference-insert {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+  padding: 0.45rem;
+  text-align: left;
+}
+
+.saba-note-reference-insert strong,
+.saba-note-reference-insert span,
+.saba-note-reference-insert time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saba-note-reference-insert strong {
+  color: var(--color-text-main);
+  font-size: 0.84rem;
+}
+
+.saba-note-reference-insert span {
+  color: var(--color-text-muted);
+  font-size: 0.73rem;
+}
+
+.saba-note-reference-copy {
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-control-sm);
+  padding: 0.35rem 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.saba-note-reference-copy:hover {
+  border-color: var(--color-accent-border-strong);
+  color: var(--color-accent);
 }
 
 .saba-note-pane-heading span:first-child {
