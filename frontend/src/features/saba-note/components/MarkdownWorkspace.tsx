@@ -111,7 +111,11 @@ export default function MarkdownWorkspace({
         </div>
 
         <div className="saba-note-preview-scroll">
-          <SabaMarkdownContent derivations={referenceCandidates}>
+          <SabaMarkdownContent
+            readingStyle="novel"
+            className="novel-reader-markdown"
+            derivations={referenceCandidates}
+          >
             {value}
           </SabaMarkdownContent>
         </div>

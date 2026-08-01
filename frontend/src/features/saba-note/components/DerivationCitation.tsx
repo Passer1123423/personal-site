@@ -7,11 +7,9 @@ import { getDerivationDisplayTitle } from "../utils/derivation";
 
 export default function DerivationCitation({
   derivationId,
-  label,
   target,
 }: {
   derivationId: string;
-  label: string;
   target?: DerivationView;
 }) {
   const tooltipId = useId();
@@ -26,7 +24,7 @@ export default function DerivationCitation({
         className="saba-note-citation"
         aria-describedby={tooltipId}
       >
-        [{label}]
+        [引用]
       </Link>
       <span
         id={tooltipId}

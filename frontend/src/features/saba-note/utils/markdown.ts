@@ -126,7 +126,14 @@ function transformInternalLinkText(parent: MarkdownAstNode) {
           : `/saba-note/manage?node=${encodeURIComponent(id)}`;
 
       if (index > cursor) {
-        nodes.push({ type: "text", value: child.value.slice(cursor, index) });
+        const before = child.value.slice(cursor, index);
+        nodes.push({
+          type: "text",
+          value:
+            type === "derivation"
+              ? before.replace(/[ \t]*\r?\n[ \t]*$/, "")
+              : before,
+        });
       }
 
       nodes.push({

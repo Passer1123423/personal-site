@@ -63,7 +63,6 @@ export default function SabaMarkdownContent({
               return (
                 <DerivationCitation
                   derivationId={derivationId}
-                  label={nodeText(linkChildren)}
                   target={derivationById.get(derivationId)}
                 />
               );
