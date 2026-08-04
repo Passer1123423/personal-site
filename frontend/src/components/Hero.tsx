@@ -25,7 +25,7 @@ function Hero() {
         </h1>
 
         <p className="mt-4 max-w-2xl mb-12 text-lg leading-7 text-slate-200">
-          “只干，别多想。”
+          “只干，别多想”
         </p>
 
         <div className="mt-6 flex flex-wrap gap-4">

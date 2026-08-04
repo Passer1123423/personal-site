@@ -19,7 +19,7 @@ function NavbarContent({ closeMenu }: { closeMenu: () => void }) {
         className="min-w-0 truncate text-xl font-bold link-accent"
         onClick={closeMenu}
       >
-        Passer1123423
+        Saba
       </NavLink>
 
       <div className="hidden justify-center gap-8 text-sm font-medium md:flex">
