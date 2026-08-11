@@ -69,7 +69,7 @@ function getCodeLanguage(node: HastNode | undefined) {
 
 export default function SabaMarkdownContent({
   children,
-  emptyText = "放心书写。您的思路值得被认真记录",
+  emptyText = "乱写一通！",
   className = "",
   readingStyle = "saba",
   derivations = [],

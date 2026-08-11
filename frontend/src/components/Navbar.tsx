@@ -64,7 +64,7 @@ function MobileNavbarContent({
         className="min-w-0 truncate text-xl font-bold link-accent"
         onClick={closeMenu}
       >
-        Passer1123423
+        Saba之站
       </NavLink>
 
       <div className="flex items-center justify-end gap-1.5">

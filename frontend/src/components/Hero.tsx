@@ -30,7 +30,7 @@ function Hero() {
 
         <div className="mt-6 flex flex-wrap gap-4">
           <a
-            href="https://ys.mihoyo.com"
+            href="https://github.com/Passer1123423/personal-site"
             target="_blank"
             rel="noreferrer"
             className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 hover:brightness-110 hover:underline hover:underline-offset-4"
@@ -39,7 +39,7 @@ function Hero() {
           </a>
 
           <a
-            href="https://space.bilibili.com/401742377?spm_id_from=333.337.0.0"
+            href="https://space.bilibili.com/396193490?spm_id_from=333.1007.0.0"
             target="_blank"
             rel="noreferrer"
             className="rounded-xl bg-white px-6 py-3 font-semibold text-main transition hover:bg-slate-100 hover:!text-[var(--color-accent)] hover:underline hover:underline-offset-4"

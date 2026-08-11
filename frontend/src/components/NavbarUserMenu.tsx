@@ -170,7 +170,7 @@ export default function NavbarUserMenu() {
         to="/admin/login"
         className="rounded-full border border-[var(--color-border-soft)] bg-white/90 px-4 py-2 text-sm font-semibold text-main shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--color-accent-border-strong)] hover:bg-white hover:text-[var(--color-accent)] hover:shadow-md"
       >
-        登录
+        管理登录
       </Link>
     );
   }

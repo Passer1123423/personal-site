@@ -33,7 +33,7 @@ function WorksPage() {
           <div className="relative z-10 flex h-full min-h-[300px] flex-col justify-between">
             <div>
               <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                SaBa 帮特别档案 01
+                SaBa 绝密档案 01
               </span>
 
               <h2 className="mt-5 text-2xl font-black text-main md:text-4xl">
@@ -41,7 +41,7 @@ function WorksPage() {
               </h2>
 
               <p className="mt-4 max-w-md text-sm leading-7 text-muted md:text-base md:leading-8">
-                只是记录小说和随笔。
+                记录小说和随笔。
               </p>
             </div>
 
@@ -57,7 +57,7 @@ function WorksPage() {
                 <span className="text-blue-600">随时上传</span>
               </div>
               <div className="min-h-[76px] rounded-2xl border border-blue-100 bg-white/80 p-3">
-                超多功能
+                摸鱼珍藏
                 <br />
                 <span className="text-blue-600">尽情探索</span>
               </div>
@@ -84,7 +84,7 @@ function WorksPage() {
           <div className="relative z-10 flex h-full min-h-[300px] max-w-md flex-col justify-between">
             <div>
               <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                SaBa 帮特别档案 02
+                SaBa 绝密档案 02
               </span>
 
               <h2 className="mt-5 text-2xl font-black text-main md:text-4xl">
@@ -104,7 +104,7 @@ function WorksPage() {
                   远方的来客
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  点击进入吧，为了SaBa帮的历史。
+                  点击进入吧，为了Saba帮的历史。
                 </p>
               </div>
             </div>

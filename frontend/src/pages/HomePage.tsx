@@ -34,7 +34,7 @@ function HomePage() {
           >
             <h2 className="text-xl font-bold text-main sm:text-2xl">笔记功能</h2>
             <p className="mt-4 leading-7 text-muted">
-              尝试一下Saba-note！随时记录您宝贵的思想，记录美好的今天。
+              尝试一下Saba-note！把它当作外存，随时记录一切。
             </p>
           </Link>
 
@@ -42,9 +42,9 @@ function HomePage() {
             to="/works"
             className="surface-card surface-card-link p-5 sm:p-8"
           >
-            <h2 className="text-xl font-bold text-main sm:text-2xl">漫画存档</h2>
+            <h2 className="text-xl font-bold text-main sm:text-2xl">摸鱼存档</h2>
             <p className="mt-4 leading-7 text-muted">
-              上传图片、分卷管理、预览阅读，并支持朋友协作更新。
+              上传图片、分卷管理、预览阅读。
             </p>
           </Link>
         </div>

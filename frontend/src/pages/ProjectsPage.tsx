@@ -11,7 +11,7 @@ function ProjectsPage() {
       />
 
       <p className="mb-8 max-w-3xl leading-7 text-muted">
-        GPT说这里用于整理我的物理计算、网站开发和课程项目。后续每个项目可以继续扩展为独立详情页。
+        GPT说这里用于整理我的物理计算、网站开发和课程项目。总感觉大学蹉跎了四年，但是细想来总归还是做过一点东西。至少应该记录下来，至少我曾经做过。
       </p>
 
       <div className="grid gap-6 md:grid-cols-3">
